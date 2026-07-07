@@ -1,9 +1,6 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,7 +17,8 @@ import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
 import { Location, TradeCategory, UrgencyType } from '../../src/types';
 
-const STEPS = ['Service', 'Details', 'Photos', 'Location', 'When', 'Review'];
+// Photo attachments are a planned future release (needs Firebase Storage).
+const STEPS = ['Service', 'Details', 'Location', 'When', 'Review'];
 
 export default function NewJob() {
   const router = useRouter();
@@ -31,7 +29,6 @@ export default function NewJob() {
   const [step, setStep] = useState(preTrade ? 1 : 0);
   const [trade, setTrade] = useState<TradeCategory | null>(preTrade);
   const [description, setDescription] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
@@ -45,27 +42,10 @@ export default function NewJob() {
         return !!trade;
       case 1:
         return description.trim().length >= 5;
-      case 3:
+      case 2:
         return address.trim().length > 0;
       default:
         return true;
-    }
-  };
-
-  const addPhoto = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      setError('Photo library permission was denied.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.6,
-      allowsMultipleSelection: true,
-      selectionLimit: 4,
-    });
-    if (!result.canceled) {
-      setPhotos((cur) => [...cur, ...result.assets.map((a) => a.uri)].slice(0, 4));
     }
   };
 
@@ -95,7 +75,7 @@ export default function NewJob() {
       const job = await backend.createJob(customer, {
         trade: trade!,
         description: description.trim(),
-        photos,
+        photos: [],
         location,
         urgency,
       });
@@ -164,32 +144,6 @@ export default function NewJob() {
           )}
 
           {step === 2 && (
-            <Step title="Add photos" subtitle="Optional — but they really help.">
-              <View style={styles.photoGrid}>
-                {photos.map((uri) => (
-                  <View key={uri} style={styles.photoWrap}>
-                    <Image source={{ uri }} style={styles.photo} />
-                    <Pressable
-                      style={styles.photoRemove}
-                      onPress={() => setPhotos((cur) => cur.filter((p) => p !== uri))}
-                    >
-                      <Txt style={{ color: colors.white, fontWeight: '700' }}>×</Txt>
-                    </Pressable>
-                  </View>
-                ))}
-                {photos.length < 4 && (
-                  <Pressable style={styles.photoAdd} onPress={addPhoto}>
-                    <Txt style={{ fontSize: 28 }}>＋</Txt>
-                    <Txt variant="caption" color={colors.textMuted}>
-                      Add
-                    </Txt>
-                  </Pressable>
-                )}
-              </View>
-            </Step>
-          )}
-
-          {step === 3 && (
             <Step title="Where's the job?">
               <Button
                 title={locating ? 'Locating…' : 'Use my current location'}
@@ -222,7 +176,7 @@ export default function NewJob() {
             </Step>
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <Step title="When do you need this done?">
               <Pressable
                 style={[styles.option, urgency === 'now' && styles.optionActive]}
@@ -251,11 +205,10 @@ export default function NewJob() {
             </Step>
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <Step title="Review your request">
               <ReviewRow label="Service" value={TRADES.find((t) => t.key === trade)?.label ?? '—'} />
               <ReviewRow label="Description" value={description} />
-              <ReviewRow label="Photos" value={photos.length ? `${photos.length} attached` : 'None'} />
               <ReviewRow label="Location" value={address || '—'} />
               <ReviewRow label="When" value={urgency === 'now' ? 'Help now' : 'Scheduled'} />
             </Step>
@@ -265,9 +218,6 @@ export default function NewJob() {
         </ScrollView>
 
         <View style={styles.footer}>
-          {step === 2 && photos.length === 0 && (
-            <Button title="Skip" kind="ghost" onPress={next} />
-          )}
           <Button
             title={step === STEPS.length - 1 ? 'Submit request' : 'Continue'}
             icon={step === STEPS.length - 1 ? '🚀' : undefined}
@@ -331,30 +281,6 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, borderRadius: 3, backgroundColor: colors.amber },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  photoWrap: { width: 96, height: 96 },
-  photo: { width: 96, height: 96, borderRadius: radius.md },
-  photoRemove: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  photoAdd: {
-    width: 96,
-    height: 96,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   orLine: { flex: 1, height: 1, backgroundColor: colors.line },
   option: {
