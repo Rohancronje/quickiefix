@@ -94,12 +94,55 @@ function buildTradieDoc(uid, t) {
   };
 }
 
+const CUSTOMER = {
+  email: 'customer@quickiefix.app',
+  firstName: 'Sam',
+  lastName: 'Taylor',
+  homeAddress: {
+    address: '12 Queen Street, Auckland CBD',
+    latitude: -36.8485,
+    longitude: 174.7633,
+  },
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 let created = 0;
 let updated = 0;
+
+// --- Demo customer ---
+{
+  let uid;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, CUSTOMER.email, PASSWORD);
+    uid = cred.user.uid;
+    created++;
+    console.log(`✓ created  ${CUSTOMER.email} (customer)`);
+  } catch (e) {
+    if (e.code === 'auth/email-already-in-use') {
+      const cred = await signInWithEmailAndPassword(auth, CUSTOMER.email, PASSWORD);
+      uid = cred.user.uid;
+      updated++;
+      console.log(`↻ updating ${CUSTOMER.email} (customer)`);
+    } else {
+      console.error(`✗ ${CUSTOMER.email}: ${e.code || e.message}`);
+    }
+  }
+  if (uid) {
+    await setDoc(doc(db, 'users', uid), {
+      id: uid,
+      role: 'customer',
+      email: CUSTOMER.email,
+      firstName: CUSTOMER.firstName,
+      lastName: CUSTOMER.lastName,
+      createdAt: Date.now(),
+      homeAddress: CUSTOMER.homeAddress,
+    });
+    await signOut(auth);
+  }
+}
 
 for (const t of TRADIES) {
   let uid;

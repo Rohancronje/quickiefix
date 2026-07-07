@@ -61,6 +61,7 @@ export default function Welcome() {
           title="I'm a tradie"
           kind="ghost"
           icon="🧰"
+          textColor={colors.onNavy}
           style={styles.ghostOnDark}
           onPress={() => router.push('/(auth)/register-tradie')}
         />

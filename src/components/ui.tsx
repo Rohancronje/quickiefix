@@ -51,6 +51,8 @@ interface ButtonProps extends PressableProps {
   fullWidth?: boolean;
   icon?: string;
   small?: boolean;
+  /** Override the button's text/spinner colour (e.g. ghost buttons on dark). */
+  textColor?: string;
 }
 
 export function Button({
@@ -60,6 +62,7 @@ export function Button({
   fullWidth = true,
   icon,
   small,
+  textColor,
   disabled,
   style,
   ...rest
@@ -72,6 +75,7 @@ export function Button({
     ghost: { bg: 'transparent', fg: colors.text, border: colors.line },
   };
   const p = palette[kind];
+  const fg = textColor ?? p.fg;
   const isDisabled = disabled || loading;
 
   return (
@@ -90,9 +94,9 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={p.fg} />
+        <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[styles.btnText, small && { fontSize: font.size.sm }, { color: p.fg }]}>
+        <Text style={[styles.btnText, small && { fontSize: font.size.sm }, { color: fg }]}>
           {icon ? `${icon}  ` : ''}
           {title}
         </Text>
