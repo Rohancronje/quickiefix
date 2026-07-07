@@ -105,29 +105,56 @@ src/
   services/
     backend.ts               # the Backend interface — the ONLY contract screens depend on
     mockBackend.ts           # local + AsyncStorage implementation w/ dispatch engine
+    mockBackend.ts           # local + AsyncStorage implementation w/ dispatch engine
+    firestoreBackend.ts      # real Firebase implementation (Auth/Firestore/Storage)
+    firebase.ts              # Firebase init (auth persistence, firestore, storage)
+    firebaseConfig.ts        # paste your project config here to go live
     seed.ts                  # demo customers + tradies (Auckland)
-    firebase.ts              # go-live placeholder + checklist
-    index.ts                 # selects the active backend
+    index.ts                 # auto-selects Firebase if configured, else mock
+firestore.rules             # Firestore security rules
+storage.rules               # Storage security rules
 ```
 
 ---
 
-## Wiring up Firebase (when you're ready)
+## Going live on Firebase
 
-Everything already talks to the `Backend` interface, so going live is a
-contained job:
+**The Firebase backend is already fully implemented** (`src/services/firestoreBackend.ts`)
+— Auth, Firestore real-time listeners, Storage photo uploads, transactional
+job acceptance, and rating aggregation. The app **auto-switches** to it the
+moment a real config is present; until then it runs on the mock. No code
+changes required.
 
-1. Create a Firebase project; enable **Auth (Email/Password)**, **Firestore**,
-   **Storage**, and **Cloud Messaging**.
-2. `npx expo install firebase` and paste your config into `src/services/firebase.ts`.
-3. Write a `FirestoreBackend implements Backend` — the `subscribe*` methods map
-   directly onto Firestore `onSnapshot` listeners.
-4. Swap one line in `src/services/index.ts`:
-   `export const backend = new FirestoreBackend()`.
+To turn it on:
 
-No screen or hook changes required. See `src/services/firebase.ts` for the full
-checklist and a suggested collection layout (including geohash-based dispatch
-for scale).
+1. **Create a Firebase project** at <https://console.firebase.google.com>.
+2. **Enable** Authentication → *Email/Password*, **Firestore Database**, and
+   **Storage**. (Cloud Messaging later, for push.)
+3. **Add a Web app** in Project settings, copy the config object, and paste the
+   values into `src/services/firebaseConfig.ts` (replacing the `TODO`s).
+4. **Deploy the security rules** (from the Firebase CLI, `npm i -g firebase-tools`):
+   ```bash
+   firebase deploy --only firestore:rules,storage
+   ```
+   The rules live in `firestore.rules` and `storage.rules` at the repo root.
+5. Restart the app — `isFirebaseConfigured` flips to `true` and every screen is
+   now backed by live Firebase. 🎉
+
+**Firestore layout** (created automatically as you use the app):
+
+```
+users/{uid}   → Customer | Tradie   (auth uid == doc id)
+jobs/{jobId}  → Job                 (queried by status/customerId/tradieId)
+```
+
+**Notes**
+- The `firebaseConfig.ts` web keys are **not secrets** (security is enforced by
+  the rules), so committing them is safe. Prefer to keep them out of git? Add
+  `src/services/firebaseConfig.ts` to `.gitignore`.
+- The seeded demo accounts are **mock-only**. On Firebase, register fresh
+  accounts (or ask me to add an Admin-SDK seed script).
+- For dispatch at scale, add a geohash to each job and use `geofire-common`
+  instead of scanning `searching` jobs client-side.
 
 ---
 

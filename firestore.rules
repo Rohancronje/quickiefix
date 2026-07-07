@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// QuickieFix Firestore security rules.
+//
+// MVP posture: authentication is required for everything, with ownership checks
+// on the sensitive writes. A couple of cross-user writes the client performs
+// (a customer rating a tradie) are allowed narrowly. For production you would
+// move privileged transitions (accept/complete/rating aggregation) into Cloud
+// Functions and tighten `jobs` updates to the assigned parties only.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      // You may only create your own user document (during registration).
+      allow create: if signedIn() && request.auth.uid == userId;
+      // Owner may update their own profile. Any signed-in user may update ONLY
+      // a tradie's rating aggregate (needed when a customer rates a tradie).
+      allow update: if signedIn() && (
+        request.auth.uid == userId ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['ratingAvg', 'ratingCount'])
+      );
+      allow delete: if false;
+    }
+
+    match /jobs/{jobId} {
+      allow read: if signedIn();
+      // A customer can only create a job under their own id.
+      allow create: if signedIn() && request.auth.uid == request.resource.data.customerId;
+      // MVP: any signed-in user can advance a job (accept/decline/transition).
+      // Tighten to the customer or assigned tradie for production.
+      allow update: if signedIn();
+      allow delete: if false;
+    }
+  }
+}

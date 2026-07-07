@@ -71,6 +71,8 @@ export interface Backend {
   getUser(id: string): Promise<AppUser | null>;
   /** Live subscription to a single user doc (status, reputation, etc.). */
   subscribeUser(id: string, cb: (user: AppUser | null) => void): Unsubscribe;
+  /** Restore the currently signed-in user (persisted session), or null. */
+  getSessionUser(): Promise<AppUser | null>;
   logout(): Promise<void>;
 
   // ---- Tradie profile / availability ----

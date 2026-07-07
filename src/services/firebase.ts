@@ -1,41 +1,61 @@
 /**
- * Firebase wiring — placeholder for when you go live.
+ * Firebase initialisation.
  *
- * ---------------------------------------------------------------------------
- * GOING LIVE CHECKLIST
- * ---------------------------------------------------------------------------
- * 1. Create a Firebase project at https://console.firebase.google.com
- * 2. Enable: Authentication (Email/Password), Firestore, Storage, and
- *    Cloud Messaging (FCM) for push.
- * 3. Add a Web app, copy the config, and paste it into `firebaseConfig` below
- *    (or better: load from environment / app config `extra`).
- * 4. Install the SDK:   npx expo install firebase
- * 5. Implement a `FirestoreBackend implements Backend` class that maps each
- *    method to Firestore/Storage/Auth calls. The real-time `subscribe*`
- *    methods map directly onto Firestore `onSnapshot` listeners — the mock was
- *    designed to mirror that shape exactly.
- * 6. In `src/services/index.ts`, swap:  export const backend = new FirestoreBackend()
+ * Auth, Firestore and Storage are only initialised when a real config is
+ * present (`isFirebaseConfigured`). Otherwise these stay null and the app runs
+ * on the mock backend — so an unconfigured checkout still works with zero setup.
  *
- * SUGGESTED FIRESTORE COLLECTIONS
- *   users/{uid}          -> Customer | Tradie (role discriminator)
- *   jobs/{jobId}         -> Job  (query by status/trade/geohash for dispatch)
- *   jobs/{jobId}/events  -> status-transition audit trail
- *
- * For location-radius dispatch at scale, store a geohash on each job and use a
- * geo-query library (e.g. geofire-common) instead of scanning all jobs.
- * ---------------------------------------------------------------------------
+ * See `firestore.rules` for the security model and `README.md` /
+ * `src/services/firebaseConfig.ts` for the go-live steps.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
+import { Auth, getAuth, initializeAuth, Persistence } from 'firebase/auth';
+// getReactNativePersistence keeps the signed-in session across restarts. It
+// only exists in Firebase's React Native build (absent from the web type defs),
+// so we access it dynamically and fall back to web defaults if it's missing.
+import * as firebaseAuth from 'firebase/auth';
+const getReactNativePersistence = (
+  firebaseAuth as unknown as {
+    getReactNativePersistence?: (storage: unknown) => Persistence;
+  }
+).getReactNativePersistence;
+import { Firestore, getFirestore, initializeFirestore } from 'firebase/firestore';
+import { FirebaseStorage, getStorage } from 'firebase/storage';
+import { firebaseConfig } from './firebaseConfig';
 
-export const firebaseConfig = {
-  apiKey: 'TODO',
-  authDomain: 'TODO',
-  projectId: 'TODO',
-  storageBucket: 'TODO',
-  messagingSenderId: 'TODO',
-  appId: 'TODO',
-};
+export const isFirebaseConfigured =
+  !!firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('TODO');
 
-// export const app = initializeApp(firebaseConfig);
-// export const auth = getAuth(app);
-// export const db = getFirestore(app);
-// export const storage = getStorage(app);
+let app: FirebaseApp | null = null;
+let authInstance: Auth | null = null;
+let dbInstance: Firestore | null = null;
+let storageInstance: FirebaseStorage | null = null;
+
+if (isFirebaseConfigured) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  try {
+    authInstance =
+      typeof getReactNativePersistence === 'function'
+        ? initializeAuth(app, {
+            persistence: getReactNativePersistence(AsyncStorage),
+          })
+        : getAuth(app); // web / fallback
+  } catch {
+    // initializeAuth throws if called twice (e.g. Fast Refresh) — reuse it.
+    authInstance = getAuth(app);
+  }
+  try {
+    // ignoreUndefinedProperties lets us write domain objects that contain
+    // optional (undefined) fields without stripping them first.
+    dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true });
+  } catch {
+    dbInstance = getFirestore(app);
+  }
+  storageInstance = getStorage(app);
+}
+
+/** These are non-null whenever `isFirebaseConfigured` is true. */
+export const auth = authInstance;
+export const db = dbInstance;
+export const storage = storageInstance;
