@@ -28,6 +28,14 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Public landing-page waitlist: anyone may add their email, nobody can read
+    // the list back (only you, via the console/Admin SDK).
+    match /waitlist/{id} {
+      allow create: if request.resource.data.email is string
+                    && request.resource.data.email.size() < 320;
+      allow read, update, delete: if false;
+    }
+
     match /jobs/{jobId} {
       allow read: if signedIn();
       // A customer can only create a job under their own id.

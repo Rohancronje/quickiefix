@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickieFix — Get trusted help fast</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FFB020'/%3E%3Ctext y='72' x='50' font-size='60' text-anchor='middle'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
+  <meta name="description" content="QuickieFix is an on-demand marketplace that dispatches verified, available tradies to your door in real time. Launching soon in New Zealand & Australia." />
+
+  <!-- Open Graph / social -->
+  <meta property="og:title" content="QuickieFix — Get trusted help fast" />
+  <meta property="og:description" content="On-demand, verified tradies dispatched to your door. No quotes, no waiting, no phone tag. Launching soon." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://quickiefix.store" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --navy: #0B1220;
+      --navy-soft: #131C2E;
+      --navy-card: #1B2740;
+      --navy-line: #2A3654;
+      --amber: #FFB020;
+      --amber-dark: #E8990B;
+      --blue: #3D7BFF;
+      --on-navy: #F4F6FB;
+      --on-navy-muted: #9AA5BD;
+      --success: #1FB471;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--navy);
+      color: var(--on-navy);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(600px circle at 15% 10%, rgba(255,176,32,0.14), transparent 45%),
+        radial-gradient(700px circle at 85% 90%, rgba(61,123,255,0.12), transparent 45%);
+    }
+    .wrap { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    /* Nav */
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 28px 0; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .bolt {
+      width: 42px; height: 42px; border-radius: 12px; background: var(--amber);
+      display: grid; place-items: center; font-size: 22px;
+      box-shadow: 0 8px 24px rgba(255,176,32,0.35);
+    }
+    .wordmark { font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+    .wordmark span { color: var(--amber); }
+    .nav-tag {
+      font-size: 13px; font-weight: 600; color: var(--on-navy-muted);
+      border: 1px solid var(--navy-line); border-radius: 999px; padding: 8px 14px;
+    }
+
+    /* Hero */
+    .hero { padding: 60px 0 40px; text-align: center; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--navy-card); border: 1px solid var(--navy-line);
+      border-radius: 999px; padding: 8px 16px; font-size: 13px; font-weight: 600;
+      color: var(--amber); margin-bottom: 28px;
+    }
+    .badge .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(1.4); } }
+    h1 {
+      font-size: clamp(42px, 8vw, 76px); font-weight: 900; line-height: 1.02;
+      letter-spacing: -2px; margin-bottom: 22px;
+    }
+    h1 .accent { color: var(--amber); }
+    .sub {
+      font-size: clamp(17px, 2.4vw, 21px); color: var(--on-navy-muted);
+      max-width: 620px; margin: 0 auto 40px; line-height: 1.55;
+    }
+    .pills { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-bottom: 8px; }
+    .pill {
+      background: var(--navy-soft); border: 1px solid var(--navy-line);
+      border-radius: 999px; padding: 10px 18px; font-size: 14px; font-weight: 600;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* Waitlist */
+    .waitlist {
+      max-width: 560px; margin: 56px auto 0;
+      background: linear-gradient(180deg, var(--navy-soft), var(--navy-card));
+      border: 1px solid var(--navy-line); border-radius: 24px; padding: 36px 32px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.4);
+    }
+    .waitlist h2 { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+    .waitlist p.lead { color: var(--on-navy-muted); font-size: 15px; margin-bottom: 24px; }
+    .role-toggle { display: flex; gap: 10px; margin-bottom: 16px; }
+    .role-btn {
+      flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid var(--navy-line);
+      background: transparent; color: var(--on-navy-muted); font-family: inherit;
+      font-size: 15px; font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .role-btn.active { background: var(--amber); border-color: var(--amber-dark); color: var(--navy); }
+    .field-row { display: flex; gap: 10px; }
+    input[type="email"] {
+      flex: 1; padding: 16px; border-radius: 12px; border: 1.5px solid var(--navy-line);
+      background: var(--navy); color: var(--on-navy); font-family: inherit; font-size: 15px;
+      outline: none; transition: border-color .15s;
+    }
+    input[type="email"]::placeholder { color: #6B7690; }
+    input[type="email"]:focus { border-color: var(--amber); }
+    .submit {
+      padding: 16px 24px; border: none; border-radius: 12px; background: var(--amber);
+      color: var(--navy); font-family: inherit; font-size: 15px; font-weight: 800;
+      cursor: pointer; transition: transform .1s, opacity .15s; white-space: nowrap;
+    }
+    .submit:hover { opacity: .92; }
+    .submit:active { transform: scale(.97); }
+    .submit:disabled { opacity: .5; cursor: default; }
+    .form-msg { margin-top: 14px; font-size: 14px; font-weight: 600; min-height: 20px; }
+    .form-msg.ok { color: var(--success); }
+    .form-msg.err { color: #EF4B5C; }
+    .success-state { text-align: center; padding: 12px 0; }
+    .success-state .check {
+      width: 56px; height: 56px; border-radius: 50%; background: rgba(31,180,113,0.15);
+      display: grid; place-items: center; font-size: 28px; margin: 0 auto 16px;
+    }
+
+    /* How it works */
+    .how { padding: 90px 0 40px; }
+    .how h2 { text-align: center; font-size: clamp(28px, 5vw, 38px); font-weight: 900; letter-spacing: -1px; margin-bottom: 12px; }
+    .how .sub2 { text-align: center; color: var(--on-navy-muted); margin-bottom: 48px; font-size: 17px; }
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .step {
+      background: var(--navy-soft); border: 1px solid var(--navy-line); border-radius: 18px; padding: 28px;
+    }
+    .step .num {
+      width: 38px; height: 38px; border-radius: 10px; background: var(--navy-card);
+      display: grid; place-items: center; font-weight: 800; color: var(--amber); margin-bottom: 16px; font-size: 17px;
+    }
+    .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .step p { color: var(--on-navy-muted); font-size: 15px; line-height: 1.5; }
+
+    /* Audience */
+    .audience { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px 0 80px; }
+    .aud-card {
+      border-radius: 20px; padding: 32px; border: 1px solid var(--navy-line);
+    }
+    .aud-card.customer { background: linear-gradient(160deg, var(--navy-card), var(--navy-soft)); }
+    .aud-card.tradie { background: linear-gradient(160deg, #17233d, var(--navy-soft)); }
+    .aud-card .icon { font-size: 32px; margin-bottom: 14px; }
+    .aud-card h3 { font-size: 21px; font-weight: 800; margin-bottom: 10px; }
+    .aud-card ul { list-style: none; }
+    .aud-card li { color: var(--on-navy-muted); font-size: 15px; padding: 7px 0 7px 26px; position: relative; }
+    .aud-card li::before { content: '✓'; position: absolute; left: 0; color: var(--amber); font-weight: 800; }
+
+    footer { border-top: 1px solid var(--navy-line); padding: 36px 0; text-align: center; }
+    footer .fbrand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    footer p { color: #6B7690; font-size: 14px; line-height: 1.7; }
+    footer a { color: var(--amber); text-decoration: none; }
+
+    @media (max-width: 720px) {
+      .steps { grid-template-columns: 1fr; }
+      .audience { grid-template-columns: 1fr; }
+      .field-row { flex-direction: column; }
+      .nav-tag { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="wrap">
+    <nav>
+      <div class="brand">
+        <div class="bolt">⚡</div>
+        <div class="wordmark">Quickie<span>Fix</span></div>
+      </div>
+      <div class="nav-tag">Launching soon · NZ &amp; AU</div>
+    </nav>
+
+    <header class="hero">
+      <div class="badge"><span class="dot"></span> Now onboarding early tradies &amp; customers</div>
+      <h1>Get trusted help<br /><span class="accent">fast.</span></h1>
+      <p class="sub">
+        QuickieFix dispatches verified, available tradies to your door in real time —
+        like calling a ride, not searching a directory. No quotes, no waiting, no phone tag.
+      </p>
+      <div class="pills">
+        <div class="pill">✅ Verified pros</div>
+        <div class="pill">⚡ Live dispatch</div>
+        <div class="pill">⭐ Rated &amp; trusted</div>
+      </div>
+
+      <!-- Waitlist -->
+      <div class="waitlist" id="waitlist">
+        <div id="formView">
+          <h2>Be first in line</h2>
+          <p class="lead">Join the waitlist and we'll let you know the moment we launch in your area.</p>
+          <div class="role-toggle">
+            <button class="role-btn active" data-role="customer" type="button">I need a tradie</button>
+            <button class="role-btn" data-role="tradie" type="button">I'm a tradie</button>
+          </div>
+          <form id="waitlistForm">
+            <div class="field-row">
+              <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+              <button class="submit" id="submitBtn" type="submit">Join waitlist</button>
+            </div>
+            <div class="form-msg" id="formMsg"></div>
+          </form>
+        </div>
+        <div class="success-state" id="successView" style="display:none;">
+          <div class="check">🎉</div>
+          <h2>You're on the list!</h2>
+          <p class="lead" style="margin-top:8px;">We'll be in touch as soon as QuickieFix goes live near you.</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="how">
+      <h2>How it works</h2>
+      <p class="sub2">From problem to sorted, in four taps.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="num">1</div>
+          <h3>Describe the job</h3>
+          <p>Pick a trade, tell us what's wrong, and share your location. Takes under a minute.</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h3>We dispatch instantly</h3>
+          <p>Nearby verified tradies get your request in real time. First to accept is yours.</p>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h3>Track &amp; done</h3>
+          <p>Watch them arrive, get the job completed, then rate the work. Everything logged.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="audience">
+      <div class="aud-card customer">
+        <div class="icon">🏠</div>
+        <h3>For customers</h3>
+        <ul>
+          <li>Trusted, licence-verified tradespeople</li>
+          <li>Real-time arrival tracking</li>
+          <li>Transparent ratings &amp; reviews</li>
+          <li>No bidding wars, no waiting hours</li>
+        </ul>
+      </div>
+      <div class="aud-card tradie">
+        <div class="icon">🧰</div>
+        <h3>For tradies</h3>
+        <ul>
+          <li>Jobs come to you — no lead fees</li>
+          <li>Go online, get dispatched nearby work</li>
+          <li>Build a public reputation that pays off</li>
+          <li>Automatic timesheets &amp; job history</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <div class="fbrand">
+        <div class="bolt" style="width:32px;height:32px;font-size:16px;border-radius:9px;">⚡</div>
+        <div class="wordmark" style="font-size:18px;">Quickie<span>Fix</span></div>
+      </div>
+      <p>
+        The fastest, most trusted way to get property problems solved.<br />
+        Launching across New Zealand &amp; Australia · <a href="mailto:hello@quickiefix.store">hello@quickiefix.store</a>
+      </p>
+    </div>
+  </footer>
+
+  <!-- Waitlist wiring: saves signups to the same Firebase project (Firestore) -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
+    import { getFirestore, collection, addDoc, serverTimestamp }
+      from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyCSpZ-nKTCTpbg95qi6Ko11Zx0iQfHQu3k',
+      authDomain: 'quickiefix-2ea2a.firebaseapp.com',
+      projectId: 'quickiefix-2ea2a',
+      storageBucket: 'quickiefix-2ea2a.firebasestorage.app',
+      messagingSenderId: '468151741418',
+      appId: '1:468151741418:web:137fcd2946fc680e5f2093',
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let role = 'customer';
+    document.querySelectorAll('.role-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.role-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        role = btn.dataset.role;
+      });
+    });
+
+    const form = document.getElementById('waitlistForm');
+    const emailInput = document.getElementById('email');
+    const submitBtn = document.getElementById('submitBtn');
+    const msg = document.getElementById('formMsg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = emailInput.value.trim().toLowerCase();
+      if (!email) return;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Joining…';
+      msg.textContent = '';
+      msg.className = 'form-msg';
+      try {
+        await addDoc(collection(db, 'waitlist'), {
+          email,
+          role,
+          createdAt: serverTimestamp(),
+          source: 'landing',
+        });
+        document.getElementById('formView').style.display = 'none';
+        document.getElementById('successView').style.display = 'block';
+      } catch (err) {
+        msg.textContent = 'Something went wrong — please try again.';
+        msg.className = 'form-msg err';
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Join waitlist';
+      }
+    });
+  </script>
+</body>
+</html>
