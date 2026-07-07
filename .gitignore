@@ -21,6 +21,11 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# QuickieFix local artifacts
+dist-check/
+expo-web.log
+.playwright-mcp/
+
 # debug
 npm-debug.*
 yarn-debug.*

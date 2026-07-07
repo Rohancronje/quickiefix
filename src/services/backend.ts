@@ -1,0 +1,107 @@
+/**
+ * Backend contract.
+ *
+ * The whole app talks to this interface — never to Firebase or the mock store
+ * directly. That means swapping the mock for real Firebase later is a single
+ * file change (`src/services/index.ts`) with zero screen changes.
+ *
+ * Subscription methods return an `unsubscribe` function and mimic Firestore's
+ * real-time listeners, so the dispatch flow already behaves like production.
+ */
+import {
+  AppUser,
+  Customer,
+  GeoPoint,
+  Job,
+  Location,
+  Qualification,
+  Rating,
+  Tradie,
+  TradeCategory,
+  TradieStatus,
+  UrgencyType,
+} from '../types';
+
+export type Unsubscribe = () => void;
+
+export interface CustomerRegistration {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
+export interface TradieRegistration {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  businessName: string;
+  tradingName?: string;
+  yearsExperience: number;
+  businessType?: string;
+  nzbn?: string;
+  primaryTrade: TradeCategory;
+  secondaryTrades: TradeCategory[];
+  qualifications: Qualification[];
+  serviceRadiusKm: number;
+}
+
+export interface NewJobInput {
+  trade: TradeCategory;
+  description: string;
+  photos: string[];
+  location: Location;
+  urgency: UrgencyType;
+  scheduledFor?: number;
+}
+
+/** A job offer surfaced to a tradie, annotated with distance/eta. */
+export interface JobOffer {
+  job: Job;
+  distanceKm: number;
+  etaMinutes: number;
+}
+
+export interface Backend {
+  // ---- Auth ----
+  login(email: string, password: string): Promise<AppUser>;
+  registerCustomer(input: CustomerRegistration): Promise<Customer>;
+  registerTradie(input: TradieRegistration): Promise<Tradie>;
+  getUser(id: string): Promise<AppUser | null>;
+  /** Live subscription to a single user doc (status, reputation, etc.). */
+  subscribeUser(id: string, cb: (user: AppUser | null) => void): Unsubscribe;
+  logout(): Promise<void>;
+
+  // ---- Tradie profile / availability ----
+  getTradie(id: string): Promise<Tradie | null>;
+  setTradieStatus(id: string, status: TradieStatus): Promise<void>;
+  setTradieLocation(id: string, point: GeoPoint): Promise<void>;
+  setServiceRadius(id: string, km: number): Promise<void>;
+
+  // ---- Jobs (customer) ----
+  createJob(customer: Customer, input: NewJobInput): Promise<Job>;
+  cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void>;
+  rateAsCustomer(jobId: string, rating: Rating): Promise<void>;
+
+  // ---- Jobs (tradie) ----
+  acceptJob(jobId: string, tradieId: string): Promise<Job>;
+  declineJob(jobId: string, tradieId: string): Promise<void>;
+  startTravelling(jobId: string): Promise<void>;
+  arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
+  completeJob(jobId: string): Promise<void>;
+  rateAsTradie(jobId: string, rating: Rating): Promise<void>;
+
+  // ---- Real-time subscriptions ----
+  subscribeJob(jobId: string, cb: (job: Job | null) => void): Unsubscribe;
+  subscribeCustomerJobs(customerId: string, cb: (jobs: Job[]) => void): Unsubscribe;
+  /** The tradie's currently active (accepted/travelling/on-site) job, if any. */
+  subscribeTradieActiveJob(tradieId: string, cb: (job: Job | null) => void): Unsubscribe;
+  /** Live feed of matching, still-searching job offers for a tradie. */
+  subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe;
+  subscribeTradieHistory(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
+
+  // ---- Admin ----
+  listTradies(): Promise<Tradie[]>;
+  setApproval(tradieId: string, approval: Tradie['approval']): Promise<void>;
+}
