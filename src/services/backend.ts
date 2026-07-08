@@ -96,7 +96,8 @@ export interface Backend {
   /** Available, approved tradies matching a trade, nearest first, for the
    *  customer to choose from. */
   getAvailableTradies(trade: TradeCategory, location: Location): Promise<TradieCandidate[]>;
-  createJob(customer: Customer, input: NewJobInput): Promise<Job>;
+  /** Create a job. The requester can be a customer OR a tradie booking help. */
+  createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;
   /** Raise a complaint about a completed/active job (customer side). */
   fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
   /** Redirect a still-searching job to a different tradie (after a decline). */

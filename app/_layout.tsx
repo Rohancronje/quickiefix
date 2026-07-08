@@ -16,10 +16,11 @@ function useAuthRouting() {
     if (loading) return;
     const group = segments[0];
     const inAuth = group === '(auth)';
+    const inShared = group === '(shared)'; // job request/track — either role
 
     if (!user && !inAuth) {
       router.replace('/welcome');
-    } else if (user) {
+    } else if (user && !inShared) {
       const target = user.role === 'tradie' ? '(tradie)' : '(customer)';
       if (group !== target) {
         router.replace(user.role === 'tradie' ? '/dashboard' : '/home');
@@ -46,6 +47,7 @@ function RootNavigator() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(tradie)" />
+      <Stack.Screen name="(shared)" />
     </Stack>
   );
 }

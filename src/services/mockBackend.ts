@@ -250,13 +250,13 @@ class MockBackend implements Backend {
 
   /* --------------------------------------------------------------- jobs -- */
 
-  async createJob(customer: Customer, input: NewJobInput): Promise<Job> {
+  async createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job> {
     await this.ensureLoaded();
     const now = Date.now();
     const job: Job = {
       id: uid('job_'),
-      customerId: customer.id,
-      customerName: `${customer.firstName} ${customer.lastName}`,
+      customerId: requester.id,
+      customerName: requester.name,
       trade: input.trade,
       description: input.description,
       photos: input.photos,

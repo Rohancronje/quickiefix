@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { TradieSelectList } from '../../src/components/TradieSelectList';
 import { TRADES } from '../../src/constants';
-import { useCustomer } from '../../src/context/AuthContext';
+import { useAuth } from '../../src/context/AuthContext';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -23,7 +23,7 @@ const STEPS = ['Service', 'Details', 'Location', 'When', 'Choose tradie'];
 
 export default function NewJob() {
   const router = useRouter();
-  const customer = useCustomer();
+  const { user } = useAuth();
   const params = useLocalSearchParams<{ trade?: string }>();
 
   const preTrade = TRADES.find((t) => t.key === params.trade)?.key ?? null;
@@ -75,10 +75,12 @@ export default function NewJob() {
 
   const submit = async () => {
     setError(null);
-    if (!selectedTradieId) return;
+    if (!selectedTradieId || !user) return;
     try {
       setSubmitting(true);
-      const job = await backend.createJob(customer, {
+      const job = await backend.createJob(
+        { id: user.id, name: `${user.firstName} ${user.lastName}` },
+        {
         trade: trade!,
         description: description.trim(),
         photos: [],

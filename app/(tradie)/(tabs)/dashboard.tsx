@@ -2,10 +2,17 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
+import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
 import { tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
-import { useJobOffers, useTradieActiveJob, useTradieHistory } from '../../../src/hooks/useData';
+import {
+  useCustomerJobs,
+  useJobOffers,
+  useTradieActiveJob,
+  useTradieHistory,
+} from '../../../src/hooks/useData';
+import { useNow } from '../../../src/hooks/useNow';
 import { formatDistance } from '../../../src/lib/geo';
 import { getCurrentLocation } from '../../../src/lib/location';
 import { backend, JobOffer } from '../../../src/services';
@@ -16,6 +23,11 @@ export default function TradieDashboard() {
   const router = useRouter();
   const offers = useJobOffers(tradie.id);
   const activeJob = useTradieActiveJob(tradie.id);
+  const myRequests = useCustomerJobs(tradie.id); // jobs this tradie booked as a customer
+  const now = useNow();
+  const activeRequests = myRequests.filter((j) =>
+    ['searching', 'accepted', 'travelling', 'on_site'].includes(j.status),
+  );
   const history = useTradieHistory(tradie.id);
 
   const [locating, setLocating] = useState(false);
@@ -173,6 +185,38 @@ export default function TradieDashboard() {
         </View>
       )}
 
+      {/* Need help yourself — a tradie can also request a service */}
+      <Card style={styles.needHelp}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt variant="label" color={colors.white}>
+            Need a hand yourself?
+          </Txt>
+          <Txt variant="caption" color={colors.onNavyMuted}>
+            Book another trade — you're the customer this time.
+          </Txt>
+        </View>
+        <Button
+          title="Request"
+          small
+          fullWidth={false}
+          onPress={() => router.push('/new-job')}
+        />
+      </Card>
+
+      {activeRequests.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="label">Your requests</Txt>
+          {activeRequests.map((job) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              now={now}
+              onPress={() => router.push({ pathname: '/track/[id]', params: { id: job.id } })}
+            />
+          ))}
+        </View>
+      )}
+
       {/* Today */}
       <Card>
         <Txt variant="label" style={{ marginBottom: spacing.md }}>
@@ -295,4 +339,10 @@ const styles = StyleSheet.create({
   offerActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
   statsRow: { flexDirection: 'row', alignItems: 'center' },
   statDivider: { width: 1, height: 28, backgroundColor: colors.line },
+  needHelp: {
+    backgroundColor: colors.navy,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
 });

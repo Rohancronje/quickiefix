@@ -187,14 +187,14 @@ export class FirestoreBackend implements Backend {
 
   /* --------------------------------------------------------------- jobs -- */
 
-  async createJob(customer: Customer, input: NewJobInput): Promise<Job> {
+  async createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job> {
     const jobRef = doc(collection(this.db, 'jobs'));
     const photos = await this.uploadPhotos(jobRef.id, input.photos);
     const now = Date.now();
     const job: Job = {
       id: jobRef.id,
-      customerId: customer.id,
-      customerName: `${customer.firstName} ${customer.lastName}`,
+      customerId: requester.id,
+      customerName: requester.name,
       trade: input.trade,
       description: input.description,
       photos,
