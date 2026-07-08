@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  createInvite,
-  listCompanyTradies,
-  listInvites,
-  removeTradie,
-  revokeInvite,
-} from '../api';
+import { issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
 import { useAuth } from '../auth';
 import {
   downloadTemplate,
@@ -17,16 +11,27 @@ import {
   VALID_TRADES,
 } from '../importApi';
 import { initials } from '../lib';
-import { Company, CompanyInvite, Tradie, tradeLabel } from '../types';
+import { Company, CompanyTag, CompanyTagStatus, Tradie, tradeLabel } from '../types';
+
+const TAG_BADGE: Record<CompanyTagStatus, string> = {
+  issued: 'badge-amber',
+  claimed: 'badge-blue',
+  validated: 'badge-green',
+  removed: 'badge-gray',
+};
 
 export function Team() {
   const { company } = useAuth();
   const nav = useNavigate();
   const [tradies, setTradies] = useState<Tradie[]>([]);
-  const [invites, setInvites] = useState<CompanyInvite[]>([]);
-  const [bulk, setBulk] = useState('');
+  const [tags, setTags] = useState<CompanyTag[]>([]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // Add-seat form
+  const [seatName, setSeatName] = useState('');
+  const [seatEmail, setSeatEmail] = useState('');
+  const [seatPhone, setSeatPhone] = useState('');
+  const [lastTag, setLastTag] = useState<CompanyTag | null>(null);
   // Spreadsheet import
   const [rows, setRows] = useState<ImportRow[] | null>(null);
   const [importing, setImporting] = useState(false);
@@ -55,9 +60,9 @@ export function Team() {
   };
 
   const refresh = async (c: Company) => {
-    const [t, i] = await Promise.all([listCompanyTradies(c.id), listInvites(c.id)]);
+    const [t, tg] = await Promise.all([listCompanyTradies(c.id), listCompanyTags(c.id)]);
     setTradies(t);
-    setInvites(i.filter((x) => !x.redeemedBy));
+    setTags(tg);
   };
 
   useEffect(() => {
@@ -69,66 +74,57 @@ export function Team() {
     setTimeout(() => setToast(null), 2200);
   };
 
-  const inviteMessage = (inv: CompanyInvite) =>
-    `You've been invited to join ${inv.companyName} on QuickieFix.\n` +
-    `In the app: Profile → Company → Join a company → enter code:\n${inv.token}`;
-
-  const copyInvite = (inv: CompanyInvite) => {
-    void navigator.clipboard.writeText(inviteMessage(inv));
-    flash('Invite copied to clipboard');
-  };
-
-  const generateOne = async () => {
-    if (!company) return;
+  const addSeat = async () => {
+    if (!company || !seatName.trim() || !seatEmail.trim()) return;
     setBusy(true);
-    await createInvite(company);
+    const tag = await issueTag(company, {
+      name: seatName,
+      email: seatEmail,
+      phone: seatPhone || undefined,
+    });
+    setLastTag(tag);
+    setSeatName('');
+    setSeatEmail('');
+    setSeatPhone('');
     await refresh(company);
     setBusy(false);
-    flash('Invite created');
+    flash('Seat added — share the code');
   };
 
-  const generateBulk = async () => {
-    if (!company) return;
-    const emails = bulk
-      .split(/[\n,;]+/)
-      .map((e) => e.trim())
-      .filter(Boolean);
-    if (emails.length === 0) return;
-    setBusy(true);
-    for (const email of emails) await createInvite(company, email);
-    setBulk('');
-    await refresh(company);
-    setBusy(false);
-    flash(`${emails.length} invite${emails.length > 1 ? 's' : ''} created`);
+  const copyCode = (code: string) => {
+    void navigator.clipboard.writeText(code);
+    flash('Code copied to clipboard');
   };
 
-  const remove = async (t: Tradie) => {
+  const remove = async (tag: CompanyTag) => {
     if (!company) return;
-    if (!confirm(`Remove ${t.firstName} ${t.lastName} from ${company.name}?`)) return;
-    await removeTradie(t.id);
+    if (!confirm(`Remove the seat for ${tag.issuedToName}?`)) return;
+    await removeTag(tag.id);
     await refresh(company);
-    flash('Tradie removed');
+    flash('Seat removed');
   };
 
-  const revoke = async (inv: CompanyInvite) => {
-    if (!company) return;
-    await revokeInvite(inv.token);
-    await refresh(company);
-    flash('Invite revoked');
-  };
+  // Roster = validated members. Union users bound to the company with validated
+  // tags (deduped by the claiming user id / email).
+  const validatedTags = tags.filter((t) => t.status === 'validated');
+  const rosterIds = new Set(tradies.map((t) => t.id));
+  const extraValidated = validatedTags.filter(
+    (t) => !t.claimedByUserId || !rosterIds.has(t.claimedByUserId),
+  );
+  const rosterCount = tradies.length + extraValidated.length;
 
   return (
     <div className="grid" style={{ gap: 24 }}>
-      {/* Current tradies */}
+      {/* Roster (validated members) */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div className="section-title" style={{ padding: '18px 22px', margin: 0 }}>
-          Tradies in {company?.name} ({tradies.length})
+          Tradies in {company?.name} ({rosterCount})
         </div>
-        {tradies.length === 0 ? (
+        {rosterCount === 0 ? (
           <div className="empty">
             <div className="e-ico">🧰</div>
-            <p style={{ fontWeight: 700, color: 'var(--text)' }}>No tradies linked yet</p>
-            <p>Create an invite below and send the code to your tradies.</p>
+            <p style={{ fontWeight: 700, color: 'var(--text)' }}>No validated tradies yet</p>
+            <p>Add a seat below and send the code to your tradie.</p>
           </div>
         ) : (
           <table>
@@ -153,11 +149,20 @@ export function Team() {
                   </td>
                   <td>{tradeLabel(t.primaryTrade)}</td>
                   <td className="faint">{t.email}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-danger btn-sm" onClick={() => remove(t)}>
-                      Remove
-                    </button>
+                  <td style={{ textAlign: 'right' }} />
+                </tr>
+              ))}
+              {extraValidated.map((tag) => (
+                <tr key={tag.id}>
+                  <td>
+                    <div className="flex">
+                      <div className="avatar">{initials(tag.issuedToName, '')}</div>
+                      <div style={{ fontWeight: 700 }}>{tag.issuedToName}</div>
+                    </div>
                   </td>
+                  <td className="faint">—</td>
+                  <td className="faint">{tag.issuedToEmail}</td>
+                  <td style={{ textAlign: 'right' }} />
                 </tr>
               ))}
             </tbody>
@@ -165,35 +170,56 @@ export function Team() {
         )}
       </div>
 
-      {/* Invite */}
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        <div className="card">
-          <div className="section-title">Invite a tradie</div>
-          <p className="muted" style={{ fontSize: 14, marginBottom: 16 }}>
-            Generate a one-time code. Your tradie enters it in the app to link to your company.
-          </p>
-          <button className="btn btn-primary btn-block" disabled={busy} onClick={generateOne}>
-            + Generate invite code
-          </button>
-        </div>
-
-        <div className="card">
-          <div className="section-title">Bulk invite</div>
-          <p className="muted" style={{ fontSize: 14, marginBottom: 12 }}>
-            Paste emails (one per line) to generate an invite for each.
-          </p>
+      {/* Add seat */}
+      <div className="card">
+        <div className="section-title">Add a seat</div>
+        <p className="muted" style={{ fontSize: 14, marginBottom: 16 }}>
+          Issue a tag for a tradie. They enter the code in the app to claim their seat; a platform
+          admin then validates it.
+        </p>
+        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div className="field">
-            <textarea
-              rows={4}
-              placeholder={'mike@lazer.co.nz\nsara@lazer.co.nz'}
-              value={bulk}
-              onChange={(e) => setBulk(e.target.value)}
-            />
+            <label>Name</label>
+            <input value={seatName} onChange={(e) => setSeatName(e.target.value)} placeholder="Mike Jones" />
           </div>
-          <button className="btn btn-secondary btn-block" disabled={busy || !bulk.trim()} onClick={generateBulk}>
-            Generate invites
-          </button>
+          <div className="field">
+            <label>Email</label>
+            <input value={seatEmail} onChange={(e) => setSeatEmail(e.target.value)} placeholder="mike@lazer.co.nz" />
+          </div>
+          <div className="field">
+            <label>Phone (optional)</label>
+            <input value={seatPhone} onChange={(e) => setSeatPhone(e.target.value)} placeholder="021 234 5678" />
+          </div>
         </div>
+        <button
+          className="btn btn-primary"
+          disabled={busy || !seatName.trim() || !seatEmail.trim()}
+          onClick={addSeat}
+        >
+          + Add seat
+        </button>
+
+        {lastTag && (
+          <div
+            className="card"
+            style={{ marginTop: 16, background: 'var(--amber-soft, #FFF7E6)', padding: 16 }}
+          >
+            <p style={{ fontWeight: 700, marginBottom: 8 }}>
+              Tag issued for {lastTag.issuedToName}
+            </p>
+            <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+              <span className="pill-code" style={{ fontSize: 20, letterSpacing: 1 }}>
+                {lastTag.code}
+              </span>
+              <button className="btn btn-secondary btn-sm" onClick={() => copyCode(lastTag.code)}>
+                Copy code
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+              Send this code to the tradie. It expires in 14 days.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Spreadsheet import */}
@@ -208,8 +234,8 @@ export function Team() {
         </div>
         <p className="muted" style={{ fontSize: 14, marginBottom: 14 }}>
           Download the template, fill in your tradies, then upload it. Each tradie gets an account
-          linked to {company?.name} and an email to set their password. Valid trades:{' '}
-          <span className="faint">{VALID_TRADES.join(', ')}</span>.
+          linked to {company?.name} (with a pre-validated tag) and an email to set their password.
+          Valid trades: <span className="faint">{VALID_TRADES.join(', ')}</span>.
         </p>
 
         {!importing && !results && (
@@ -295,41 +321,66 @@ export function Team() {
         )}
       </div>
 
-      {/* Pending invites */}
-      {invites.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div className="section-title" style={{ padding: '18px 22px', margin: 0 }}>
-            Pending invites ({invites.length})
+      {/* Tag roster */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="section-title" style={{ padding: '18px 22px', margin: 0 }}>
+          Tags ({tags.length})
+        </div>
+        {tags.length === 0 ? (
+          <div className="empty">
+            <div className="e-ico">🏷️</div>
+            <p>No tags issued yet.</p>
           </div>
+        ) : (
           <table>
             <thead>
               <tr>
                 <th>Code</th>
-                <th>For</th>
+                <th>Issued to</th>
+                <th>Status</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {invites.map((inv) => (
-                <tr key={inv.token}>
+              {tags.map((tag) => (
+                <tr key={tag.id}>
                   <td>
-                    <span className="pill-code">{inv.token}</span>
+                    <span className="pill-code">{tag.code}</span>
                   </td>
-                  <td className="faint">{inv.email ?? 'Anyone with the code'}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{tag.issuedToName}</div>
+                    <div className="faint" style={{ fontSize: 12 }}>
+                      {tag.issuedToEmail}
+                      {tag.issuedToPhone ? ` · ${tag.issuedToPhone}` : ''}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={`badge ${TAG_BADGE[tag.status]}`}>{tag.status}</span>
+                  </td>
                   <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => copyInvite(inv)}>
-                      Copy invite
-                    </button>{' '}
-                    <button className="btn btn-danger btn-sm" onClick={() => revoke(inv)}>
-                      Revoke
-                    </button>
+                    {tag.status !== 'removed' ? (
+                      <>
+                        {tag.status === 'issued' && (
+                          <button className="btn btn-ghost btn-sm" onClick={() => copyCode(tag.code)}>
+                            Copy code
+                          </button>
+                        )}{' '}
+                        <button className="btn btn-danger btn-sm" onClick={() => remove(tag)}>
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <span className="faint" style={{ fontSize: 12 }}>
+                        {tag.removalReason ?? '—'}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
       {toast && <div className="toast">{toast}</div>}
     </div>

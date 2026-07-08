@@ -135,5 +135,6 @@ function mkTradie(a: MkArgs): Tradie {
     jobsAccepted: a.completedJobs,
     freeJobCredits: 0, // established demo tradies have used their free credits
     paymentHold: false,
+    rateCard: { hourlyRateCents: 9500, calloutFeeCents: 8000, afterHoursCalloutFeeCents: 14000 },
   };
 }

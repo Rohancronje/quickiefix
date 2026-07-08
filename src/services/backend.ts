@@ -11,13 +11,14 @@
 import {
   AppUser,
   Company,
-  CompanyInvite,
+  CompanyTag,
   Customer,
   FeeLineItem,
   GeoPoint,
   Job,
   Location,
   Qualification,
+  RateCard,
   Rating,
   Tradie,
   TradeCategory,
@@ -128,13 +129,37 @@ export interface Backend {
   /** Live platform-fee ledger for a tradie (drives the in-app money tally). */
   subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe;
 
-  // ---- Company invites (tradie side) ----
-  /** Preview an invite (to show the company name before joining). */
-  getInvite(token: string): Promise<CompanyInvite | null>;
-  /** Bind a tradie to the invite's company. */
-  redeemInvite(token: string, tradieId: string): Promise<Company>;
-  /** Leave the current company (become a sole trader again). */
+  // ---- Company tags (§6) ----
+  /** Company/platform issues a seat; returns the created tag (with its code). */
+  issueTag(
+    companyId: string,
+    seat: { name: string; email: string; phone?: string },
+  ): Promise<CompanyTag>;
+  /** Preview a tag by its code (to show the company before claiming). */
+  getTagByCode(code: string): Promise<CompanyTag | null>;
+  /** Tradie claims a code — binds the tag (status → claimed), not yet validated. */
+  claimTag(code: string, tradieId: string): Promise<Company>;
+  /** Platform admin confirms the seat details match → validated (green, locked). */
+  validateTag(tagId: string): Promise<void>;
+  /** Remove a tag (company admin or platform override); tradie reverts to personal. */
+  removeTag(tagId: string, by: 'company' | 'platform_admin', reason?: string): Promise<void>;
+  /** Tradie leaves an UNVALIDATED claim themselves (validated tags need the company). */
   leaveCompany(tradieId: string): Promise<void>;
+  /** A company's tags (roster + pending) for the portal. */
+  listCompanyTags(companyId: string): Promise<CompanyTag[]>;
+  /** Tradie sets their personal rate card. */
+  setTradieRateCard(tradieId: string, rateCard: RateCard): Promise<void>;
+  /** Create a company (used by the portal / tests). */
+  createCompany(input: {
+    name: string;
+    adminUserId: string;
+    adminEmail: string;
+    rateCard?: RateCard;
+  }): Promise<Company>;
+  /** Set a company's rate card (company admin). */
+  setCompanyRateCard(companyId: string, rateCard: RateCard): Promise<void>;
+  /** Set a company's shared free-job credit pool (platform admin, §6.5). */
+  setSharedCredits(companyId: string, credits: number): Promise<void>;
 
   // ---- Admin ----
   listTradies(): Promise<Tradie[]>;

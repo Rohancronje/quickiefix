@@ -20,3 +20,14 @@ export function stars(n: number): string {
   const full = Math.round(n);
   return '★★★★★☆☆☆☆☆'.slice(5 - full, 10 - full);
 }
+
+/** Parse a dollar string into integer cents (e.g. "85.50" -> 8550). */
+export function dollarsToCents(str: string): number {
+  const n = parseFloat(str);
+  return Number.isFinite(n) ? Math.round(n * 100) : 0;
+}
+
+/** Format integer cents as a dollar string (e.g. 8550 -> "$85.50"). */
+export function centsToDollars(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}

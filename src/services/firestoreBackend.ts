@@ -36,13 +36,14 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   AppUser,
   Company,
-  CompanyInvite,
+  CompanyTag,
   Customer,
   FeeLineItem,
   GeoPoint,
   Job,
   JobStatus,
   Location,
+  RateCard,
   Rating,
   Tradie,
   TradeCategory,
@@ -51,6 +52,7 @@ import {
 import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import {
   Backend,
   CustomerRegistration,
@@ -352,18 +354,40 @@ export class FirestoreBackend implements Backend {
       if (!tradieSnap.exists()) throw new Error('Tradie not found.');
       const tradie = tradieSnap.data() as Tradie;
 
+      // Read the company (if any) before any writes, to stamp + snapshot rates.
+      const company =
+        tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
+      const rateCard = (company as Company | undefined)?.rateCard ?? tradie.rateCard;
+      const now = Date.now();
+
+      const stamp: Partial<Job> = {};
+      if (company) {
+        stamp.companyId = tradie.companyId;
+        stamp.companyName = (company as Company).name;
+      }
+      if (rateCard) {
+        stamp.rateSnapshot = {
+          rateCard,
+          source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
+          ...(company ? { companyName: (company as Company).name } : {}),
+          capturedAt: now,
+        };
+      }
+
       const updated: Job = {
         ...job,
         status: 'accepted',
         tradieId: tradie.id,
         tradieName: tradie.businessName,
-        timestamps: { ...job.timestamps, acceptedAt: Date.now() },
+        timestamps: { ...job.timestamps, acceptedAt: now },
+        ...stamp,
       };
       tx.update(this.jobRef(jobId), {
         status: 'accepted',
         tradieId: tradie.id,
         tradieName: tradie.businessName,
-        'timestamps.acceptedAt': updated.timestamps.acceptedAt,
+        'timestamps.acceptedAt': now,
+        ...stamp,
       });
       tx.update(this.userRef(tradieId), {
         status: 'job_accepted',
@@ -559,35 +583,170 @@ export class FirestoreBackend implements Backend {
 
   /* ---------------------------------------------------- company invites -- */
 
-  async getInvite(token: string): Promise<CompanyInvite | null> {
-    const snap = await getDoc(doc(this.db, 'invites', token));
-    return snap.exists() ? (snap.data() as CompanyInvite) : null;
+  private tagRef(id: string) {
+    return doc(this.db, 'companyTags', id);
+  }
+  private companyRef(id: string) {
+    return doc(this.db, 'companies', id);
   }
 
-  async redeemInvite(token: string, tradieId: string): Promise<Company> {
-    const inviteRef = doc(this.db, 'invites', token);
-    return runTransaction(this.db, async (tx) => {
-      const inviteSnap = await tx.get(inviteRef);
-      if (!inviteSnap.exists()) throw new Error('This invite is not valid.');
-      const invite = inviteSnap.data() as CompanyInvite;
-      const companySnap = await tx.get(doc(this.db, 'companies', invite.companyId));
-      if (!companySnap.exists()) throw new Error('That company no longer exists.');
-      const company = companySnap.data() as Company;
+  async createCompany(input: {
+    name: string;
+    adminUserId: string;
+    adminEmail: string;
+    rateCard?: RateCard;
+  }): Promise<Company> {
+    const ref = doc(collection(this.db, 'companies'));
+    const company: Company = {
+      id: ref.id,
+      name: input.name.trim(),
+      adminUserId: input.adminUserId,
+      adminEmail: input.adminEmail,
+      createdAt: Date.now(),
+      sharedCredits: 0,
+      status: input.rateCard ? 'active' : 'setup',
+      ...(input.rateCard ? { rateCard: input.rateCard } : {}),
+    };
+    await setDoc(ref, company);
+    return company;
+  }
 
-      tx.update(this.userRef(tradieId), {
-        companyId: company.id,
-        companyName: company.name,
+  async setCompanyRateCard(companyId: string, rateCard: RateCard): Promise<void> {
+    await updateDoc(this.companyRef(companyId), { rateCard, status: 'active' });
+  }
+
+  async setSharedCredits(companyId: string, credits: number): Promise<void> {
+    await updateDoc(this.companyRef(companyId), { sharedCredits: Math.max(0, Math.floor(credits)) });
+  }
+
+  async listCompanyTags(companyId: string): Promise<CompanyTag[]> {
+    const snap = await getDocs(
+      query(collection(this.db, 'companyTags'), where('companyId', '==', companyId)),
+    );
+    return snap.docs.map((d) => d.data() as CompanyTag).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async issueTag(
+    companyId: string,
+    seat: { name: string; email: string; phone?: string },
+  ): Promise<CompanyTag> {
+    const companySnap = await getDoc(this.companyRef(companyId));
+    if (!companySnap.exists()) throw new Error('Company not found.');
+    const company = companySnap.data() as Company;
+    const ref = doc(collection(this.db, 'companyTags'));
+    const now = Date.now();
+    const tag: CompanyTag = {
+      id: ref.id,
+      companyId,
+      companyName: company.name,
+      code: genTagCode(),
+      issuedToName: seat.name.trim(),
+      issuedToEmail: seat.email.trim().toLowerCase(),
+      status: 'issued',
+      createdAt: now,
+      expiresAt: now + TAG_TTL_MS,
+      ...(seat.phone?.trim() ? { issuedToPhone: seat.phone.trim() } : {}),
+    };
+    await setDoc(ref, tag);
+    return tag;
+  }
+
+  async getTagByCode(code: string): Promise<CompanyTag | null> {
+    const snap = await getDocs(
+      query(collection(this.db, 'companyTags'), where('code', '==', code.trim().toUpperCase())),
+    );
+    return snap.empty ? null : (snap.docs[0].data() as CompanyTag);
+  }
+
+  async claimTag(code: string, tradieId: string): Promise<Company> {
+    const snap = await getDocs(
+      query(collection(this.db, 'companyTags'), where('code', '==', code.trim().toUpperCase())),
+    );
+    if (snap.empty) throw new Error('That code is not valid.');
+    const tRef = snap.docs[0].ref;
+    return runTransaction(this.db, async (tx) => {
+      const tagSnap = await tx.get(tRef);
+      const tag = tagSnap.data() as CompanyTag;
+      if (tag.status !== 'issued') throw new Error('That code has already been used.');
+      if (Date.now() > tag.expiresAt) throw new Error('That code has expired.');
+      const userSnap = await tx.get(this.userRef(tradieId));
+      if (!userSnap.exists()) throw new Error('Tradie not found.');
+      if ((userSnap.data() as Tradie).activeTagId) {
+        throw new Error('You already belong to a company.');
+      }
+      const companySnap = await tx.get(this.companyRef(tag.companyId));
+      if (!companySnap.exists()) throw new Error('That company no longer exists.');
+      tx.update(tRef, { status: 'claimed', claimedByUserId: tradieId, claimedAt: Date.now() });
+      tx.update(this.userRef(tradieId), { activeTagId: tag.id });
+      return companySnap.data() as Company;
+    });
+  }
+
+  async validateTag(tagId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const tagSnap = await tx.get(this.tagRef(tagId));
+      if (!tagSnap.exists()) return;
+      const tag = tagSnap.data() as CompanyTag;
+      if (tag.status !== 'claimed' || !tag.claimedByUserId) return;
+      tx.update(this.tagRef(tagId), { status: 'validated', validatedAt: Date.now() });
+      tx.update(this.userRef(tag.claimedByUserId), {
+        companyId: tag.companyId,
+        companyName: tag.companyName,
       });
-      tx.update(inviteRef, { redeemedBy: tradieId, redeemedAt: Date.now() });
-      return company;
+    });
+  }
+
+  async removeTag(
+    tagId: string,
+    by: 'company' | 'platform_admin',
+    reason?: string,
+  ): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const tagSnap = await tx.get(this.tagRef(tagId));
+      if (!tagSnap.exists()) return;
+      const tag = tagSnap.data() as CompanyTag;
+      if (tag.status === 'removed') return;
+      tx.update(this.tagRef(tagId), {
+        status: 'removed',
+        removedAt: Date.now(),
+        removedBy: by,
+        removalReason: reason ?? null,
+      });
+      if (tag.claimedByUserId) {
+        tx.update(this.userRef(tag.claimedByUserId), {
+          activeTagId: deleteField(),
+          companyId: deleteField(),
+          companyName: deleteField(),
+        });
+      }
     });
   }
 
   async leaveCompany(tradieId: string): Promise<void> {
+    const userSnap = await getDoc(this.userRef(tradieId));
+    if (!userSnap.exists()) return;
+    const t = userSnap.data() as Tradie;
+    if (!t.activeTagId) return;
+    const tagSnap = await getDoc(this.tagRef(t.activeTagId));
+    if (tagSnap.exists() && (tagSnap.data() as CompanyTag).status === 'validated') {
+      throw new Error('Only your company can remove you. Ask your company admin.');
+    }
+    if (tagSnap.exists()) {
+      await updateDoc(this.tagRef(t.activeTagId), {
+        status: 'removed',
+        removedAt: Date.now(),
+        removedBy: 'self',
+      });
+    }
     await updateDoc(this.userRef(tradieId), {
+      activeTagId: deleteField(),
       companyId: deleteField(),
       companyName: deleteField(),
     });
+  }
+
+  async setTradieRateCard(tradieId: string, rateCard: RateCard): Promise<void> {
+    await updateDoc(this.userRef(tradieId), { rateCard });
   }
 
   /* -------------------------------------------------------------- admin -- */

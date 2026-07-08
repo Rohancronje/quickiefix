@@ -186,6 +186,9 @@ exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
   const jobId = event.params.jobId;
   const feeRef = db.collection('feeLineItems').doc(jobId);
   const tradieRef = db.collection('users').doc(tradieId);
+  // Company is stamped on the job at acceptance (immutable).
+  const companyId = after.companyId || null;
+  const companyRef = companyId ? db.collection('companies').doc(companyId) : null;
 
   await db.runTransaction(async (tx) => {
     const feeSnap = await tx.get(feeRef);
@@ -193,22 +196,35 @@ exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
     const tradieSnap = await tx.get(tradieRef);
     if (!tradieSnap.exists) return;
     const tradie = tradieSnap.data();
+    const companySnap = companyRef ? await tx.get(companyRef) : null;
 
-    const credits = tradie.freeJobCredits || 0;
-    const useCredit = credits > 0;
+    // Company shared credits are consumed before the tradie's own (§6.5).
+    const sharedCredits = companySnap && companySnap.exists ? companySnap.data().sharedCredits || 0 : 0;
+    const personalCredits = tradie.freeJobCredits || 0;
+    let useCredit = false;
+    let useShared = false;
+    if (sharedCredits > 0) {
+      useShared = true;
+      useCredit = true;
+    } else if (personalCredits > 0) {
+      useCredit = true;
+    }
     const completedAt = after.timestamps?.completedAt || Date.now();
 
     tx.update(tradieRef, {
       completedJobs: admin.firestore.FieldValue.increment(1),
-      ...(useCredit ? { freeJobCredits: admin.firestore.FieldValue.increment(-1) } : {}),
+      ...(useCredit && !useShared ? { freeJobCredits: admin.firestore.FieldValue.increment(-1) } : {}),
     });
+    if (useShared && companyRef) {
+      tx.update(companyRef, { sharedCredits: admin.firestore.FieldValue.increment(-1) });
+    }
     tx.set(feeRef, {
       id: jobId,
       tradieId,
       tradieName: tradie.businessName || '',
       jobId,
       trade: after.trade,
-      ...(tradie.companyId ? { companyId: tradie.companyId } : {}),
+      ...(companyId ? { companyId } : {}),
       amountCents: FEE_CENTS,
       gstCents: Math.round(FEE_CENTS * GST_RATE),
       status: useCredit ? 'waived_credit' : 'pending',

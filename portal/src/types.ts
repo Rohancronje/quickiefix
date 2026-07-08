@@ -2,6 +2,12 @@
 
 export type TradeCategory = string;
 
+export interface RateCard {
+  hourlyRateCents: number;
+  calloutFeeCents?: number;
+  afterHoursCalloutFeeCents?: number;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -9,6 +15,12 @@ export interface Company {
   adminUserId: string;
   adminEmail: string;
   createdAt: number;
+  nzbn?: string;
+  logoUrl?: string;
+  billingEmail?: string;
+  rateCard?: RateCard;
+  sharedCredits?: number; // default 0
+  status?: 'setup' | 'active'; // 'setup' until a rateCard is set
 }
 
 export interface CompanyAdmin {
@@ -18,14 +30,25 @@ export interface CompanyAdmin {
   createdAt: number;
 }
 
-export interface CompanyInvite {
-  token: string;
+export type CompanyTagStatus = 'issued' | 'claimed' | 'validated' | 'removed';
+
+export interface CompanyTag {
+  id: string;
   companyId: string;
   companyName: string;
-  email?: string;
+  code: string; // e.g. "QF-7K2P9M"
+  issuedToName: string;
+  issuedToEmail: string;
+  issuedToPhone?: string;
+  status: CompanyTagStatus;
   createdAt: number;
-  redeemedBy?: string;
-  redeemedAt?: number;
+  expiresAt: number; // createdAt + 14 days in ms
+  claimedByUserId?: string;
+  claimedAt?: number;
+  validatedAt?: number;
+  removedAt?: number;
+  removedBy?: 'company' | 'platform_admin' | 'self';
+  removalReason?: string;
 }
 
 export interface Tradie {
@@ -47,6 +70,8 @@ export interface Tradie {
   completedJobs: number;
   freeJobCredits?: number;
   paymentHold?: boolean;
+  rateCard?: RateCard;
+  activeTagId?: string;
 }
 
 export type FeeStatus = 'waived_credit' | 'pending' | 'invoiced' | 'paid';

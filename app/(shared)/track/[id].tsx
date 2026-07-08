@@ -8,7 +8,7 @@ import { RatingForm } from '../../../src/components/RatingForm';
 import { Screen } from '../../../src/components/Screen';
 import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
-import { tradeMeta } from '../../../src/constants';
+import { formatMoney, tradeMeta } from '../../../src/constants';
 import { useJob, useUser } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
 import { isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
@@ -137,6 +137,7 @@ export default function TrackJob() {
                 Confirm to lock them in and let them head your way.
                 {job.isEmergency ? ' As an emergency, this confirms automatically in a few minutes.' : ''}
               </Txt>
+              {job.rateSnapshot && <RateSnapshotView job={job} />}
               <Button title="Confirm this tradie" icon="👍" onPress={confirm} />
             </Card>
             <TradieProfileCard tradie={tradie} />
@@ -351,6 +352,29 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** The rate card in force at acceptance — the customer's price expectation. */
+function RateSnapshotView({ job }: { job: Job }) {
+  const rc = job.rateSnapshot?.rateCard;
+  if (!rc) return null;
+  return (
+    <View style={styles.rateBox}>
+      <Txt variant="caption" color={colors.textMuted} style={{ marginBottom: 4 }}>
+        💷 Rates{job.rateSnapshot?.companyName ? ` · ${job.rateSnapshot.companyName}` : ''}
+      </Txt>
+      <SummaryRow label="Hourly rate" value={formatMoney(rc.hourlyRateCents)} />
+      {rc.calloutFeeCents != null && (
+        <SummaryRow label="Call-out fee" value={formatMoney(rc.calloutFeeCents)} />
+      )}
+      {rc.afterHoursCalloutFeeCents != null && (
+        <SummaryRow label="After-hours call-out" value={formatMoney(rc.afterHoursCalloutFeeCents)} />
+      )}
+      <Txt variant="caption" color={colors.textFaint} style={{ marginTop: 4 }}>
+        The tradie invoices you directly at these rates.
+      </Txt>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
   header: {
@@ -370,4 +394,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   photo: { width: 100, height: 100, borderRadius: radius.md },
+  rateBox: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 2,
+  },
 });

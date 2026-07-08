@@ -4,22 +4,29 @@ import {
 } from 'firebase/auth';
 import {
   collection,
-  deleteDoc,
   deleteField,
   doc,
   getDoc,
   getDocs,
   query,
+  runTransaction,
   setDoc,
   updateDoc,
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { Company, CompanyAdmin, CompanyInvite, Job, Tradie, TradieStats } from './types';
+import { Company, CompanyAdmin, CompanyTag, Job, RateCard, Tradie, TradieStats } from './types';
 
-function inviteToken(): string {
-  const raw = crypto.randomUUID().replace(/-/g, '').toUpperCase();
-  return raw.slice(0, 10);
+const TAG_TTL_MS = 14 * 24 * 60 * 60 * 1000;
+const TAG_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Mirror of the app's tag code generator: "QF-" + 6 chars. */
+export function generateTagCode(): string {
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += TAG_ALPHABET[Math.floor(Math.random() * TAG_ALPHABET.length)];
+  }
+  return `QF-${code}`;
 }
 
 /* ---------------------------------------------------------------- auth --- */
@@ -61,6 +68,24 @@ export async function updateCompanyName(companyId: string, name: string): Promis
   await updateDoc(doc(db, 'companies', companyId), { name: name.trim() });
 }
 
+export async function updateCompanyProfile(
+  companyId: string,
+  patch: { billingEmail?: string; nzbn?: string },
+): Promise<void> {
+  const data: Record<string, unknown> = {};
+  if (patch.billingEmail !== undefined) data.billingEmail = patch.billingEmail.trim();
+  if (patch.nzbn !== undefined) data.nzbn = patch.nzbn.trim();
+  if (Object.keys(data).length === 0) return;
+  await updateDoc(doc(db, 'companies', companyId), data);
+}
+
+export async function setCompanyRateCard(
+  companyId: string,
+  rateCard: RateCard,
+): Promise<void> {
+  await updateDoc(doc(db, 'companies', companyId), { rateCard, status: 'active' });
+}
+
 export async function getMyCompany(uid: string): Promise<Company | null> {
   const adminSnap = await getDoc(doc(db, 'companyAdmins', uid));
   if (!adminSnap.exists()) return null;
@@ -69,33 +94,59 @@ export async function getMyCompany(uid: string): Promise<Company | null> {
   return companySnap.exists() ? (companySnap.data() as Company) : null;
 }
 
-/* ------------------------------------------------------------- invites --- */
+/* ---------------------------------------------------------------- tags --- */
 
-export async function createInvite(company: Company, email?: string): Promise<CompanyInvite> {
-  const token = inviteToken();
-  const invite: CompanyInvite = {
-    token,
+export async function issueTag(
+  company: Company,
+  seat: { name: string; email: string; phone?: string },
+): Promise<CompanyTag> {
+  const ref = doc(collection(db, 'companyTags'));
+  const now = Date.now();
+  const tag: CompanyTag = {
+    id: ref.id,
     companyId: company.id,
     companyName: company.name,
-    createdAt: Date.now(),
+    code: generateTagCode(),
+    issuedToName: seat.name.trim(),
+    issuedToEmail: seat.email.trim(),
+    status: 'issued',
+    createdAt: now,
+    expiresAt: now + TAG_TTL_MS,
   };
-  // Only include email when provided (Firestore rejects undefined fields).
-  if (email?.trim()) invite.email = email.trim();
-  await setDoc(doc(db, 'invites', token), invite);
-  return invite;
+  // Only include phone when provided (Firestore rejects undefined fields).
+  if (seat.phone?.trim()) tag.issuedToPhone = seat.phone.trim();
+  await setDoc(ref, tag);
+  return tag;
 }
 
-export async function listInvites(companyId: string): Promise<CompanyInvite[]> {
+export async function listCompanyTags(companyId: string): Promise<CompanyTag[]> {
   const snap = await getDocs(
-    query(collection(db, 'invites'), where('companyId', '==', companyId)),
+    query(collection(db, 'companyTags'), where('companyId', '==', companyId)),
   );
   return snap.docs
-    .map((d) => d.data() as CompanyInvite)
+    .map((d) => d.data() as CompanyTag)
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function revokeInvite(token: string): Promise<void> {
-  await deleteDoc(doc(db, 'invites', token));
+export async function removeTag(tagId: string): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const tagRef = doc(db, 'companyTags', tagId);
+    const snap = await tx.get(tagRef);
+    if (!snap.exists()) return;
+    const tag = snap.data() as CompanyTag;
+    tx.update(tagRef, {
+      status: 'removed',
+      removedAt: Date.now(),
+      removedBy: 'company',
+    });
+    if (tag.claimedByUserId) {
+      tx.update(doc(db, 'users', tag.claimedByUserId), {
+        activeTagId: deleteField(),
+        companyId: deleteField(),
+        companyName: deleteField(),
+      });
+    }
+  });
 }
 
 /* ------------------------------------------------------------- tradies --- */
@@ -112,13 +163,6 @@ export async function listCompanyTradies(companyId: string): Promise<Tradie[]> {
 export async function getTradie(tradieId: string): Promise<Tradie | null> {
   const snap = await getDoc(doc(db, 'users', tradieId));
   return snap.exists() ? (snap.data() as Tradie) : null;
-}
-
-export async function removeTradie(tradieId: string): Promise<void> {
-  await updateDoc(doc(db, 'users', tradieId), {
-    companyId: deleteField(),
-    companyName: deleteField(),
-  });
 }
 
 export async function getTradieJobs(tradieId: string): Promise<Job[]> {

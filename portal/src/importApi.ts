@@ -5,10 +5,13 @@ import {
   sendPasswordResetEmail,
   signOut,
 } from 'firebase/auth';
-import { doc, getFirestore, setDoc } from 'firebase/firestore';
+import { collection, doc, getFirestore, setDoc } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { generateTagCode } from './api';
 import { firebaseConfig } from './firebase';
-import { Company, TRADE_LABELS } from './types';
+import { CompanyTag, Company, TRADE_LABELS } from './types';
+
+const TAG_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export const IMPORT_HEADERS = [
   'firstName',
@@ -164,8 +167,28 @@ export async function importTradies(
       const pw = tempPassword();
       const cred = await createUserWithEmailAndPassword(secAuth, r.email, pw);
       const uid = cred.user.uid;
+      // Create an already-validated company tag so the roster + billing stay
+      // consistent with the tag model (imported members skip the claim flow).
+      const now = Date.now();
+      const tagRef = doc(collection(secDb, 'companyTags'));
+      const tag: CompanyTag = {
+        id: tagRef.id,
+        companyId: company.id,
+        companyName: company.name,
+        code: generateTagCode(),
+        issuedToName: `${r.firstName} ${r.lastName}`.trim(),
+        issuedToEmail: r.email,
+        status: 'validated',
+        createdAt: now,
+        expiresAt: now + TAG_TTL_MS,
+        claimedByUserId: uid,
+        claimedAt: now,
+        validatedAt: now,
+      };
+      await setDoc(tagRef, tag);
       // Written by the new tradie (secondary auth) so it satisfies the rules.
       await setDoc(doc(secDb, 'users', uid), {
+        activeTagId: tagRef.id,
         id: uid,
         role: 'tradie',
         email: r.email,

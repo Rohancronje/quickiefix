@@ -6,20 +6,42 @@ import {
   listCompanies,
   listComplaints,
   listFeeLineItems,
+  listPendingTags,
   resolveComplaint,
   setApproval,
   setFreeCredits,
   setPaymentHold,
+  setSharedCredits,
+  validateTag,
 } from '../adminApi';
 import { useAuth } from '../auth';
-import { formatDate, formatDuration, initials, stars } from '../lib';
-import { Company, Complaint, Customer, FeeLineItem, Job, Tradie, tradeLabel } from '../types';
+import { centsToDollars, formatDate, formatDuration, initials, stars } from '../lib';
+import {
+  Company,
+  CompanyTag,
+  Complaint,
+  Customer,
+  FeeLineItem,
+  Job,
+  Tradie,
+  tradeLabel,
+} from '../types';
 
-type Tab = 'overview' | 'tradies' | 'jobs' | 'customers' | 'billing' | 'complaints';
+type Tab =
+  | 'overview'
+  | 'tradies'
+  | 'tags'
+  | 'companies'
+  | 'jobs'
+  | 'customers'
+  | 'billing'
+  | 'complaints';
 
 const NAV: { key: Tab; label: string; ico: string }[] = [
   { key: 'overview', label: 'Overview', ico: '📊' },
   { key: 'tradies', label: 'Tradies', ico: '🧰' },
+  { key: 'tags', label: 'Tag queue', ico: '🏷️' },
+  { key: 'companies', label: 'Companies', ico: '🏢' },
   { key: 'jobs', label: 'Jobs', ico: '📋' },
   { key: 'customers', label: 'Customers', ico: '👥' },
   { key: 'billing', label: 'Billing', ico: '💳' },
@@ -40,22 +62,25 @@ export function BackOffice() {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [fees, setFees] = useState<FeeLineItem[]>([]);
+  const [pendingTags, setPendingTags] = useState<CompanyTag[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const [u, j, c, co, f] = await Promise.all([
+    const [u, j, c, co, f, pt] = await Promise.all([
       listAllUsers(),
       listAllJobs(),
       listComplaints(),
       listCompanies(),
       listFeeLineItems(),
+      listPendingTags(),
     ]);
     setUsers(u);
     setJobs(j);
     setComplaints(c);
     setCompanies(co);
     setFees(f);
+    setPendingTags(pt);
     setLoading(false);
   };
   useEffect(() => {
@@ -82,6 +107,14 @@ export function BackOffice() {
     await setFreeCredits(t.id, credits);
     await load();
   };
+  const approveTag = async (tag: CompanyTag) => {
+    await validateTag(tag.id);
+    await load();
+  };
+  const updateSharedCredits = async (c: Company, n: number) => {
+    await setSharedCredits(c.id, n);
+    await load();
+  };
 
   return (
     <div className="shell">
@@ -101,6 +134,11 @@ export function BackOffice() {
             {n.key === 'complaints' && openComplaints.length > 0 && (
               <span className="badge badge-amber" style={{ marginLeft: 'auto' }}>
                 {openComplaints.length}
+              </span>
+            )}
+            {n.key === 'tags' && pendingTags.length > 0 && (
+              <span className="badge badge-blue" style={{ marginLeft: 'auto' }}>
+                {pendingTags.length}
               </span>
             )}
           </div>
@@ -140,6 +178,10 @@ export function BackOffice() {
               onToggleHold={toggleHold}
               onUpdateCredits={updateCredits}
             />
+          ) : tab === 'tags' ? (
+            <TagQueue tags={pendingTags} users={users} onValidate={approveTag} />
+          ) : tab === 'companies' ? (
+            <Companies companies={companies} onUpdateCredits={updateSharedCredits} />
           ) : tab === 'jobs' ? (
             <Jobs jobs={jobs} />
           ) : tab === 'customers' ? (
@@ -346,6 +388,154 @@ function CreditControl({
       />
       {dirty && (
         <button className="btn btn-primary btn-sm" onClick={() => onUpdate(tradie, Number(val) || 0)}>
+          Save
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- Tag queue -- */
+
+function TagQueue({
+  tags,
+  users,
+  onValidate,
+}: {
+  tags: CompanyTag[];
+  users: (Tradie | Customer)[];
+  onValidate: (tag: CompanyTag) => void;
+}) {
+  const userById = new Map(users.map((u) => [u.id, u]));
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {tags.length === 0 ? (
+        <div className="empty">
+          <div className="e-ico">✅</div>
+          <p style={{ fontWeight: 700, color: 'var(--text)' }}>Nothing to validate</p>
+          <p>No tags are awaiting validation.</p>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Company</th>
+              <th>Issued to</th>
+              <th>Claiming tradie</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {tags.map((tag) => {
+              const claimer = tag.claimedByUserId ? userById.get(tag.claimedByUserId) : undefined;
+              const claimerName =
+                claimer && isTradie(claimer)
+                  ? `${claimer.firstName} ${claimer.lastName}`
+                  : claimer
+                    ? claimer.email
+                    : tag.claimedByUserId ?? '—';
+              return (
+                <tr key={tag.id}>
+                  <td>
+                    <span className="pill-code">{tag.code}</span>
+                  </td>
+                  <td className="faint">{tag.companyName}</td>
+                  <td>
+                    <div style={{ fontWeight: 600 }}>{tag.issuedToName}</div>
+                    <div className="faint" style={{ fontSize: 12 }}>
+                      {tag.issuedToEmail}
+                      {tag.issuedToPhone ? ` · ${tag.issuedToPhone}` : ''}
+                    </div>
+                  </td>
+                  <td className="faint">{claimerName}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => onValidate(tag)}>
+                      Validate
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- Companies -- */
+
+function Companies({
+  companies,
+  onUpdateCredits,
+}: {
+  companies: Company[];
+  onUpdateCredits: (c: Company, n: number) => void;
+}) {
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {companies.length === 0 ? (
+        <div className="empty">
+          <div className="e-ico">🏢</div>
+          <p>No companies.</p>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Admin</th>
+              <th>Status</th>
+              <th>Rate card</th>
+              <th>Shared credits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {companies.map((c) => (
+              <tr key={c.id}>
+                <td style={{ fontWeight: 700 }}>{c.name}</td>
+                <td className="faint">{c.billingEmail ?? c.adminEmail}</td>
+                <td>
+                  <span className={`badge ${c.status === 'active' ? 'badge-green' : 'badge-amber'}`}>
+                    {c.status ?? 'setup'}
+                  </span>
+                </td>
+                <td className="faint">
+                  {c.rateCard ? `${centsToDollars(c.rateCard.hourlyRateCents)}/hr` : '—'}
+                </td>
+                <td>
+                  <SharedCreditControl company={c} onUpdate={onUpdateCredits} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function SharedCreditControl({
+  company,
+  onUpdate,
+}: {
+  company: Company;
+  onUpdate: (c: Company, n: number) => void;
+}) {
+  const [val, setVal] = useState(String(company.sharedCredits ?? 0));
+  const dirty = val !== String(company.sharedCredits ?? 0);
+  return (
+    <div className="flex" style={{ gap: 6 }}>
+      <input
+        type="number"
+        min={0}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        style={{ width: 64, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line)' }}
+      />
+      {dirty && (
+        <button className="btn btn-primary btn-sm" onClick={() => onUpdate(company, Number(val) || 0)}>
           Save
         </button>
       )}

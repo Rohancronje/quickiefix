@@ -39,7 +39,7 @@ service cloud.firestore {
         isPlatformAdmin() ||
         (
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['companyId', 'companyName']) &&
+            .hasOnly(['companyId', 'companyName', 'activeTagId']) &&
           resource.data.companyId != null &&
           get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid
         )
@@ -59,7 +59,10 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.adminUserId == request.auth.uid;
-      allow update: if signedIn() && resource.data.adminUserId == request.auth.uid;
+      // Company admin manages their own doc (rate card, billing email); platform
+      // admin may manage any (e.g. shared-credit pool).
+      allow update: if isPlatformAdmin() ||
+        (signedIn() && resource.data.adminUserId == request.auth.uid);
       allow delete: if false;
     }
 
@@ -69,16 +72,23 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Invite tokens bind a tradie to a company.
-    match /invites/{token} {
+    // Company tags (seats) — the tag model (§6). Replaces invites.
+    match /companyTags/{id} {
       allow read: if signedIn();
-      // Only the owning company admin can create invites for their company.
-      allow create: if signedIn()
-        && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.adminUserId == request.auth.uid;
-      // A redeeming tradie (or the owning admin) may update; admin may revoke.
-      allow update: if signedIn();
-      allow delete: if signedIn()
-        && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid;
+      // Company admin issues seats for their own company (platform admin too).
+      allow create: if isPlatformAdmin() || (signedIn()
+        && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.adminUserId == request.auth.uid);
+      // Updates:
+      //  - platform admin (validate / remove-override),
+      //  - the owning company admin (remove), or
+      //  - a tradie CLAIMING a still-issued code (sets themselves as claimer).
+      allow update: if isPlatformAdmin()
+        || (signedIn()
+            && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid)
+        || (signedIn()
+            && resource.data.status == 'issued'
+            && request.resource.data.claimedByUserId == request.auth.uid);
+      allow delete: if false;
     }
 
     // Complaints: a customer files about their own job; only platform admins

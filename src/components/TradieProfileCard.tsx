@@ -33,6 +33,9 @@ export function TradieProfileCard({ tradie }: { tradie: Tradie }) {
       </View>
 
       <View style={styles.badges}>
+        {tradie.companyName && (
+          <Badge label={`🏢 ${tradie.companyName}`} color={colors.navy} soft={colors.surfaceAlt} />
+        )}
         {tradie.approval === 'approved' && (
           <Badge label="✓ Verified" color={colors.success} soft={colors.successSoft} />
         )}

@@ -89,7 +89,19 @@ export interface Qualification {
   certificateUri?: string;
 }
 
-/** A business that manages multiple tradies through the web portal. */
+/** Callout/hourly pricing (Pilot Spec §6.1). Amounts in cents. */
+export interface RateCard {
+  hourlyRateCents: number;
+  calloutFeeCents?: number;
+  afterHoursCalloutFeeCents?: number;
+}
+
+/**
+ * A business that manages multiple tradies through the web portal.
+ * In the tag model (§6) the company is a *tag*, not a container: the individual
+ * tradie is always the unit; the company associates his jobs for branding,
+ * reporting, and billing.
+ */
 export interface Company {
   id: string;
   name: string;
@@ -97,17 +109,41 @@ export interface Company {
   adminUserId: string;
   adminEmail: string;
   createdAt: number;
+  nzbn?: string;
+  logoUrl?: string;
+  billingEmail?: string;
+  /** Company rate card — required before the company can go live (§6.3). */
+  rateCard?: RateCard;
+  /** Shared free-job credits, consumed before a tagged tradie's own (§6.5). */
+  sharedCredits?: number;
+  /** 'setup' until a rate card is set, then 'active'. */
+  status?: 'setup' | 'active';
 }
 
-/** An invite that binds a tradie to a company when redeemed. */
-export interface CompanyInvite {
-  token: string;
+export type CompanyTagStatus = 'issued' | 'claimed' | 'validated' | 'removed';
+
+/**
+ * A company "seat" (Pilot Spec §6.2). The company issues a single-use code to a
+ * named tradie; the tradie claims it; a platform admin validates the name/email/
+ * phone match; only the company (or a platform admin) can remove it.
+ */
+export interface CompanyTag {
+  id: string;
   companyId: string;
   companyName: string;
-  email?: string;
+  code: string; // single-use, random
+  issuedToName: string;
+  issuedToEmail: string;
+  issuedToPhone?: string;
+  status: CompanyTagStatus;
   createdAt: number;
-  redeemedBy?: string;
-  redeemedAt?: number;
+  expiresAt: number; // unclaimed codes expire 14 days after issue
+  claimedByUserId?: string;
+  claimedAt?: number;
+  validatedAt?: number;
+  removedAt?: number;
+  removedBy?: 'company' | 'platform_admin' | 'self';
+  removalReason?: string;
 }
 
 export interface Tradie extends BaseUser {
@@ -115,9 +151,14 @@ export interface Tradie extends BaseUser {
   businessName: string;
   tradingName?: string;
   yearsExperience: number;
-  // Set when the tradie is bound to a company via an invite (else sole trader).
+  // Set when a company tag is VALIDATED (else sole trader). Denormalised for
+  // display + billing; the source of truth is the CompanyTag.
   companyId?: string;
   companyName?: string;
+  /** The company tag this tradie has claimed (any status). Null = independent. */
+  activeTagId?: string;
+  /** Personal rate card (used when not tagged, or while a claim is unvalidated). */
+  rateCard?: RateCard;
   businessType?: string;
   nzbn?: string;
   primaryTrade: TradeCategory;
@@ -178,6 +219,14 @@ export interface Rating {
   at: number;
 }
 
+/** The rate card in force when a job was accepted (captured for dispute baseline). */
+export interface RateSnapshot {
+  rateCard: RateCard;
+  source: 'company' | 'personal';
+  companyName?: string;
+  capturedAt: number;
+}
+
 export interface Job {
   id: string;
   customerId: string;
@@ -201,6 +250,12 @@ export interface Job {
   // Assigned tradie (set on acceptance — the first candidate to accept wins)
   tradieId?: string;
   tradieName?: string;
+  /** Company stamped at acceptance from the tradie's validated tag (§6.1).
+   *  Immutable thereafter — drives company billing + history even after a leaver. */
+  companyId?: string;
+  companyName?: string;
+  /** Rate card in force at acceptance — the invoice-dispute baseline (§0). */
+  rateSnapshot?: RateSnapshot;
 
   // Tradies who were offered this job and declined
   declinedBy: string[];

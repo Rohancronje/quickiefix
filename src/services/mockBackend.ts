@@ -10,12 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AppUser,
   Company,
-  CompanyInvite,
+  CompanyTag,
   Complaint,
   Customer,
   FeeLineItem,
   GeoPoint,
   Job,
+  RateCard,
   Rating,
   Tradie,
   TradieStatus,
@@ -23,6 +24,7 @@ import {
 import { FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import { uid } from '../lib/id';
 import {
   Backend,
@@ -35,9 +37,8 @@ import {
 } from './backend';
 import { DEMO_PASSWORD, seedCustomers, seedTradies } from './seed';
 
-// v2: jobs carry a wave-dispatch snapshot (dispatch.candidateIds) instead of a
-// single requestedTradieId — drop any pre-wave jobs from local storage.
-const DB_KEY = 'quickiefix.db.v2';
+// v3: company tag model (tags replace invites) + jobs carry companyId/rateSnapshot.
+const DB_KEY = 'quickiefix.db.v3';
 const SESSION_KEY = 'quickiefix.session.v1';
 
 interface DB {
@@ -45,7 +46,7 @@ interface DB {
   credentials: Record<string, { password: string; userId: string }>;
   jobs: Record<string, Job>;
   companies: Record<string, Company>;
-  invites: Record<string, CompanyInvite>;
+  tags: Record<string, CompanyTag>;
   complaints: Record<string, Complaint>;
   fees: Record<string, FeeLineItem>;
 }
@@ -61,7 +62,7 @@ function seedDb(): DB {
     users[t.id] = t;
     credentials[t.email.toLowerCase()] = { password: DEMO_PASSWORD, userId: t.id };
   }
-  return { users, credentials, jobs: {}, companies: {}, invites: {}, complaints: {}, fees: {} };
+  return { users, credentials, jobs: {}, companies: {}, tags: {}, complaints: {}, fees: {} };
 }
 
 class MockBackend implements Backend {
@@ -84,7 +85,7 @@ class MockBackend implements Backend {
             this.db = {
               ...parsed,
               companies: parsed.companies ?? {},
-              invites: parsed.invites ?? {},
+              tags: parsed.tags ?? {},
               complaints: parsed.complaints ?? {},
               fees: parsed.fees ?? {},
             };
@@ -366,6 +367,22 @@ class MockBackend implements Backend {
     job.tradieName = tradie.businessName;
     job.timestamps.acceptedAt = Date.now();
 
+    // Stamp company + rate snapshot from the tradie's state at acceptance (§6.1).
+    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
+    if (company) {
+      job.companyId = company.id;
+      job.companyName = company.name;
+    }
+    const rateCard = company?.rateCard ?? tradie.rateCard;
+    if (rateCard) {
+      job.rateSnapshot = {
+        rateCard,
+        source: company?.rateCard ? 'company' : 'personal',
+        companyName: company?.name,
+        capturedAt: Date.now(),
+      };
+    }
+
     tradie.status = 'job_accepted';
     tradie.jobsAccepted += 1;
     this.commit();
@@ -421,15 +438,23 @@ class MockBackend implements Backend {
    */
   private recordFee(job: Job, tradie: Tradie): void {
     const id = uid('fee_');
-    const useCredit = (tradie.freeJobCredits ?? 0) > 0;
-    if (useCredit) tradie.freeJobCredits -= 1;
+    // Company shared credits are consumed before the tradie's own (§6.5).
+    const company = job.companyId ? this.db.companies[job.companyId] : undefined;
+    let useCredit = false;
+    if (company && (company.sharedCredits ?? 0) > 0) {
+      company.sharedCredits = (company.sharedCredits ?? 0) - 1;
+      useCredit = true;
+    } else if ((tradie.freeJobCredits ?? 0) > 0) {
+      tradie.freeJobCredits -= 1;
+      useCredit = true;
+    }
     this.db.fees[id] = {
       id,
       tradieId: tradie.id,
       tradieName: tradie.businessName,
       jobId: job.id,
       trade: job.trade,
-      companyId: tradie.companyId,
+      companyId: job.companyId,
       amountCents: FEE_CENTS,
       gstCents: gstOf(FEE_CENTS),
       status: useCredit ? 'waived_credit' : 'pending',
@@ -564,36 +589,170 @@ class MockBackend implements Backend {
     return offers.sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  /* ---------------------------------------------------- company invites -- */
+  /* ------------------------------------------------------ company tags -- */
 
-  async getInvite(token: string): Promise<CompanyInvite | null> {
+  async createCompany(input: {
+    name: string;
+    adminUserId: string;
+    adminEmail: string;
+    rateCard?: RateCard;
+  }): Promise<Company> {
     await this.ensureLoaded();
-    return this.db.invites?.[token] ?? null;
-  }
-
-  async redeemInvite(token: string, tradieId: string): Promise<Company> {
-    await this.ensureLoaded();
-    const invite = this.db.invites?.[token];
-    if (!invite) throw new Error('This invite is not valid.');
-    const company = this.db.companies?.[invite.companyId];
-    if (!company) throw new Error('That company no longer exists.');
-    const t = this.db.users[tradieId];
-    if (t && t.role === 'tradie') {
-      t.companyId = company.id;
-      t.companyName = company.name;
-    }
-    invite.redeemedBy = tradieId;
-    invite.redeemedAt = Date.now();
+    const company: Company = {
+      id: uid('co_'),
+      name: input.name.trim(),
+      adminUserId: input.adminUserId,
+      adminEmail: input.adminEmail,
+      createdAt: Date.now(),
+      rateCard: input.rateCard,
+      sharedCredits: 0,
+      status: input.rateCard ? 'active' : 'setup',
+    };
+    this.db.companies[company.id] = company;
     this.commit();
     return company;
+  }
+
+  async setCompanyRateCard(companyId: string, rateCard: RateCard): Promise<void> {
+    await this.ensureLoaded();
+    const c = this.db.companies[companyId];
+    if (c) {
+      c.rateCard = rateCard;
+      c.status = 'active';
+      this.commit();
+    }
+  }
+
+  async setSharedCredits(companyId: string, credits: number): Promise<void> {
+    await this.ensureLoaded();
+    const c = this.db.companies[companyId];
+    if (c) {
+      c.sharedCredits = Math.max(0, Math.floor(credits));
+      this.commit();
+    }
+  }
+
+  async listCompanyTags(companyId: string): Promise<CompanyTag[]> {
+    await this.ensureLoaded();
+    return Object.values(this.db.tags)
+      .filter((t) => t.companyId === companyId)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async issueTag(
+    companyId: string,
+    seat: { name: string; email: string; phone?: string },
+  ): Promise<CompanyTag> {
+    await this.ensureLoaded();
+    const company = this.db.companies[companyId];
+    if (!company) throw new Error('Company not found.');
+    const now = Date.now();
+    const tag: CompanyTag = {
+      id: uid('tag_'),
+      companyId,
+      companyName: company.name,
+      code: genTagCode(),
+      issuedToName: seat.name.trim(),
+      issuedToEmail: seat.email.trim().toLowerCase(),
+      issuedToPhone: seat.phone?.trim(),
+      status: 'issued',
+      createdAt: now,
+      expiresAt: now + TAG_TTL_MS,
+    };
+    this.db.tags[tag.id] = tag;
+    this.commit();
+    return tag;
+  }
+
+  async getTagByCode(code: string): Promise<CompanyTag | null> {
+    await this.ensureLoaded();
+    const norm = code.trim().toUpperCase();
+    return Object.values(this.db.tags).find((t) => t.code === norm) ?? null;
+  }
+
+  async claimTag(code: string, tradieId: string): Promise<Company> {
+    await this.ensureLoaded();
+    const tag = Object.values(this.db.tags).find((t) => t.code === code.trim().toUpperCase());
+    if (!tag) throw new Error('That code is not valid.');
+    if (tag.status !== 'issued') throw new Error('That code has already been used.');
+    if (Date.now() > tag.expiresAt) throw new Error('That code has expired.');
+    const company = this.db.companies[tag.companyId];
+    if (!company) throw new Error('That company no longer exists.');
+    const t = this.db.users[tradieId];
+    if (!t || t.role !== 'tradie') throw new Error('Tradie not found.');
+    if (t.activeTagId) throw new Error('You already belong to a company.');
+
+    tag.status = 'claimed';
+    tag.claimedByUserId = tradieId;
+    tag.claimedAt = Date.now();
+    t.activeTagId = tag.id;
+    this.commit();
+    return company;
+  }
+
+  async validateTag(tagId: string): Promise<void> {
+    await this.ensureLoaded();
+    const tag = this.db.tags[tagId];
+    if (!tag || tag.status !== 'claimed' || !tag.claimedByUserId) return;
+    tag.status = 'validated';
+    tag.validatedAt = Date.now();
+    const t = this.db.users[tag.claimedByUserId];
+    if (t && t.role === 'tradie') {
+      t.companyId = tag.companyId;
+      t.companyName = tag.companyName;
+    }
+    this.commit();
+  }
+
+  async removeTag(
+    tagId: string,
+    by: 'company' | 'platform_admin',
+    reason?: string,
+  ): Promise<void> {
+    await this.ensureLoaded();
+    const tag = this.db.tags[tagId];
+    if (!tag || tag.status === 'removed') return;
+    const tradieId = tag.claimedByUserId;
+    tag.status = 'removed';
+    tag.removedAt = Date.now();
+    tag.removedBy = by;
+    tag.removalReason = reason;
+    if (tradieId) {
+      const t = this.db.users[tradieId];
+      if (t && t.role === 'tradie') {
+        delete t.activeTagId;
+        delete t.companyId;
+        delete t.companyName;
+      }
+    }
+    this.commit();
   }
 
   async leaveCompany(tradieId: string): Promise<void> {
     await this.ensureLoaded();
     const t = this.db.users[tradieId];
+    if (!t || t.role !== 'tradie' || !t.activeTagId) return;
+    const tag = this.db.tags[t.activeTagId];
+    // A validated tag can only be removed by the company (§6.4).
+    if (tag && tag.status === 'validated') {
+      throw new Error('Only your company can remove you. Ask your company admin.');
+    }
+    if (tag) {
+      tag.status = 'removed';
+      tag.removedAt = Date.now();
+      tag.removedBy = 'self';
+    }
+    delete t.activeTagId;
+    delete t.companyId;
+    delete t.companyName;
+    this.commit();
+  }
+
+  async setTradieRateCard(tradieId: string, rateCard: RateCard): Promise<void> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
     if (t && t.role === 'tradie') {
-      delete t.companyId;
-      delete t.companyName;
+      t.rateCard = rateCard;
       this.commit();
     }
   }
