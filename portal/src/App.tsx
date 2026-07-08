@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
+import { BackOffice } from './backoffice/BackOffice';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
@@ -8,7 +9,7 @@ import { Team } from './pages/Team';
 import { TradieDetail } from './pages/TradieDetail';
 
 export default function App() {
-  const { company, loading } = useAuth();
+  const { company, isAdmin, loading } = useAuth();
 
   if (loading) {
     return (
@@ -18,6 +19,7 @@ export default function App() {
     );
   }
 
+  if (isAdmin) return <BackOffice />;
   if (!company) return <Login />;
 
   return (

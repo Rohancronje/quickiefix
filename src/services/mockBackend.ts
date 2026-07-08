@@ -11,6 +11,7 @@ import {
   AppUser,
   Company,
   CompanyInvite,
+  Complaint,
   Customer,
   GeoPoint,
   Job,
@@ -40,6 +41,7 @@ interface DB {
   jobs: Record<string, Job>;
   companies: Record<string, Company>;
   invites: Record<string, CompanyInvite>;
+  complaints: Record<string, Complaint>;
 }
 
 function seedDb(): DB {
@@ -53,7 +55,7 @@ function seedDb(): DB {
     users[t.id] = t;
     credentials[t.email.toLowerCase()] = { password: DEMO_PASSWORD, userId: t.id };
   }
-  return { users, credentials, jobs: {}, companies: {}, invites: {} };
+  return { users, credentials, jobs: {}, companies: {}, invites: {}, complaints: {} };
 }
 
 class MockBackend implements Backend {
@@ -73,7 +75,12 @@ class MockBackend implements Backend {
           if (raw) {
             // Backfill collections added in later versions.
             const parsed = JSON.parse(raw) as DB;
-            this.db = { ...parsed, companies: parsed.companies ?? {}, invites: parsed.invites ?? {} };
+            this.db = {
+              ...parsed,
+              companies: parsed.companies ?? {},
+              invites: parsed.invites ?? {},
+              complaints: parsed.complaints ?? {},
+            };
           } else await this.persist();
         } catch {
           // Corrupt / unavailable storage: fall back to a fresh seed.
@@ -264,6 +271,25 @@ class MockBackend implements Backend {
     this.db.jobs[job.id] = job;
     this.commit();
     return job;
+  }
+
+  async fileComplaint(job: Job, subject: string, detail: string): Promise<void> {
+    await this.ensureLoaded();
+    const id = uid('cmp_');
+    this.db.complaints[id] = {
+      id,
+      jobId: job.id,
+      customerId: job.customerId,
+      customerName: job.customerName,
+      tradieId: job.tradieId,
+      tradieName: job.tradieName,
+      trade: job.trade,
+      subject: subject.trim(),
+      detail: detail.trim(),
+      status: 'open',
+      createdAt: Date.now(),
+    };
+    this.commit();
   }
 
   async getAvailableTradies(

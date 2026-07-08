@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobTimeline } from '../../../src/components/JobTimeline';
@@ -7,14 +7,14 @@ import { StatusPill } from '../../../src/components/JobCard';
 import { RatingForm } from '../../../src/components/RatingForm';
 import { Screen } from '../../../src/components/Screen';
 import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
-import { Button, Card, Txt } from '../../../src/components/ui';
+import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { tradeMeta } from '../../../src/constants';
 import { useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration } from '../../../src/lib/format';
 import { estimateEtaMinutes } from '../../../src/lib/geo';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
-import { Rating, Tradie } from '../../../src/types';
+import { Job, Rating, Tradie } from '../../../src/types';
 
 export default function TrackJob() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -172,6 +172,7 @@ export default function TrackJob() {
                 onSubmit={submitRating}
               />
             )}
+            <ReportProblem job={job} />
           </>
         )}
 
@@ -242,6 +243,65 @@ function EtaBanner({ tradie, job }: { tradie: Tradie; job: { location: { latitud
         </Txt>
       )}
     </View>
+  );
+}
+
+function ReportProblem({ job }: { job: Job }) {
+  const [open, setOpen] = useState(false);
+  const [subject, setSubject] = useState('');
+  const [detail, setDetail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  if (sent) {
+    return (
+      <Card style={{ alignItems: 'center', gap: spacing.xs }}>
+        <Txt style={{ fontSize: 30 }}>📩</Txt>
+        <Txt variant="label">Complaint submitted</Txt>
+        <Txt variant="caption" color={colors.textMuted} style={{ textAlign: 'center' }}>
+          Our team will review it and be in touch.
+        </Txt>
+      </Card>
+    );
+  }
+
+  if (!open) {
+    return <Button title="Report a problem" kind="ghost" onPress={() => setOpen(true)} />;
+  }
+
+  const submit = async () => {
+    if (!subject.trim()) return;
+    setBusy(true);
+    await backend.fileComplaint(job, subject, detail);
+    setBusy(false);
+    setSent(true);
+  };
+
+  return (
+    <Card style={{ gap: spacing.md }}>
+      <Txt variant="label">Report a problem</Txt>
+      <Field
+        label="Subject"
+        placeholder="e.g. Tradie didn't finish the job"
+        value={subject}
+        onChangeText={setSubject}
+      />
+      <Field
+        placeholder="Tell us what happened (optional)"
+        value={detail}
+        onChangeText={setDetail}
+        multiline
+        style={{ height: 90, textAlignVertical: 'top' }}
+      />
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Cancel" kind="ghost" small onPress={() => setOpen(false)} />
+        </View>
+        <View style={{ flex: 2 }}>
+          <Button title="Submit complaint" kind="danger" small disabled={!subject.trim()} loading={busy} onPress={submit} />
+        </View>
+      </View>
+    </Card>
   );
 }
 

@@ -97,6 +97,8 @@ export interface Backend {
    *  customer to choose from. */
   getAvailableTradies(trade: TradeCategory, location: Location): Promise<TradieCandidate[]>;
   createJob(customer: Customer, input: NewJobInput): Promise<Job>;
+  /** Raise a complaint about a completed/active job (customer side). */
+  fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
   /** Redirect a still-searching job to a different tradie (after a decline). */
   reassignJob(jobId: string, tradieId: string): Promise<void>;
   cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void>;

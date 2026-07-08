@@ -47,6 +47,30 @@ export interface Tradie {
   completedJobs: number;
 }
 
+export interface Customer {
+  id: string;
+  role: 'customer';
+  email: string;
+  firstName: string;
+  lastName: string;
+  createdAt: number;
+}
+
+export interface Complaint {
+  id: string;
+  jobId: string;
+  customerId: string;
+  customerName: string;
+  tradieId?: string;
+  tradieName?: string;
+  trade: string;
+  subject: string;
+  detail: string;
+  status: 'open' | 'resolved';
+  createdAt: number;
+  resolvedAt?: number;
+}
+
 export interface Rating {
   stars: number;
   review?: string;

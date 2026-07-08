@@ -32,14 +32,9 @@ export function Login() {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <div className="brand-row">
-          <div className="brand-mark">⚡</div>
-          <div>
-            <div className="brand-name">
-              Quickie<span>Fix</span>
-            </div>
-            <div className="brand-sub">Business Portal</div>
-          </div>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <img src="/logo.png" alt="QuickieFix" style={{ height: 68, maxWidth: '100%' }} />
+          <div className="brand-sub" style={{ marginTop: 4 }}>Business Portal</div>
         </div>
 
         <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>

@@ -14,6 +14,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Platform (back-office) admins — identified by email allowlist. Add more
+    // admin emails here as needed. Must match the portal's PLATFORM_ADMINS list.
+    function isPlatformAdmin() {
+      return request.auth != null &&
+        request.auth.token.email in ['admin@quickiefix.app'];
+    }
+
     match /users/{userId} {
       allow read: if signedIn();
       // You may only create your own user document (during registration).
@@ -24,6 +31,7 @@ service cloud.firestore {
       // (used to remove a tradie from the company).
       allow update: if signedIn() && (
         request.auth.uid == userId ||
+        isPlatformAdmin() ||
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['ratingAvg', 'ratingCount']) ||
         (
@@ -68,6 +76,18 @@ service cloud.firestore {
       allow update: if signedIn();
       allow delete: if signedIn()
         && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid;
+    }
+
+    // Complaints: a customer files about their own job; only platform admins
+    // can read them all or resolve them.
+    match /complaints/{id} {
+      allow read: if isPlatformAdmin() ||
+        (signedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.customerId == request.auth.uid
+        && request.resource.data.status == 'open';
+      allow update: if isPlatformAdmin();
+      allow delete: if false;
     }
 
     match /jobs/{jobId} {

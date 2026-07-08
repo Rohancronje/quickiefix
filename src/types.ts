@@ -172,6 +172,22 @@ export interface Job {
   tradieRating?: Rating; // tradie -> customer
 }
 
+/** A complaint raised by a customer about a job/tradie, for admin handling. */
+export interface Complaint {
+  id: string;
+  jobId: string;
+  customerId: string;
+  customerName: string;
+  tradieId?: string;
+  tradieName?: string;
+  trade: TradeCategory;
+  subject: string;
+  detail: string;
+  status: 'open' | 'resolved';
+  createdAt: number;
+  resolvedAt?: number;
+}
+
 /** A read-only projection of a completed job for the timesheet/export view. */
 export interface TimesheetRow {
   jobId: string;

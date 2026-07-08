@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Txt } from '../../src/components/ui';
 import { useAuth } from '../../src/context/AuthContext';
@@ -26,12 +26,11 @@ export default function Welcome() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.hero}>
         <View style={styles.logoRow}>
-          <View style={styles.logoMark}>
-            <Txt style={styles.logoBolt}>⚡</Txt>
-          </View>
-          <Txt style={styles.wordmark}>
-            Quickie<Txt style={styles.wordmarkAccent}>Fix</Txt>
-          </Txt>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={styles.logoImg}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={{ gap: spacing.sm, marginTop: spacing.xxxl }}>
@@ -116,7 +115,8 @@ function DemoChip({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.navy, padding: spacing.xl, justifyContent: 'space-between' },
   hero: { flex: 1, justifyContent: 'center' },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  logoRow: { flexDirection: 'row', alignItems: 'center' },
+  logoImg: { height: 66, width: 232, backgroundColor: colors.white, borderRadius: 14 },
   logoMark: {
     width: 48,
     height: 48,

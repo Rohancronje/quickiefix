@@ -210,6 +210,23 @@ export class FirestoreBackend implements Backend {
     return job;
   }
 
+  async fileComplaint(job: Job, subject: string, detail: string): Promise<void> {
+    const ref = doc(collection(this.db, 'complaints'));
+    await setDoc(ref, {
+      id: ref.id,
+      jobId: job.id,
+      customerId: job.customerId,
+      customerName: job.customerName,
+      tradieId: job.tradieId,
+      tradieName: job.tradieName,
+      trade: job.trade,
+      subject: subject.trim(),
+      detail: detail.trim(),
+      status: 'open',
+      createdAt: Date.now(),
+    });
+  }
+
   async getAvailableTradies(
     trade: TradeCategory,
     location: Location,

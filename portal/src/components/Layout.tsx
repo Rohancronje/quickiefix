@@ -24,13 +24,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand-row">
-          <div className="brand-mark">⚡</div>
-          <div>
-            <div className="brand-name">
-              Quickie<span>Fix</span>
-            </div>
-            <div className="brand-sub">Business Portal</div>
-          </div>
+          <img
+            src="/logo.png"
+            alt="QuickieFix"
+            style={{ height: 40, background: '#fff', borderRadius: 8, padding: 4 }}
+          />
+          <div className="brand-sub" style={{ marginLeft: 2 }}>Business Portal</div>
         </div>
 
         {NAV.map((n) => {
