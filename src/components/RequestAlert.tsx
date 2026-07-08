@@ -1,3 +1,4 @@
+import { createAudioPlayer } from 'expo-audio';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
@@ -7,6 +8,23 @@ import { tradeMeta } from '../constants';
 import { JobOffer } from '../services';
 import { colors, font, radius, shadow, spacing } from '../theme';
 import { Txt } from './ui';
+
+// Preload the alert chime once at module scope so it plays instantly.
+let chime: ReturnType<typeof createAudioPlayer> | null = null;
+try {
+  chime = createAudioPlayer(require('../../assets/notification.wav'));
+} catch {
+  chime = null;
+}
+
+function playChime() {
+  try {
+    chime?.seekTo(0);
+    chime?.play();
+  } catch {
+    /* audio unavailable — haptic still fires */
+  }
+}
 
 /**
  * A loud, hard-to-miss in-app alert for incoming direct requests. Renders as a
@@ -24,10 +42,13 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
   const count = offers.length;
   const top = offers[0];
 
-  // Buzz when a NEW request arrives (count goes up).
+  // Buzz AND chime when a NEW request arrives (count goes up).
   useEffect(() => {
-    if (count > prevCount.current && Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    if (count > prevCount.current) {
+      playChime();
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      }
     }
     prevCount.current = count;
   }, [count]);

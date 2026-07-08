@@ -336,37 +336,39 @@ export class FirestoreBackend implements Backend {
 
   async cancelJob(jobId: string, _by: 'customer' | 'tradie'): Promise<void> {
     await runTransaction(this.db, async (tx) => {
+      // All reads first (Firestore requires reads before writes).
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
       const job = snap.data() as Job;
       if (job.status === 'completed' || job.status === 'cancelled') return;
+      const tSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
+
+      // Then writes.
       tx.update(this.jobRef(jobId), {
         status: 'cancelled',
         'timestamps.cancelledAt': Date.now(),
       });
-      if (job.tradieId) {
-        const t = await tx.get(this.userRef(job.tradieId));
-        if (t.exists() && (t.data() as Tradie).status !== 'offline') {
-          tx.update(this.userRef(job.tradieId), { status: 'available' });
-        }
+      if (tSnap?.exists() && (tSnap.data() as Tradie).status !== 'offline') {
+        tx.update(this.userRef(job.tradieId!), { status: 'available' });
       }
     });
   }
 
   async rateAsCustomer(jobId: string, rating: Rating): Promise<void> {
     await runTransaction(this.db, async (tx) => {
+      // All reads first (Firestore requires reads before writes).
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
       const job = snap.data() as Job;
+      const tSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
+
+      // Then writes.
       tx.update(this.jobRef(jobId), { customerRating: rating });
-      if (job.tradieId) {
-        const tSnap = await tx.get(this.userRef(job.tradieId));
-        if (tSnap.exists()) {
-          const t = tSnap.data() as Tradie;
-          const count = t.ratingCount + 1;
-          const avg = Math.round(((t.ratingAvg * t.ratingCount + rating.stars) / count) * 10) / 10;
-          tx.update(this.userRef(job.tradieId), { ratingAvg: avg, ratingCount: count });
-        }
+      if (job.tradieId && tSnap?.exists()) {
+        const t = tSnap.data() as Tradie;
+        const count = t.ratingCount + 1;
+        const avg = Math.round(((t.ratingAvg * t.ratingCount + rating.stars) / count) * 10) / 10;
+        tx.update(this.userRef(job.tradieId), { ratingAvg: avg, ratingCount: count });
       }
     });
   }

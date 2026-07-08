@@ -44,7 +44,8 @@
         {
           "photosPermission": "QuickieFix lets you attach photos of the issue to a job request."
         }
-      ]
+      ],
+      "expo-audio"
     ]
   }
 }
