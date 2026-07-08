@@ -27,9 +27,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <img
             src="/logo.png"
             alt="QuickieFix"
-            style={{ height: 40, background: '#fff', borderRadius: 8, padding: 4 }}
+            style={{ height: 56, width: '100%', objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 6 }}
           />
-          <div className="brand-sub" style={{ marginLeft: 2 }}>Business Portal</div>
         </div>
 
         {NAV.map((n) => {

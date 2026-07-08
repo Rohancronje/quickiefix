@@ -65,9 +65,9 @@ export function BackOffice() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div className="brand-row">
-          <img src="/logo.png" alt="QuickieFix" style={{ height: 40, background: '#fff', borderRadius: 8, padding: 4 }} />
-          <div className="brand-sub" style={{ marginLeft: 2 }}>Back Office</div>
+        <div className="brand-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+          <img src="/logo.png" alt="QuickieFix" style={{ height: 56, width: '100%', objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 6 }} />
+          <div className="brand-sub" style={{ textAlign: 'center' }}>Back Office</div>
         </div>
         {NAV.map((n) => (
           <div

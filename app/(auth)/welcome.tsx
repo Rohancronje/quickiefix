@@ -115,8 +115,8 @@ function DemoChip({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.navy, padding: spacing.xl, justifyContent: 'space-between' },
   hero: { flex: 1, justifyContent: 'center' },
-  logoRow: { flexDirection: 'row', alignItems: 'center' },
-  logoImg: { height: 66, width: 232, backgroundColor: colors.white, borderRadius: 14 },
+  logoRow: { alignItems: 'stretch' },
+  logoImg: { height: 100, alignSelf: 'stretch', backgroundColor: colors.white, borderRadius: 18 },
   logoMark: {
     width: 48,
     height: 48,
