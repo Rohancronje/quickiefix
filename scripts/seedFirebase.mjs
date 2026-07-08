@@ -32,7 +32,7 @@ const PASSWORD = 'password'; // demo password for every seeded account
 
 const TRADIES = [
   {
-    email: 'electrician@quickiefix.app',
+    email: 'electrician@quickiefix.store',
     firstName: 'Mia', lastName: 'Wallace',
     businessName: 'Bright Spark Electrical',
     primaryTrade: 'electrician', secondaryTrades: ['handyman'],
@@ -40,7 +40,7 @@ const TRADIES = [
     ratingAvg: 4.9, ratingCount: 128, completedJobs: 134, licence: 'EWRB-104882',
   },
   {
-    email: 'plumber@quickiefix.app',
+    email: 'plumber@quickiefix.store',
     firstName: 'Jack', lastName: 'Rivers',
     businessName: 'RiverFlow Plumbing & Gas',
     primaryTrade: 'plumber', secondaryTrades: ['gasfitter'],
@@ -48,7 +48,7 @@ const TRADIES = [
     ratingAvg: 4.7, ratingCount: 86, completedJobs: 92, licence: 'PGDB-55210',
   },
   {
-    email: 'locksmith@quickiefix.app',
+    email: 'locksmith@quickiefix.store',
     firstName: 'Noa', lastName: 'Kingi',
     businessName: 'CityLock Rapid Response',
     primaryTrade: 'locksmith', secondaryTrades: [],
@@ -56,7 +56,7 @@ const TRADIES = [
     ratingAvg: 4.8, ratingCount: 54, completedJobs: 61, licence: null,
   },
   {
-    email: 'handyman@quickiefix.app',
+    email: 'handyman@quickiefix.store',
     firstName: 'Tom', lastName: 'Beck',
     businessName: 'FixIt Handyman Services',
     primaryTrade: 'handyman', secondaryTrades: ['painter', 'appliance_repair'],
@@ -95,7 +95,7 @@ function buildTradieDoc(uid, t) {
 }
 
 const CUSTOMER = {
-  email: 'customer@quickiefix.app',
+  email: 'customer@quickiefix.store',
   firstName: 'Sam',
   lastName: 'Taylor',
   homeAddress: {

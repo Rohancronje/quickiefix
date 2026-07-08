@@ -17,10 +17,10 @@ admin.initializeApp();
 const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 
 // Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
-const PLATFORM_ADMINS = ['admin@quickiefix.app'];
+const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 
 // Must be a VERIFIED sender in your Brevo account.
-const SENDER = { email: 'noreply@quickiefix.app', name: 'QuickieFix' };
+const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
 // Wave-dispatch timing — must mirror WAVE in src/constants.ts.
 const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found

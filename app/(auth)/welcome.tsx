@@ -76,18 +76,18 @@ export default function Welcome() {
           <View style={styles.demoRow}>
             <DemoChip
               label="Customer"
-              loading={busy === 'customer@quickiefix.app'}
-              onPress={() => demoLogin('customer@quickiefix.app')}
+              loading={busy === 'customer@quickiefix.store'}
+              onPress={() => demoLogin('customer@quickiefix.store')}
             />
             <DemoChip
               label="Electrician"
-              loading={busy === 'electrician@quickiefix.app'}
-              onPress={() => demoLogin('electrician@quickiefix.app')}
+              loading={busy === 'electrician@quickiefix.store'}
+              onPress={() => demoLogin('electrician@quickiefix.store')}
             />
             <DemoChip
               label="Plumber"
-              loading={busy === 'plumber@quickiefix.app'}
-              onPress={() => demoLogin('plumber@quickiefix.app')}
+              loading={busy === 'plumber@quickiefix.store'}
+              onPress={() => demoLogin('plumber@quickiefix.store')}
             />
           </View>
         </View>

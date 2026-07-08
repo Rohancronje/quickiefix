@@ -18,7 +18,7 @@ service cloud.firestore {
     // admin emails here as needed. Must match the portal's PLATFORM_ADMINS list.
     function isPlatformAdmin() {
       return request.auth != null &&
-        request.auth.token.email in ['admin@quickiefix.app'];
+        request.auth.token.email in ['admin@quickiefix.store'];
     }
 
     match /users/{userId} {

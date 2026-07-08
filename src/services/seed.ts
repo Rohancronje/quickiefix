@@ -13,7 +13,7 @@ export const seedCustomers: Customer[] = [
   {
     id: 'cust_demo',
     role: 'customer',
-    email: 'customer@quickiefix.app',
+    email: 'customer@quickiefix.store',
     firstName: 'Sam',
     lastName: 'Taylor',
     createdAt: 0,
@@ -28,7 +28,7 @@ export const seedCustomers: Customer[] = [
 export const seedTradies: Tradie[] = [
   mkTradie({
     id: 'trade_electric',
-    email: 'electrician@quickiefix.app',
+    email: 'electrician@quickiefix.store',
     firstName: 'Mia',
     lastName: 'Wallace',
     businessName: 'Bright Spark Electrical',
@@ -44,7 +44,7 @@ export const seedTradies: Tradie[] = [
   }),
   mkTradie({
     id: 'trade_plumb',
-    email: 'plumber@quickiefix.app',
+    email: 'plumber@quickiefix.store',
     firstName: 'Jack',
     lastName: 'Rivers',
     businessName: 'RiverFlow Plumbing & Gas',
@@ -60,7 +60,7 @@ export const seedTradies: Tradie[] = [
   }),
   mkTradie({
     id: 'trade_lock',
-    email: 'locksmith@quickiefix.app',
+    email: 'locksmith@quickiefix.store',
     firstName: 'Noa',
     lastName: 'Kingi',
     businessName: 'CityLock Rapid Response',
@@ -75,7 +75,7 @@ export const seedTradies: Tradie[] = [
   }),
   mkTradie({
     id: 'trade_handy',
-    email: 'handyman@quickiefix.app',
+    email: 'handyman@quickiefix.store',
     firstName: 'Tom',
     lastName: 'Beck',
     businessName: 'FixIt Handyman Services',

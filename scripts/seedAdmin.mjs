@@ -18,7 +18,7 @@ const firebaseConfig = {
   appId: '1:468151741418:web:137fcd2946fc680e5f2093',
 };
 
-const EMAIL = 'admin@quickiefix.app';
+const EMAIL = 'admin@quickiefix.store';
 const PASSWORD = 'QuickieAdmin1';
 
 const auth = getAuth(initializeApp(firebaseConfig));
