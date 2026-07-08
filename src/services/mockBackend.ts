@@ -9,6 +9,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AppUser,
+  Company,
+  CompanyInvite,
   Customer,
   GeoPoint,
   Job,
@@ -36,6 +38,8 @@ interface DB {
   users: Record<string, AppUser>;
   credentials: Record<string, { password: string; userId: string }>;
   jobs: Record<string, Job>;
+  companies: Record<string, Company>;
+  invites: Record<string, CompanyInvite>;
 }
 
 function seedDb(): DB {
@@ -49,7 +53,7 @@ function seedDb(): DB {
     users[t.id] = t;
     credentials[t.email.toLowerCase()] = { password: DEMO_PASSWORD, userId: t.id };
   }
-  return { users, credentials, jobs: {} };
+  return { users, credentials, jobs: {}, companies: {}, invites: {} };
 }
 
 class MockBackend implements Backend {
@@ -66,8 +70,11 @@ class MockBackend implements Backend {
       this.loadPromise = (async () => {
         try {
           const raw = await AsyncStorage.getItem(DB_KEY);
-          if (raw) this.db = JSON.parse(raw) as DB;
-          else await this.persist();
+          if (raw) {
+            // Backfill collections added in later versions.
+            const parsed = JSON.parse(raw) as DB;
+            this.db = { ...parsed, companies: parsed.companies ?? {}, invites: parsed.invites ?? {} };
+          } else await this.persist();
         } catch {
           // Corrupt / unavailable storage: fall back to a fresh seed.
           this.db = seedDb();
@@ -465,6 +472,40 @@ class MockBackend implements Backend {
       offers.push({ job, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
     return offers.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  /* ---------------------------------------------------- company invites -- */
+
+  async getInvite(token: string): Promise<CompanyInvite | null> {
+    await this.ensureLoaded();
+    return this.db.invites?.[token] ?? null;
+  }
+
+  async redeemInvite(token: string, tradieId: string): Promise<Company> {
+    await this.ensureLoaded();
+    const invite = this.db.invites?.[token];
+    if (!invite) throw new Error('This invite is not valid.');
+    const company = this.db.companies?.[invite.companyId];
+    if (!company) throw new Error('That company no longer exists.');
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') {
+      t.companyId = company.id;
+      t.companyName = company.name;
+    }
+    invite.redeemedBy = tradieId;
+    invite.redeemedAt = Date.now();
+    this.commit();
+    return company;
+  }
+
+  async leaveCompany(tradieId: string): Promise<void> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') {
+      delete t.companyId;
+      delete t.companyName;
+      this.commit();
+    }
   }
 
   /* -------------------------------------------------------------- admin -- */

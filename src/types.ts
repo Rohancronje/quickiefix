@@ -76,11 +76,35 @@ export interface Qualification {
   certificateUri?: string;
 }
 
+/** A business that manages multiple tradies through the web portal. */
+export interface Company {
+  id: string;
+  name: string;
+  tradingName?: string;
+  adminUserId: string;
+  adminEmail: string;
+  createdAt: number;
+}
+
+/** An invite that binds a tradie to a company when redeemed. */
+export interface CompanyInvite {
+  token: string;
+  companyId: string;
+  companyName: string;
+  email?: string;
+  createdAt: number;
+  redeemedBy?: string;
+  redeemedAt?: number;
+}
+
 export interface Tradie extends BaseUser {
   role: 'tradie';
   businessName: string;
   tradingName?: string;
   yearsExperience: number;
+  // Set when the tradie is bound to a company via an invite (else sole trader).
+  companyId?: string;
+  companyName?: string;
   businessType?: string;
   nzbn?: string;
   primaryTrade: TradeCategory;

@@ -10,6 +10,8 @@
  */
 import {
   AppUser,
+  Company,
+  CompanyInvite,
   Customer,
   GeoPoint,
   Job,
@@ -116,6 +118,14 @@ export interface Backend {
   /** Live feed of matching, still-searching job offers for a tradie. */
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe;
   subscribeTradieHistory(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
+
+  // ---- Company invites (tradie side) ----
+  /** Preview an invite (to show the company name before joining). */
+  getInvite(token: string): Promise<CompanyInvite | null>;
+  /** Bind a tradie to the invite's company. */
+  redeemInvite(token: string, tradieId: string): Promise<Company>;
+  /** Leave the current company (become a sole trader again). */
+  leaveCompany(tradieId: string): Promise<void>;
 
   // ---- Admin ----
   listTradies(): Promise<Tradie[]>;

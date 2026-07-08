@@ -19,6 +19,7 @@ import {
 import {
   arrayUnion,
   collection,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -33,6 +34,8 @@ import {
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   AppUser,
+  Company,
+  CompanyInvite,
   Customer,
   GeoPoint,
   Job,
@@ -464,6 +467,39 @@ export class FirestoreBackend implements Backend {
       unsubTradie();
       unsubJobs();
     };
+  }
+
+  /* ---------------------------------------------------- company invites -- */
+
+  async getInvite(token: string): Promise<CompanyInvite | null> {
+    const snap = await getDoc(doc(this.db, 'invites', token));
+    return snap.exists() ? (snap.data() as CompanyInvite) : null;
+  }
+
+  async redeemInvite(token: string, tradieId: string): Promise<Company> {
+    const inviteRef = doc(this.db, 'invites', token);
+    return runTransaction(this.db, async (tx) => {
+      const inviteSnap = await tx.get(inviteRef);
+      if (!inviteSnap.exists()) throw new Error('This invite is not valid.');
+      const invite = inviteSnap.data() as CompanyInvite;
+      const companySnap = await tx.get(doc(this.db, 'companies', invite.companyId));
+      if (!companySnap.exists()) throw new Error('That company no longer exists.');
+      const company = companySnap.data() as Company;
+
+      tx.update(this.userRef(tradieId), {
+        companyId: company.id,
+        companyName: company.name,
+      });
+      tx.update(inviteRef, { redeemedBy: tradieId, redeemedAt: Date.now() });
+      return company;
+    });
+  }
+
+  async leaveCompany(tradieId: string): Promise<void> {
+    await updateDoc(this.userRef(tradieId), {
+      companyId: deleteField(),
+      companyName: deleteField(),
+    });
   }
 
   /* -------------------------------------------------------------- admin -- */

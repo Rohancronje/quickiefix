@@ -36,6 +36,32 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // Companies are owned by their admin (created via the web portal).
+    match /companies/{companyId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.adminUserId == request.auth.uid;
+      allow update: if signedIn() && resource.data.adminUserId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Maps a company-admin auth user to their company.
+    match /companyAdmins/{uid} {
+      allow read, create, update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // Invite tokens bind a tradie to a company.
+    match /invites/{token} {
+      allow read: if signedIn();
+      // Only the owning company admin can create invites for their company.
+      allow create: if signedIn()
+        && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.adminUserId == request.auth.uid;
+      // A redeeming tradie (or the owning admin) may update; admin may revoke.
+      allow update: if signedIn();
+      allow delete: if signedIn()
+        && get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid;
+    }
+
     match /jobs/{jobId} {
       allow read: if signedIn();
       // A customer can only create a job under their own id.
