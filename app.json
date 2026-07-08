@@ -47,7 +47,17 @@
           "photosPermission": "QuickieFix lets you attach photos of the issue to a job request."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "newArchEnabled": false,
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},
