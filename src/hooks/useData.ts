@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { backend, JobOffer } from '../services';
-import { FeeLineItem, Job, Property } from '../types';
+import { FeeLineItem, Job, Message, Property } from '../types';
+
+/** Live message thread for a job (oldest first). */
+export function useMessages(jobId: string | undefined): Message[] {
+  const [messages, setMessages] = useState<Message[]>([]);
+  useEffect(() => {
+    if (!jobId) return;
+    return backend.subscribeMessages(jobId, setMessages);
+  }, [jobId]);
+  return messages;
+}
 
 /** Properties a landlord owns (live). */
 export function useLandlordProperties(landlordId: string | undefined): Property[] {

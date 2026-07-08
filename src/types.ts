@@ -315,6 +315,17 @@ export interface FeeLineItem {
   createdAt: number;
 }
 
+/** An in-app message on a job thread. Text is contact-masked before storage (§7). */
+export interface Message {
+  id: string;
+  jobId: string;
+  from: 'customer' | 'tradie';
+  senderId: string;
+  senderName: string;
+  text: string;
+  at: number;
+}
+
 /** A complaint raised by a customer about a job/tradie, for admin handling. */
 export interface Complaint {
   id: string;

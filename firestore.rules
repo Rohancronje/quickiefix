@@ -124,6 +124,26 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // In-app job messages (§7). Only the job's customer or assigned tradie (and
+    // platform admins) can read/post. Text is contact-masked client-side on send.
+    match /messages/{id} {
+      function jobData(jid) {
+        return get(/databases/$(database)/documents/jobs/$(jid)).data;
+      }
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        jobData(resource.data.jobId).customerId == request.auth.uid ||
+        jobData(resource.data.jobId).tradieId == request.auth.uid
+      );
+      allow create: if signedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && (
+          jobData(request.resource.data.jobId).customerId == request.auth.uid ||
+          jobData(request.resource.data.jobId).tradieId == request.auth.uid
+        );
+      allow update, delete: if false;
+    }
+
     match /jobs/{jobId} {
       allow read: if signedIn();
       // A customer can only create a job under their own id.

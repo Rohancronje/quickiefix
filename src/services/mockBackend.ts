@@ -16,6 +16,7 @@ import {
   FeeLineItem,
   GeoPoint,
   Job,
+  Message,
   Property,
   RateCard,
   Rating,
@@ -25,6 +26,7 @@ import {
 import { FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import { uid } from '../lib/id';
 import {
@@ -51,6 +53,7 @@ interface DB {
   complaints: Record<string, Complaint>;
   fees: Record<string, FeeLineItem>;
   properties: Record<string, Property>;
+  messages: Record<string, Message>;
 }
 
 function seedDb(): DB {
@@ -73,6 +76,7 @@ function seedDb(): DB {
     complaints: {},
     fees: {},
     properties: {},
+    messages: {},
   };
 }
 
@@ -100,6 +104,7 @@ class MockBackend implements Backend {
               complaints: parsed.complaints ?? {},
               fees: parsed.fees ?? {},
               properties: parsed.properties ?? {},
+              messages: parsed.messages ?? {},
             };
           } else await this.persist();
         } catch {
@@ -574,6 +579,37 @@ class MockBackend implements Backend {
 
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe {
     return this.subscribe(() => this.matchOffers(tradieId), cb);
+  }
+
+  async sendMessage(
+    jobId: string,
+    from: { role: 'customer' | 'tradie'; id: string; name: string },
+    text: string,
+  ): Promise<void> {
+    await this.ensureLoaded();
+    const clean = maskContactInfo(text.trim());
+    if (!clean) return;
+    const id = uid('msg_');
+    this.db.messages[id] = {
+      id,
+      jobId,
+      from: from.role,
+      senderId: from.id,
+      senderName: from.name,
+      text: clean,
+      at: Date.now(),
+    };
+    this.commit();
+  }
+
+  subscribeMessages(jobId: string, cb: (messages: Message[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.messages)
+          .filter((m) => m.jobId === jobId)
+          .sort((a, b) => a.at - b.at),
+      cb,
+    );
   }
 
   /**

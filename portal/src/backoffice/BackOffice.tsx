@@ -35,7 +35,8 @@ type Tab =
   | 'jobs'
   | 'customers'
   | 'billing'
-  | 'complaints';
+  | 'complaints'
+  | 'metrics';
 
 const NAV: { key: Tab; label: string; ico: string }[] = [
   { key: 'overview', label: 'Overview', ico: '📊' },
@@ -46,6 +47,7 @@ const NAV: { key: Tab; label: string; ico: string }[] = [
   { key: 'customers', label: 'Customers', ico: '👥' },
   { key: 'billing', label: 'Billing', ico: '💳' },
   { key: 'complaints', label: 'Complaints', ico: '⚠️' },
+  { key: 'metrics', label: 'Metrics', ico: '📈' },
 ];
 
 const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -188,8 +190,10 @@ export function BackOffice() {
             <Customers customers={customers} jobs={jobs} />
           ) : tab === 'billing' ? (
             <Billing fees={fees} />
-          ) : (
+          ) : tab === 'complaints' ? (
             <Complaints complaints={complaints} onResolve={resolve} />
+          ) : (
+            <Metrics jobs={jobs} tradies={tradies} />
           )}
         </div>
       </div>
@@ -827,6 +831,123 @@ function Complaints({
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------- Metrics -- */
+
+/** Median of a list of numbers. Returns undefined for an empty array. */
+function median(nums: number[]): number | undefined {
+  if (nums.length === 0) return undefined;
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function Metrics({ jobs, tradies }: { jobs: Job[]; tradies: Tradie[] }) {
+  void tradies; // gates are computed purely from the jobs array
+
+  // 1. Median time-to-accept (acceptedAt - searchingAt), minutes; green < 5.
+  const acceptDurations = jobs
+    .filter((j) => j.timestamps.acceptedAt != null && j.timestamps.searchingAt != null)
+    .map((j) => (j.timestamps.acceptedAt as number) - (j.timestamps.searchingAt as number))
+    .filter((ms) => Number.isFinite(ms) && ms >= 0);
+  const medAcceptMs = median(acceptDurations);
+  const medAcceptMin = medAcceptMs != null ? medAcceptMs / 60000 : undefined;
+
+  // 2. Median time-to-arrival (onSiteAt - acceptedAt), minutes; green < 45.
+  const arrivalDurations = jobs
+    .filter((j) => j.timestamps.onSiteAt != null && j.timestamps.acceptedAt != null)
+    .map((j) => (j.timestamps.onSiteAt as number) - (j.timestamps.acceptedAt as number))
+    .filter((ms) => Number.isFinite(ms) && ms >= 0);
+  const medArrivalMs = median(arrivalDurations);
+  const medArrivalMin = medArrivalMs != null ? medArrivalMs / 60000 : undefined;
+
+  // 3. Jobs per tradie per week; green >= 1.5.
+  const completed = jobs.filter((j) => j.status === 'completed');
+  const distinctTradies = new Set(
+    completed.map((j) => j.tradieId).filter((id): id is string => id != null),
+  );
+  const completedTimes = completed
+    .map((j) => j.timestamps.completedAt)
+    .filter((t): t is number => t != null);
+  let jobsPerTradieWeek: number | undefined;
+  if (completed.length > 0 && distinctTradies.size > 0 && completedTimes.length > 0) {
+    const span = Math.max(...completedTimes) - Math.min(...completedTimes);
+    const weeks = Math.max(1, span / WEEK_MS);
+    jobsPerTradieWeek = completed.length / distinctTradies.size / weeks;
+  }
+
+  // 4. No-tradie-found rate among emergency jobs; green < 10%.
+  const emergencyJobs = jobs.filter((j) => j.isEmergency === true);
+  const emergencyNoTradie = emergencyJobs.filter((j) => j.status === 'no_tradie_found').length;
+  const noTradieRate =
+    emergencyJobs.length > 0 ? (emergencyNoTradie / emergencyJobs.length) * 100 : undefined;
+
+  type Gate = {
+    label: string;
+    value: string;
+    target: string;
+    pass: boolean | undefined; // undefined = no data
+  };
+
+  const gates: Gate[] = [
+    {
+      label: 'Median time-to-accept',
+      value: medAcceptMin != null ? `${medAcceptMin.toFixed(1)} min` : '—',
+      target: '< 5 min',
+      pass: medAcceptMin != null ? medAcceptMin < 5 : undefined,
+    },
+    {
+      label: 'Median time-to-arrival',
+      value: medArrivalMin != null ? `${medArrivalMin.toFixed(0)} min` : '—',
+      target: '< 45 min',
+      pass: medArrivalMin != null ? medArrivalMin < 45 : undefined,
+    },
+    {
+      label: 'Jobs per tradie / week',
+      value: jobsPerTradieWeek != null ? jobsPerTradieWeek.toFixed(2) : '—',
+      target: '≥ 1.5',
+      pass: jobsPerTradieWeek != null ? jobsPerTradieWeek >= 1.5 : undefined,
+    },
+    {
+      label: 'No-tradie-found (emergency)',
+      value: noTradieRate != null ? `${noTradieRate.toFixed(1)}%` : '—',
+      target: '< 10%',
+      pass: noTradieRate != null ? noTradieRate < 10 : undefined,
+    },
+  ];
+
+  const badge = (pass: boolean | undefined) => {
+    if (pass === undefined) return { cls: 'badge-gray', text: 'no data' };
+    return pass ? { cls: 'badge-green', text: 'PASS' } : { cls: 'badge-amber', text: 'watch' };
+  };
+
+  return (
+    <div className="grid" style={{ gap: 16 }}>
+      <div className="grid stat-grid">
+        {gates.map((g) => {
+          const b = badge(g.pass);
+          return (
+            <div className="stat" key={g.label}>
+              <div className="between" style={{ marginBottom: 6 }}>
+                <span className={`badge ${b.cls}`}>{b.text}</span>
+              </div>
+              <div className="v">{g.value}</div>
+              <div className="l">{g.label}</div>
+              <div className="faint" style={{ fontSize: 12, marginTop: 4 }}>
+                Target {g.target}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="faint" style={{ fontSize: 13 }}>
+        Gates are computed from live job data; the pilot must sustain these for 4+ weeks (Spec §8).
+      </div>
     </div>
   );
 }

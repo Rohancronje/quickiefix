@@ -131,11 +131,17 @@ export interface Job {
   status: string;
   tradieId?: string;
   tradieName?: string;
+  isEmergency?: boolean;
   timestamps: {
     createdAt: number;
+    searchingAt?: number;
     acceptedAt?: number;
+    confirmedAt?: number;
+    noTradieFoundAt?: number;
+    travellingAt?: number;
     onSiteAt?: number;
     completedAt?: number;
+    cancelledAt?: number;
   };
   customerRating?: Rating;
 }

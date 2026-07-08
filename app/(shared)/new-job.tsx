@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -279,6 +280,26 @@ export default function NewJob() {
                   {isEmergency && <Txt style={{ color: colors.white, fontWeight: '800' }}>✓</Txt>}
                 </View>
               </Pressable>
+
+              {/* Danger-to-life safety screen: 111 first (Pilot Spec §7). */}
+              {isEmergency && (
+                <View style={styles.safety}>
+                  <Txt variant="label" color={colors.white}>
+                    ⚠️ Is anyone in danger?
+                  </Txt>
+                  <Txt variant="caption" color={colors.onNavyMuted}>
+                    QuickieFix is not an emergency service. If there's a fire, gas leak with a smell
+                    of gas, risk of electrocution, or any danger to life — call 111 first.
+                  </Txt>
+                  <Button
+                    title="Call 111 now"
+                    icon="📞"
+                    kind="danger"
+                    small
+                    onPress={() => Linking.openURL('tel:111')}
+                  />
+                </View>
+              )}
             </Step>
           )}
 
@@ -371,6 +392,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxOn: { backgroundColor: colors.danger, borderColor: colors.danger },
+  safety: {
+    backgroundColor: colors.navy,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: '600' },
   footer: {
     flexDirection: 'row',

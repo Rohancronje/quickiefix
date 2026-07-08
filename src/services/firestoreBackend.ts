@@ -44,6 +44,7 @@ import {
   Job,
   JobStatus,
   Location,
+  Message,
   Property,
   RateCard,
   Rating,
@@ -54,6 +55,7 @@ import {
 import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import {
   Backend,
@@ -536,6 +538,34 @@ export class FirestoreBackend implements Backend {
         .map((d) => d.data() as FeeLineItem)
         .sort((a, b) => b.createdAt - a.createdAt);
       cb(fees);
+    });
+  }
+
+  async sendMessage(
+    jobId: string,
+    from: { role: 'customer' | 'tradie'; id: string; name: string },
+    text: string,
+  ): Promise<void> {
+    const clean = maskContactInfo(text.trim());
+    if (!clean) return;
+    const ref = doc(collection(this.db, 'messages'));
+    const msg: Message = {
+      id: ref.id,
+      jobId,
+      from: from.role,
+      senderId: from.id,
+      senderName: from.name,
+      text: clean,
+      at: Date.now(),
+    };
+    await setDoc(ref, msg);
+  }
+
+  subscribeMessages(jobId: string, cb: (messages: Message[]) => void): Unsubscribe {
+    const q = query(collection(this.db, 'messages'), where('jobId', '==', jobId));
+    return onSnapshot(q, (snap) => {
+      const msgs = snap.docs.map((d) => d.data() as Message).sort((a, b) => a.at - b.at);
+      cb(msgs);
     });
   }
 

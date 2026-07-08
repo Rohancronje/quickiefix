@@ -17,6 +17,7 @@ import {
   GeoPoint,
   Job,
   Location,
+  Message,
   Property,
   Qualification,
   RateCard,
@@ -131,6 +132,16 @@ export interface Backend {
   subscribeTradieHistory(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
   /** Live platform-fee ledger for a tradie (drives the in-app money tally). */
   subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe;
+
+  // ---- In-app messaging (contact-masked, §7) ----
+  /** Send a message on a job thread. `text` is contact-masked before storage. */
+  sendMessage(
+    jobId: string,
+    from: { role: 'customer' | 'tradie'; id: string; name: string },
+    text: string,
+  ): Promise<void>;
+  /** Live message thread for a job, oldest first. */
+  subscribeMessages(jobId: string, cb: (messages: Message[]) => void): Unsubscribe;
 
   // ---- Company tags (§6) ----
   /** Company/platform issues a seat; returns the created tag (with its code). */

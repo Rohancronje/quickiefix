@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobTimeline } from '../../../src/components/JobTimeline';
+import { MessageThread } from '../../../src/components/MessageThread';
 import { StatusPill } from '../../../src/components/JobCard';
 import { RatingForm } from '../../../src/components/RatingForm';
 import { Screen } from '../../../src/components/Screen';
@@ -218,6 +219,14 @@ export default function TrackJob() {
             <Txt style={{ fontSize: 36 }}>🚫</Txt>
             <Txt variant="heading">Job cancelled</Txt>
           </Card>
+        )}
+
+        {/* Messaging (contact-masked) — once a tradie is engaged */}
+        {['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
+          <MessageThread
+            jobId={job.id}
+            from={{ role: 'customer', id: job.customerId, name: job.customerName }}
+          />
         )}
 
         {/* Timeline */}
