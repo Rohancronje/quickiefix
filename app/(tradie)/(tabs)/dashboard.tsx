@@ -41,6 +41,9 @@ export default function TradieDashboard() {
   const isAvailable = tradie.status === 'available';
   const onActiveJob = tradie.status === 'job_accepted' || tradie.status === 'on_site';
   const statusMeta = tradieStatusMeta[tradie.status];
+  // Independent tradies need a rate card so customers see pricing on acceptance;
+  // company-tagged tradies inherit the company's rates. Prompt until it's set.
+  const profileIncomplete = !tradie.companyId && !tradie.rateCard;
 
   const toggleAvailability = async (value: boolean) => {
     if (value) {
@@ -86,6 +89,24 @@ export default function TradieDashboard() {
           </Txt>
         </View>
       </View>
+
+      {/* First-run onboarding: finish your profile */}
+      {profileIncomplete && (
+        <Card style={styles.onboard}>
+          <Txt variant="heading" color={colors.white}>
+            👋 Welcome, {tradie.firstName} — finish your profile
+          </Txt>
+          <Txt variant="caption" color={colors.onNavyMuted}>
+            Add your rate card so customers see your pricing the moment you accept a job. Takes a minute.
+          </Txt>
+          <Button
+            title="Complete my profile"
+            small
+            fullWidth={false}
+            onPress={() => router.push('/profile')}
+          />
+        </Card>
+      )}
 
       {/* Pending approval */}
       {!isApproved && (
@@ -406,4 +427,5 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   money: { backgroundColor: colors.navy, gap: 4 },
+  onboard: { backgroundColor: colors.navy, gap: spacing.sm, alignItems: 'flex-start' },
 });

@@ -8,7 +8,7 @@ export default function CustomerTabs() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.navy,
-        tabBarInactiveTintColor: colors.textFaint,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
