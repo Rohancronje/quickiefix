@@ -36,7 +36,7 @@ function monthKeyOf(ts) {
 
 // Latest installable Android build. Update when you cut a new APK.
 const APP_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/9ABmgBQRuYl8t_JZNr4jNxwp2i6qgGg_m2-xzGQxN2s.apk';
+  'https://expo.dev/artifacts/eas/DiVsYjnUhdv3B_i6dw0qCIr1Y7aFQkouUSyjWTT9Prw.apk';
 
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
