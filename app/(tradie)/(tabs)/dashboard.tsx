@@ -138,7 +138,7 @@ export default function TradieDashboard() {
       {isApproved && !onActiveJob && (
         <View style={{ gap: spacing.sm }}>
           <View style={styles.offersHeader}>
-            <Txt variant="label">Incoming jobs</Txt>
+            <Txt variant="label">Direct requests</Txt>
             {offers.length > 0 && (
               <View style={styles.countPill}>
                 <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
@@ -148,22 +148,27 @@ export default function TradieDashboard() {
             )}
           </View>
 
-          {!isAvailable ? (
-            <Card>
-              <EmptyState emoji="🌙" title="You’re offline" subtitle="Go online to start receiving job requests." />
-            </Card>
-          ) : offers.length === 0 ? (
-            <Card>
-              <EmptyState
-                emoji="📭"
-                title="No jobs right now"
-                subtitle="We’ll notify you the moment a matching job comes in."
-              />
-            </Card>
-          ) : (
+          {/* Directed requests show even when offline — a customer chose you. */}
+          {offers.length > 0 ? (
             offers.map((offer) => (
               <OfferCard key={offer.job.id} offer={offer} onAccept={() => accept(offer)} onDecline={() => decline(offer)} />
             ))
+          ) : !isAvailable ? (
+            <Card>
+              <EmptyState
+                emoji="🌙"
+                title="You’re offline"
+                subtitle="Go online so customers can find and request you."
+              />
+            </Card>
+          ) : (
+            <Card>
+              <EmptyState
+                emoji="📭"
+                title="No requests right now"
+                subtitle="When a customer picks you, their request appears here instantly."
+              />
+            </Card>
           )}
         </View>
       )}
@@ -197,6 +202,11 @@ function OfferCard({
   const meta = tradeMeta(offer.job.trade);
   return (
     <Card style={styles.offer}>
+      <View style={styles.requestedBanner}>
+        <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+          📨 {offer.job.customerName} requested you
+        </Txt>
+      </View>
       <View style={styles.offerTop}>
         <View style={styles.offerIcon}>
           <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
@@ -266,6 +276,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   offer: { gap: spacing.sm, borderWidth: 1, borderColor: colors.line },
+  requestedBanner: {
+    backgroundColor: colors.infoSoft,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
   offerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   offerIcon: {
     width: 44,

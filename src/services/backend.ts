@@ -54,11 +54,20 @@ export interface NewJobInput {
   location: Location;
   urgency: UrgencyType;
   scheduledFor?: number;
+  /** The tradie the customer chose to send this request to. */
+  requestedTradieId: string;
 }
 
 /** A job offer surfaced to a tradie, annotated with distance/eta. */
 export interface JobOffer {
   job: Job;
+  distanceKm: number;
+  etaMinutes: number;
+}
+
+/** An available tradie the customer can choose from, with distance/eta. */
+export interface TradieCandidate {
+  tradie: Tradie;
   distanceKm: number;
   etaMinutes: number;
 }
@@ -82,7 +91,12 @@ export interface Backend {
   setServiceRadius(id: string, km: number): Promise<void>;
 
   // ---- Jobs (customer) ----
+  /** Available, approved tradies matching a trade, nearest first, for the
+   *  customer to choose from. */
+  getAvailableTradies(trade: TradeCategory, location: Location): Promise<TradieCandidate[]>;
   createJob(customer: Customer, input: NewJobInput): Promise<Job>;
+  /** Redirect a still-searching job to a different tradie (after a decline). */
+  reassignJob(jobId: string, tradieId: string): Promise<void>;
   cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void>;
   rateAsCustomer(jobId: string, rating: Rating): Promise<void>;
 

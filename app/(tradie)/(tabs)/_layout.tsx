@@ -1,44 +1,59 @@
 import { Tabs } from 'expo-router';
+import { View } from 'react-native';
+import { RequestAlert } from '../../../src/components/RequestAlert';
 import { TabBarIcon } from '../../../src/components/TabBarIcon';
+import { useTradie } from '../../../src/context/AuthContext';
+import { useJobOffers } from '../../../src/hooks/useData';
 import { colors, font } from '../../../src/theme';
 
 export default function TradieTabs() {
+  const tradie = useTradie();
+  const offers = useJobOffers(tradie.id);
+  const pending = offers.length;
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.navy,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.line,
-          height: 88,
-          paddingTop: 8,
-        },
-        tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.semibold },
-      }}
-    >
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: 'Jobs',
-          tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧰" focused={focused} />,
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colors.navy,
+          tabBarInactiveTintColor: colors.textFaint,
+          tabBarStyle: {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.line,
+            height: 88,
+            paddingTop: 8,
+          },
+          tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.semibold },
         }}
-      />
-      <Tabs.Screen
-        name="timesheets"
-        options={{
-          title: 'Timesheets',
-          tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧾" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabBarIcon emoji="👤" focused={focused} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'Jobs',
+            tabBarBadge: pending > 0 ? pending : undefined,
+            tabBarBadgeStyle: { backgroundColor: colors.danger, fontSize: 11 },
+            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧰" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="timesheets"
+          options={{
+            title: 'Timesheets',
+            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧾" focused={focused} />,
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: 'Profile',
+            tabBarIcon: ({ focused }) => <TabBarIcon emoji="👤" focused={focused} />,
+          }}
+        />
+      </Tabs>
+
+      {/* Loud, global in-app alert for incoming direct requests */}
+      <RequestAlert offers={offers} />
+    </View>
   );
 }

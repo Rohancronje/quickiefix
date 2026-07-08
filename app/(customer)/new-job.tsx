@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
+import { TradieSelectList } from '../../src/components/TradieSelectList';
 import { TRADES } from '../../src/constants';
 import { useCustomer } from '../../src/context/AuthContext';
 import { getCurrentLocation } from '../../src/lib/location';
@@ -18,7 +19,7 @@ import { colors, font, radius, spacing } from '../../src/theme';
 import { Location, TradeCategory, UrgencyType } from '../../src/types';
 
 // Photo attachments are a planned future release (needs Firebase Storage).
-const STEPS = ['Service', 'Details', 'Location', 'When', 'Review'];
+const STEPS = ['Service', 'Details', 'Location', 'When', 'Choose tradie'];
 
 export default function NewJob() {
   const router = useRouter();
@@ -33,8 +34,15 @@ export default function NewJob() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyType>('now');
+  const [selectedTradieId, setSelectedTradieId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const jobLocation: Location = {
+    address: address.trim(),
+    latitude: coords?.latitude,
+    longitude: coords?.longitude,
+  };
 
   const canNext = (): boolean => {
     switch (step) {
@@ -44,6 +52,8 @@ export default function NewJob() {
         return description.trim().length >= 5;
       case 2:
         return address.trim().length > 0;
+      case 4:
+        return !!selectedTradieId;
       default:
         return true;
     }
@@ -65,19 +75,16 @@ export default function NewJob() {
 
   const submit = async () => {
     setError(null);
-    const location: Location = {
-      address: address.trim(),
-      latitude: coords?.latitude,
-      longitude: coords?.longitude,
-    };
+    if (!selectedTradieId) return;
     try {
       setSubmitting(true);
       const job = await backend.createJob(customer, {
         trade: trade!,
         description: description.trim(),
         photos: [],
-        location,
+        location: jobLocation,
         urgency,
+        requestedTradieId: selectedTradieId,
       });
       router.replace({ pathname: '/track/[id]', params: { id: job.id } });
     } catch (e) {
@@ -206,11 +213,16 @@ export default function NewJob() {
           )}
 
           {step === 4 && (
-            <Step title="Review your request">
-              <ReviewRow label="Service" value={TRADES.find((t) => t.key === trade)?.label ?? '—'} />
-              <ReviewRow label="Description" value={description} />
-              <ReviewRow label="Location" value={address || '—'} />
-              <ReviewRow label="When" value={urgency === 'now' ? 'Help now' : 'Scheduled'} />
+            <Step
+              title="Choose your tradie"
+              subtitle="These verified pros are available now. Pick who you'd like to send your request to."
+            >
+              <TradieSelectList
+                trade={trade}
+                location={jobLocation}
+                selectedId={selectedTradieId}
+                onSelect={setSelectedTradieId}
+              />
             </Step>
           )}
 
@@ -219,8 +231,8 @@ export default function NewJob() {
 
         <View style={styles.footer}>
           <Button
-            title={step === STEPS.length - 1 ? 'Submit request' : 'Continue'}
-            icon={step === STEPS.length - 1 ? '🚀' : undefined}
+            title={step === STEPS.length - 1 ? 'Send request' : 'Continue'}
+            icon={step === STEPS.length - 1 ? '📨' : undefined}
             disabled={!canNext()}
             loading={submitting}
             onPress={next}
@@ -255,19 +267,6 @@ function Step({
   );
 }
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.reviewRow}>
-      <Txt variant="caption" color={colors.textMuted}>
-        {label}
-      </Txt>
-      <Txt variant="body" style={{ flex: 1, textAlign: 'right' }} numberOfLines={3}>
-        {value}
-      </Txt>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -294,14 +293,6 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   optionActive: { borderColor: colors.amber, backgroundColor: colors.warningSoft },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: '600' },
   footer: {
     flexDirection: 'row',

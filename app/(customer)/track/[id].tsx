@@ -20,7 +20,9 @@ export default function TrackJob() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const job = useJob(id);
-  const tradieUser = useUser(job?.tradieId);
+  // While waiting we show the tradie the customer chose (requestedTradieId);
+  // once accepted it's the same tradie under tradieId.
+  const tradieUser = useUser(job?.tradieId ?? job?.requestedTradieId ?? undefined);
   const tradie = tradieUser?.role === 'tradie' ? (tradieUser as Tradie) : null;
 
   if (job === undefined) {
@@ -40,6 +42,11 @@ export default function TrackJob() {
   }
 
   const meta = tradeMeta(job.trade);
+  const declined =
+    job.status === 'searching' &&
+    !!job.requestedTradieId &&
+    job.declinedBy.includes(job.requestedTradieId);
+  const waiting = job.status === 'searching' && !declined;
 
   const cancel = () =>
     Alert.alert('Cancel this job?', 'The tradie will be notified.', [
@@ -71,26 +78,50 @@ export default function TrackJob() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Searching hero */}
-        {job.status === 'searching' && (
+        {/* Waiting on the chosen tradie */}
+        {waiting && (
           <Card style={styles.searchHero}>
             <ActivityIndicator color={colors.amber} size="large" />
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
-              Finding your tradie…
+              Request sent!
             </Txt>
             <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
-              We're notifying nearby verified {meta.label.toLowerCase()}s. Hang tight — this
-              usually only takes a moment.
+              Please be patient while {tradie?.businessName ?? 'your tradie'} reviews your
+              request. We'll let you know the moment they accept.
             </Txt>
           </Card>
         )}
 
-        {/* Assigned tradie */}
-        {tradie && job.status !== 'completed' && job.status !== 'cancelled' && (
+        {/* Chosen tradie declined — let the customer pick another */}
+        {declined && (
+          <Card style={[styles.searchHero, { backgroundColor: colors.navyCard }]}>
+            <Txt style={{ fontSize: 34 }}>😕</Txt>
+            <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
+              {tradie?.businessName ?? 'That tradie'} can't take this right now
+            </Txt>
+            <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
+              No worries — choose another available tradie for the same job.
+            </Txt>
+            <Button
+              title="Choose another tradie"
+              onPress={() => router.push({ pathname: '/reassign/[id]', params: { id: job.id } })}
+            />
+          </Card>
+        )}
+
+        {/* Assigned / requested tradie profile */}
+        {tradie && job.status !== 'completed' && job.status !== 'cancelled' && !declined && (
           <View style={{ gap: spacing.sm }}>
-            {job.status !== 'on_site' && tradie.baseLocation && job.location.latitude != null && (
-              <EtaBanner tradie={tradie} job={job} />
+            {waiting && (
+              <View style={styles.etaBanner}>
+                <Txt variant="label" color={colors.blue}>
+                  📨 Requested · {tradie.businessName}
+                </Txt>
+              </View>
             )}
+            {(job.status === 'accepted' || job.status === 'travelling') &&
+              tradie.baseLocation &&
+              job.location.latitude != null && <EtaBanner tradie={tradie} job={job} />}
             {job.status === 'on_site' && (
               <View style={[styles.etaBanner, { backgroundColor: colors.successSoft }]}>
                 <Txt variant="label" color={colors.success}>

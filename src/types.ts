@@ -132,7 +132,11 @@ export interface Job {
   status: JobStatus;
   timestamps: JobTimestamps;
 
-  // Assigned tradie (set on acceptance)
+  // The specific tradie the customer directed this request to (chosen from the
+  // list of available tradies). Set at creation; the request waits on them.
+  requestedTradieId?: string;
+
+  // Assigned tradie (set on acceptance — equals requestedTradieId once accepted)
   tradieId?: string;
   tradieName?: string;
 

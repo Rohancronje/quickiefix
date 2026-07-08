@@ -37,8 +37,10 @@ import {
   GeoPoint,
   Job,
   JobStatus,
+  Location,
   Rating,
   Tradie,
+  TradeCategory,
   TradieStatus,
 } from '../types';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
@@ -47,6 +49,7 @@ import {
   CustomerRegistration,
   JobOffer,
   NewJobInput,
+  TradieCandidate,
   TradieRegistration,
   Unsubscribe,
 } from './backend';
@@ -197,10 +200,42 @@ export class FirestoreBackend implements Backend {
       scheduledFor: input.scheduledFor,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
+      requestedTradieId: input.requestedTradieId,
       declinedBy: [],
     };
     await setDoc(jobRef, job);
     return job;
+  }
+
+  async getAvailableTradies(
+    trade: TradeCategory,
+    location: Location,
+  ): Promise<TradieCandidate[]> {
+    // Query available tradies, then filter by trade/approval client-side to
+    // avoid a composite index.
+    const snap = await getDocs(
+      query(collection(this.db, 'users'), where('status', '==', 'available')),
+    );
+    const candidates: TradieCandidate[] = [];
+    for (const d of snap.docs) {
+      const u = d.data() as AppUser;
+      if (u.role !== 'tradie' || u.approval !== 'approved') continue;
+      const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+      if (!trades.has(trade)) continue;
+      let km = 0;
+      if (u.baseLocation && location.latitude != null && location.longitude != null) {
+        km = distanceKm(u.baseLocation, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      }
+      candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+    }
+    return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  async reassignJob(jobId: string, tradieId: string): Promise<void> {
+    await updateDoc(this.jobRef(jobId), { requestedTradieId: tradieId });
   }
 
   /** Upload local photo URIs to Storage and return their download URLs. */
@@ -380,21 +415,19 @@ export class FirestoreBackend implements Backend {
   }
 
   /**
-   * Dispatch feed. Keeps the latest searching jobs and the latest tradie doc
-   * in sync via two listeners, recomputing eligibility whenever either changes.
+   * Directed dispatch feed. Live query of still-searching jobs the customer
+   * sent directly to this tradie (requestedTradieId). Recomputes distance
+   * against the tradie's current location.
    */
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe {
     let tradie: Tradie | null = null;
-    let searching: Job[] = [];
+    let requested: Job[] = [];
 
     const emit = () => {
-      if (!tradie || tradie.approval !== 'approved' || tradie.status !== 'available') {
-        return cb([]);
-      }
-      const trades = new Set([tradie.primaryTrade, ...tradie.secondaryTrades]);
+      if (!tradie || tradie.approval !== 'approved') return cb([]);
       const offers: JobOffer[] = [];
-      for (const job of searching) {
-        if (!trades.has(job.trade)) continue;
+      for (const job of requested) {
+        if (job.status !== 'searching') continue;
         if (job.declinedBy.includes(tradieId)) continue;
         let km = 0;
         if (
@@ -406,7 +439,6 @@ export class FirestoreBackend implements Backend {
             latitude: job.location.latitude,
             longitude: job.location.longitude,
           });
-          if (km > tradie.serviceRadiusKm) continue;
         }
         offers.push({ job, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
       }
@@ -419,9 +451,9 @@ export class FirestoreBackend implements Backend {
       emit();
     });
     const unsubJobs = onSnapshot(
-      query(collection(this.db, 'jobs'), where('status', '==', 'searching')),
+      query(collection(this.db, 'jobs'), where('requestedTradieId', '==', tradieId)),
       (snap) => {
-        searching = snap.docs.map((d) => d.data() as Job);
+        requested = snap.docs.map((d) => d.data() as Job);
         emit();
       },
     );

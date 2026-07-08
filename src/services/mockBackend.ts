@@ -23,6 +23,7 @@ import {
   CustomerRegistration,
   JobOffer,
   NewJobInput,
+  TradieCandidate,
   TradieRegistration,
   Unsubscribe,
 } from './backend';
@@ -250,11 +251,42 @@ class MockBackend implements Backend {
       scheduledFor: input.scheduledFor,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
+      requestedTradieId: input.requestedTradieId,
       declinedBy: [],
     };
     this.db.jobs[job.id] = job;
     this.commit();
     return job;
+  }
+
+  async getAvailableTradies(
+    trade: NewJobInput['trade'],
+    location: Job['location'],
+  ): Promise<TradieCandidate[]> {
+    await this.ensureLoaded();
+    const candidates: TradieCandidate[] = [];
+    for (const u of Object.values(this.db.users)) {
+      if (u.role !== 'tradie') continue;
+      if (u.approval !== 'approved' || u.status !== 'available') continue;
+      const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+      if (!trades.has(trade)) continue;
+      let km = 0;
+      if (u.baseLocation && location.latitude != null && location.longitude != null) {
+        km = distanceKm(u.baseLocation, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      }
+      candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+    }
+    return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  async reassignJob(jobId: string, tradieId: string): Promise<void> {
+    await this.transitionJob(jobId, (job) => {
+      if (job.status !== 'searching') return;
+      job.requestedTradieId = tradieId;
+    });
   }
 
   async acceptJob(jobId: string, tradieId: string): Promise<Job> {
@@ -403,21 +435,20 @@ class MockBackend implements Backend {
   }
 
   /**
-   * The dispatch engine. Returns still-searching jobs this tradie is eligible
-   * for: correct trade, not previously declined, within service radius, and
-   * only while the tradie is approved + available. Sorted nearest-first.
+   * Directed dispatch. Returns still-searching jobs the customer sent directly
+   * to this tradie (requestedTradieId), that they haven't declined. Shown to an
+   * approved tradie regardless of their availability toggle, since a customer
+   * is actively waiting on them. Sorted nearest-first.
    */
   private matchOffers(tradieId: string): JobOffer[] {
     const tradie = this.db.users[tradieId];
     if (!tradie || tradie.role !== 'tradie') return [];
-    if (tradie.approval !== 'approved' || tradie.status !== 'available') return [];
+    if (tradie.approval !== 'approved') return [];
 
-    const trades = new Set([tradie.primaryTrade, ...tradie.secondaryTrades]);
     const offers: JobOffer[] = [];
-
     for (const job of Object.values(this.db.jobs)) {
       if (job.status !== 'searching') continue;
-      if (!trades.has(job.trade)) continue;
+      if (job.requestedTradieId !== tradieId) continue;
       if (job.declinedBy.includes(tradieId)) continue;
 
       let km = 0;
@@ -430,7 +461,6 @@ class MockBackend implements Backend {
           latitude: job.location.latitude,
           longitude: job.location.longitude,
         });
-        if (km > tradie.serviceRadiusKm) continue;
       }
       offers.push({ job, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
