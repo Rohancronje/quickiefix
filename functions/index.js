@@ -17,6 +17,10 @@ const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 // domain). Change this to your verified address.
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
+// Latest installable Android build. Update this when you cut a new APK.
+const APP_DOWNLOAD_URL =
+  'https://expo.dev/artifacts/eas/SIXGT4M-JK1F9HCvHL9vRZfY5kYN7bjI_s960W2g_oY.apk';
+
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
   <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1220">
@@ -36,9 +40,19 @@ function welcomeHtml({ firstName, companyName, email, tempPassword }) {
         <p style="margin:0;font-weight:700;font-family:monospace;font-size:16px">${tempPassword}</p>
       </div>
       <p style="color:#5A6478;line-height:1.6">
-        Download the QuickieFix app, sign in with the details above, and change your
+        Install the QuickieFix app, sign in with the details above, then change your
         password from your profile. Welcome aboard! ⚡
       </p>
+      <div style="text-align:center;margin:22px 0 8px">
+        <a href="${APP_DOWNLOAD_URL}"
+           style="display:inline-block;background:#FFB020;color:#0B1220;font-weight:800;
+                  text-decoration:none;padding:15px 28px;border-radius:12px;font-size:15px">
+          📲 Download the QuickieFix app
+        </a>
+        <p style="color:#8A93A6;font-size:12px;margin-top:10px">
+          Android · tap the file, allow install, and you're in.
+        </p>
+      </div>
     </div>
     <div style="text-align:center;color:#8A93A6;font-size:12px;padding:12px">
       QuickieFix · Get trusted help fast

@@ -33,26 +33,32 @@ let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
 
 if (isFirebaseConfigured) {
-  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  // Wrapped so a failure here can never crash app startup — worst case the app
+  // loads with Firebase disabled rather than dying before the first screen.
   try {
-    authInstance =
-      typeof getReactNativePersistence === 'function'
-        ? initializeAuth(app, {
-            persistence: getReactNativePersistence(AsyncStorage),
-          })
-        : getAuth(app); // web / fallback
-  } catch {
-    // initializeAuth throws if called twice (e.g. Fast Refresh) — reuse it.
-    authInstance = getAuth(app);
+    app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    try {
+      authInstance =
+        typeof getReactNativePersistence === 'function'
+          ? initializeAuth(app, {
+              persistence: getReactNativePersistence(AsyncStorage),
+            })
+          : getAuth(app); // web / fallback
+    } catch {
+      // initializeAuth throws if called twice (e.g. Fast Refresh) — reuse it.
+      authInstance = getAuth(app);
+    }
+    try {
+      // ignoreUndefinedProperties lets us write domain objects that contain
+      // optional (undefined) fields without stripping them first.
+      dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true });
+    } catch {
+      dbInstance = getFirestore(app);
+    }
+    storageInstance = getStorage(app);
+  } catch (e) {
+    console.error('Firebase init failed:', e);
   }
-  try {
-    // ignoreUndefinedProperties lets us write domain objects that contain
-    // optional (undefined) fields without stripping them first.
-    dbInstance = initializeFirestore(app, { ignoreUndefinedProperties: true });
-  } catch {
-    dbInstance = getFirestore(app);
-  }
-  storageInstance = getStorage(app);
 }
 
 /** These are non-null whenever `isFirebaseConfigured` is true. */

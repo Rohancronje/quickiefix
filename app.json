@@ -19,9 +19,7 @@
       "package": "app.quickiefix",
       "adaptiveIcon": {
         "backgroundColor": "#0B1220",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/adaptive-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [

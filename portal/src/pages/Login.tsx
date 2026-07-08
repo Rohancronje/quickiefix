@@ -52,7 +52,7 @@ export function Login() {
               <div className="field">
                 <label>Company name</label>
                 <input
-                  placeholder="Lazer Plumbing Ltd"
+                  placeholder="Your Business Ltd"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />

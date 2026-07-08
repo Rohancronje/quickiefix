@@ -9,16 +9,18 @@ import { JobOffer } from '../services';
 import { colors, font, radius, shadow, spacing } from '../theme';
 import { Txt } from './ui';
 
-// Preload the alert chime once at module scope so it plays instantly.
+// Lazily create the chime the FIRST time it's actually needed. Never at module
+// scope — creating a native audio player during initial bundle evaluation can
+// hard-crash a release build before the app is ready.
 let chime: ReturnType<typeof createAudioPlayer> | null = null;
-try {
-  chime = createAudioPlayer(require('../../assets/notification.wav'));
-} catch {
-  chime = null;
-}
+let chimeTried = false;
 
 function playChime() {
   try {
+    if (!chimeTried) {
+      chimeTried = true;
+      chime = createAudioPlayer(require('../../assets/notification.wav'));
+    }
     chime?.seekTo(0);
     chime?.play();
   } catch {

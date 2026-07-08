@@ -27,7 +27,7 @@ export default function Welcome() {
       <View style={styles.hero}>
         <View style={styles.logoRow}>
           <Image
-            source={require('../../assets/logo.png')}
+            source={require('../../assets/logo-light.png')}
             style={styles.logoImg}
             resizeMode="contain"
           />
@@ -115,8 +115,8 @@ function DemoChip({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.navy, padding: spacing.xl, justifyContent: 'space-between' },
   hero: { flex: 1, justifyContent: 'center' },
-  logoRow: { alignItems: 'stretch' },
-  logoImg: { height: 100, alignSelf: 'stretch', backgroundColor: colors.white, borderRadius: 18 },
+  logoRow: { alignItems: 'flex-start' },
+  logoImg: { height: 132, width: 280 },
   logoMark: {
     width: 48,
     height: 48,
