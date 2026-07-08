@@ -1,32 +1,11 @@
-import { createAudioPlayer } from 'expo-audio';
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tradeMeta } from '../constants';
 import { JobOffer } from '../services';
 import { colors, font, radius, shadow, spacing } from '../theme';
 import { Txt } from './ui';
-
-// Lazily create the chime the FIRST time it's actually needed. Never at module
-// scope — creating a native audio player during initial bundle evaluation can
-// hard-crash a release build before the app is ready.
-let chime: ReturnType<typeof createAudioPlayer> | null = null;
-let chimeTried = false;
-
-function playChime() {
-  try {
-    if (!chimeTried) {
-      chimeTried = true;
-      chime = createAudioPlayer(require('../../assets/notification.wav'));
-    }
-    chime?.seekTo(0);
-    chime?.play();
-  } catch {
-    /* audio unavailable — haptic still fires */
-  }
-}
 
 /**
  * A loud, hard-to-miss in-app alert for incoming direct requests. Renders as a
@@ -44,14 +23,9 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
   const count = offers.length;
   const top = offers[0];
 
-  // Buzz AND chime when a NEW request arrives (count goes up).
+  // Track the count for the slide/pulse animations. (Sound + haptic alerting is
+  // temporarily removed — will return via a native-build-safe module.)
   useEffect(() => {
-    if (count > prevCount.current) {
-      playChime();
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-      }
-    }
     prevCount.current = count;
   }, [count]);
 
