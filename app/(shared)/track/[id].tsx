@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobTimeline } from '../../../src/components/JobTimeline';
@@ -10,6 +10,8 @@ import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { tradeMeta } from '../../../src/constants';
 import { useJob, useUser } from '../../../src/hooks/useData';
+import { useNow } from '../../../src/hooks/useNow';
+import { isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
 import { formatDuration } from '../../../src/lib/format';
 import { estimateEtaMinutes } from '../../../src/lib/geo';
 import { backend } from '../../../src/services';
@@ -20,10 +22,25 @@ export default function TrackJob() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const job = useJob(id);
-  // While waiting we show the tradie the customer chose (requestedTradieId);
-  // once accepted it's the same tradie under tradieId.
-  const tradieUser = useUser(job?.tradieId ?? job?.requestedTradieId ?? undefined);
+  const now = useNow(5000); // fast tick so the wave stage + countdowns feel live
+  const tradieUser = useUser(job?.tradieId ?? undefined);
   const tradie = tradieUser?.role === 'tradie' ? (tradieUser as Tradie) : null;
+
+  // Client-side safety net for the wave clock (the scheduled function is the
+  // authority, but this keeps the flow correct even before it runs): once every
+  // wave is exhausted flip to no_tradie_found; auto-confirm emergencies.
+  const firedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!job) return;
+    if (job.status === 'searching' && isSearchExhausted(job, now) && firedRef.current !== job.id + ':nt') {
+      firedRef.current = job.id + ':nt';
+      backend.markNoTradieFound(job.id);
+    }
+    if (shouldAutoConfirm(job, now) && firedRef.current !== job.id + ':ac') {
+      firedRef.current = job.id + ':ac';
+      backend.confirmJob(job.id);
+    }
+  }, [job?.id, job?.status, now]);
 
   if (job === undefined) {
     return (
@@ -42,11 +59,9 @@ export default function TrackJob() {
   }
 
   const meta = tradeMeta(job.trade);
-  const declined =
-    job.status === 'searching' &&
-    !!job.requestedTradieId &&
-    job.declinedBy.includes(job.requestedTradieId);
-  const waiting = job.status === 'searching' && !declined;
+  const searching = job.status === 'searching';
+  const awaitingConfirm = job.status === 'accepted'; // a tradie accepted; customer must confirm
+  const noneFound = job.status === 'no_tradie_found';
 
   const cancel = () =>
     Alert.alert('Cancel this job?', 'The tradie will be notified.', [
@@ -57,6 +72,10 @@ export default function TrackJob() {
         onPress: () => backend.cancelJob(job.id, 'customer'),
       },
     ]);
+
+  const confirm = async () => {
+    await backend.confirmJob(job.id);
+  };
 
   const submitRating = async (rating: Rating) => {
     await backend.rateAsCustomer(job.id, rating);
@@ -78,60 +97,76 @@ export default function TrackJob() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Waiting on the chosen tradie */}
-        {waiting && (
+        {/* Wave search in progress */}
+        {searching && (
           <Card style={styles.searchHero}>
             <ActivityIndicator color={colors.amber} size="large" />
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
-              Request sent!
+              {job.isEmergency ? '🚨 Finding you help now' : 'Finding you a tradie'}
             </Txt>
             <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
-              Please be patient while {tradie?.businessName ?? 'your tradie'} reviews your
-              request. We'll let you know the moment they accept.
+              {searchStageLabel(job, now)} We alert the closest verified pros and widen the
+              search until one accepts — usually within a few minutes.
             </Txt>
           </Card>
         )}
 
-        {/* Chosen tradie declined — let the customer pick another */}
-        {declined && (
+        {/* No tradie found — founder concierge rescue */}
+        {noneFound && (
           <Card style={[styles.searchHero, { backgroundColor: colors.navyCard }]}>
             <Txt style={{ fontSize: 34 }}>😕</Txt>
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
-              {tradie?.businessName ?? 'That tradie'} can't take this right now
+              No tradie free right now
             </Txt>
             <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
-              No worries — choose another available tradie for the same job.
+              We couldn't reach an available pro for this one. Our team has been alerted and will
+              try to line someone up. You can also try again shortly.
             </Txt>
-            <Button
-              title="Choose another tradie"
-              onPress={() => router.push({ pathname: '/reassign/[id]', params: { id: job.id } })}
-            />
+            <Button title="Try again" onPress={() => router.replace('/new-job')} />
           </Card>
         )}
 
-        {/* Assigned / requested tradie profile */}
-        {tradie && job.status !== 'completed' && job.status !== 'cancelled' && !declined && (
+        {/* A tradie accepted — customer confirms them */}
+        {awaitingConfirm && tradie && (
           <View style={{ gap: spacing.sm }}>
-            {waiting && (
-              <View style={styles.etaBanner}>
-                <Txt variant="label" color={colors.blue}>
-                  📨 Requested · {tradie.businessName}
-                </Txt>
-              </View>
-            )}
-            {(job.status === 'accepted' || job.status === 'travelling') &&
-              tradie.baseLocation &&
-              job.location.latitude != null && <EtaBanner tradie={tradie} job={job} />}
-            {job.status === 'on_site' && (
-              <View style={[styles.etaBanner, { backgroundColor: colors.successSoft }]}>
-                <Txt variant="label" color={colors.success}>
-                  🛠️ Your tradie is on site and working on the job.
-                </Txt>
-              </View>
-            )}
+            <Card style={{ gap: spacing.sm, borderColor: colors.blue, borderWidth: 1 }}>
+              <Txt variant="label" color={colors.blue}>
+                ✅ {tradie.businessName} accepted your job
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                Confirm to lock them in and let them head your way.
+                {job.isEmergency ? ' As an emergency, this confirms automatically in a few minutes.' : ''}
+              </Txt>
+              <Button title="Confirm this tradie" icon="👍" onPress={confirm} />
+            </Card>
             <TradieProfileCard tradie={tradie} />
           </View>
         )}
+
+        {/* Confirmed / en route / on site — assigned tradie profile */}
+        {tradie &&
+          (job.status === 'confirmed' || job.status === 'travelling' || job.status === 'on_site') && (
+            <View style={{ gap: spacing.sm }}>
+              {job.status === 'confirmed' && (
+                <View style={styles.etaBanner}>
+                  <Txt variant="label" color={colors.blue}>
+                    ✅ Confirmed · {tradie.businessName} is getting ready to head over.
+                  </Txt>
+                </View>
+              )}
+              {job.status === 'travelling' &&
+                tradie.baseLocation &&
+                job.location.latitude != null && <EtaBanner tradie={tradie} job={job} />}
+              {job.status === 'on_site' && (
+                <View style={[styles.etaBanner, { backgroundColor: colors.successSoft }]}>
+                  <Txt variant="label" color={colors.success}>
+                    🛠️ Your tradie is on site and working on the job.
+                  </Txt>
+                </View>
+              )}
+              <TradieProfileCard tradie={tradie} />
+            </View>
+          )}
 
         {/* Completed summary + rating */}
         {job.status === 'completed' && (
@@ -185,7 +220,7 @@ export default function TrackJob() {
         )}
 
         {/* Timeline */}
-        {job.status !== 'searching' && (
+        {job.status !== 'searching' && job.status !== 'no_tradie_found' && (
           <Card>
             <Txt variant="label" style={{ marginBottom: spacing.md }}>
               Progress
@@ -215,7 +250,7 @@ export default function TrackJob() {
         </Card>
 
         {/* Cancel action */}
-        {(job.status === 'searching' || job.status === 'accepted' || job.status === 'travelling') && (
+        {['searching', 'accepted', 'confirmed', 'travelling'].includes(job.status) && (
           <Button title="Cancel job" kind="ghost" onPress={cancel} />
         )}
       </ScrollView>

@@ -10,7 +10,7 @@ import { useCustomerJobs } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
 import { colors, font, radius, spacing } from '../../../src/theme';
 
-const ACTIVE = ['searching', 'accepted', 'travelling', 'on_site'];
+const ACTIVE = ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'];
 
 export default function CustomerHome() {
   const customer = useCustomer();

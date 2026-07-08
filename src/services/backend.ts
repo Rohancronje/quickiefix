@@ -56,8 +56,8 @@ export interface NewJobInput {
   location: Location;
   urgency: UrgencyType;
   scheduledFor?: number;
-  /** The tradie the customer chose to send this request to. */
-  requestedTradieId: string;
+  /** Emergency-category job — auto-confirms faster and jumps the search queue. */
+  isEmergency?: boolean;
 }
 
 /** A job offer surfaced to a tradie, annotated with distance/eta. */
@@ -93,15 +93,18 @@ export interface Backend {
   setServiceRadius(id: string, km: number): Promise<void>;
 
   // ---- Jobs (customer) ----
-  /** Available, approved tradies matching a trade, nearest first, for the
-   *  customer to choose from. */
+  /** Available, approved tradies matching a trade, nearest first. Used to build
+   *  the wave-dispatch candidate snapshot at job creation. */
   getAvailableTradies(trade: TradeCategory, location: Location): Promise<TradieCandidate[]>;
-  /** Create a job. The requester can be a customer OR a tradie booking help. */
+  /** Create a job and open wave dispatch. The requester can be a customer OR a
+   *  tradie booking help; the ranked candidate pool is snapshotted here. */
   createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;
   /** Raise a complaint about a completed/active job (customer side). */
   fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
-  /** Redirect a still-searching job to a different tradie (after a decline). */
-  reassignJob(jobId: string, tradieId: string): Promise<void>;
+  /** Customer confirms the tradie who accepted (accepted → confirmed). */
+  confirmJob(jobId: string): Promise<void>;
+  /** Flip a still-searching job to no_tradie_found once every wave is exhausted. */
+  markNoTradieFound(jobId: string): Promise<void>;
   cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void>;
   rateAsCustomer(jobId: string, rating: Rating): Promise<void>;
 

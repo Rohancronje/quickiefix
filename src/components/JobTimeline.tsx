@@ -17,6 +17,7 @@ export function JobTimeline({ job }: { job: Job }) {
   const stages: Stage[] = [
     { key: 'requested', label: 'Request submitted', at: t.createdAt },
     { key: 'accepted', label: 'Tradie accepted', at: t.acceptedAt },
+    { key: 'confirmed', label: 'Confirmed', at: t.confirmedAt },
     { key: 'travelling', label: 'On the way', at: t.travellingAt },
     { key: 'on_site', label: 'Arrived on site', at: t.onSiteAt },
     { key: 'completed', label: 'Job completed', at: t.completedAt },

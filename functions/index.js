@@ -8,6 +8,7 @@
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
 
@@ -19,7 +20,11 @@ const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 const PLATFORM_ADMINS = ['admin@quickiefix.app'];
 
 // Must be a VERIFIED sender in your Brevo account.
-const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
+const SENDER = { email: 'noreply@quickiefix.app', name: 'QuickieFix' };
+
+// Wave-dispatch timing — must mirror WAVE in src/constants.ts.
+const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found
+const EMERGENCY_AUTO_CONFIRM_MS = 180_000; // accepted emergency → confirmed
 
 // Latest installable Android build. Update when you cut a new APK.
 const APP_DOWNLOAD_URL =
@@ -113,6 +118,47 @@ exports.sendWelcomeEmail = onCall(
     return { ok: true };
   },
 );
+
+/**
+ * Wave-dispatch heartbeat. Every minute, sweep jobs whose wave clock has run out:
+ *  - a searching job past the final wave with no acceptance → no_tradie_found
+ *    (the admin live-job list surfaces these for founder concierge rescue), and
+ *  - an accepted EMERGENCY job past its auto-confirm window → confirmed.
+ * Standard (non-emergency) jobs are left for the customer to confirm explicitly.
+ */
+exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
+  const db = admin.firestore();
+  const now = Date.now();
+
+  // searching → no_tradie_found
+  const searching = await db.collection('jobs').where('status', '==', 'searching').get();
+  await Promise.all(
+    searching.docs.map(async (d) => {
+      const job = d.data();
+      const startedAt = job.dispatch?.startedAt ?? job.timestamps?.searchingAt ?? job.timestamps?.createdAt;
+      if (startedAt && now - startedAt >= NO_TRADIE_AFTER_MS) {
+        await d.ref.update({
+          status: 'no_tradie_found',
+          'timestamps.noTradieFoundAt': now,
+        });
+      }
+    }),
+  );
+
+  // accepted emergency → confirmed
+  const accepted = await db.collection('jobs').where('status', '==', 'accepted').get();
+  await Promise.all(
+    accepted.docs.map(async (d) => {
+      const job = d.data();
+      if (job.isEmergency && job.timestamps?.acceptedAt && now - job.timestamps.acceptedAt >= EMERGENCY_AUTO_CONFIRM_MS) {
+        await d.ref.update({
+          status: 'confirmed',
+          'timestamps.confirmedAt': now,
+        });
+      }
+    }),
+  );
+});
 
 // Server-side reputation: increment the tradie's completed-job count when a job
 // transitions to completed (clients can't write completedJobs directly).

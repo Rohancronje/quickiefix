@@ -13,6 +13,7 @@ import {
   useTradieHistory,
 } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
+import { waveEligible } from '../../../src/lib/dispatch';
 import { formatDistance } from '../../../src/lib/geo';
 import { getCurrentLocation } from '../../../src/lib/location';
 import { backend, JobOffer } from '../../../src/services';
@@ -21,12 +22,14 @@ import { colors, font, radius, spacing } from '../../../src/theme';
 export default function TradieDashboard() {
   const tradie = useTradie();
   const router = useRouter();
-  const offers = useJobOffers(tradie.id);
+  const allOffers = useJobOffers(tradie.id);
   const activeJob = useTradieActiveJob(tradie.id);
   const myRequests = useCustomerJobs(tradie.id); // jobs this tradie booked as a customer
-  const now = useNow();
+  const now = useNow(5000); // fast tick so offers surface as each wave widens
+  // Only show jobs whose current wave includes this tradie (widens over time).
+  const offers = allOffers.filter((o) => waveEligible(o.job, tradie.id, now));
   const activeRequests = myRequests.filter((j) =>
-    ['searching', 'accepted', 'travelling', 'on_site'].includes(j.status),
+    ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   );
   const history = useTradieHistory(tradie.id);
 
@@ -150,7 +153,7 @@ export default function TradieDashboard() {
       {isApproved && !onActiveJob && (
         <View style={{ gap: spacing.sm }}>
           <View style={styles.offersHeader}>
-            <Txt variant="label">Direct requests</Txt>
+            <Txt variant="label">Nearby jobs</Txt>
             {offers.length > 0 && (
               <View style={styles.countPill}>
                 <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
@@ -160,7 +163,6 @@ export default function TradieDashboard() {
             )}
           </View>
 
-          {/* Directed requests show even when offline — a customer chose you. */}
           {offers.length > 0 ? (
             offers.map((offer) => (
               <OfferCard key={offer.job.id} offer={offer} onAccept={() => accept(offer)} onDecline={() => decline(offer)} />
@@ -170,15 +172,15 @@ export default function TradieDashboard() {
               <EmptyState
                 emoji="🌙"
                 title="You’re offline"
-                subtitle="Go online so customers can find and request you."
+                subtitle="Go online to start receiving nearby job alerts."
               />
             </Card>
           ) : (
             <Card>
               <EmptyState
                 emoji="📭"
-                title="No requests right now"
-                subtitle="When a customer picks you, their request appears here instantly."
+                title="No jobs right now"
+                subtitle="When a nearby customer needs your trade, it appears here instantly — be quick, first to accept wins."
               />
             </Card>
           )}
@@ -244,11 +246,12 @@ function OfferCard({
   onDecline: () => void;
 }) {
   const meta = tradeMeta(offer.job.trade);
+  const emergency = offer.job.isEmergency;
   return (
     <Card style={styles.offer}>
-      <View style={styles.requestedBanner}>
-        <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
-          📨 {offer.job.customerName} requested you
+      <View style={[styles.requestedBanner, emergency && { backgroundColor: colors.dangerSoft }]}>
+        <Txt variant="caption" color={emergency ? colors.danger : colors.blue} style={{ fontWeight: '700' }}>
+          {emergency ? '🚨 Emergency job nearby' : '⚡ New job nearby'}
         </Txt>
       </View>
       <View style={styles.offerTop}>

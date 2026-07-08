@@ -26,7 +26,7 @@ export default function TradieJob() {
   const stopRef = useRef<(() => void) | null>(null);
 
   const jobCoords = job && hasCoords(job.location) ? job.location : null;
-  const trackingActive = job?.status === 'accepted' || job?.status === 'travelling';
+  const trackingActive = job?.status === 'confirmed' || job?.status === 'travelling';
 
   // GPS on-site detection: while travelling, watch position and auto-arrive
   // once inside the geofence radius around the property.
@@ -136,6 +136,17 @@ export default function TradieJob() {
 
         {/* Status-driven actions */}
         {job.status === 'accepted' && (
+          <Card style={styles.gpsCard}>
+            <Txt variant="label" color={colors.blue}>
+              ⏳ Waiting for {job.customerName} to confirm
+            </Txt>
+            <Txt variant="caption" color={colors.textMuted}>
+              You've got this job. As soon as the customer confirms you can set off.
+              {job.isEmergency ? ' Emergencies confirm automatically within a few minutes.' : ''}
+            </Txt>
+          </Card>
+        )}
+        {job.status === 'confirmed' && (
           <View style={{ gap: spacing.md }}>
             <Button title="Start travelling" icon="🚗" kind="secondary" onPress={() => backend.startTravelling(job.id)} />
             <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />

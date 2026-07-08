@@ -1,28 +1,6 @@
 import { useEffect, useState } from 'react';
-import { backend, JobOffer, TradieCandidate } from '../services';
-import { Job, Location, TradeCategory } from '../types';
-
-/** Fetch available tradies for a trade + location (one-shot, with refresh). */
-export function useAvailableTradies(trade: TradeCategory | null, location: Location | null) {
-  const [candidates, setCandidates] = useState<TradieCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!trade || !location) return;
-    let active = true;
-    setLoading(true);
-    backend
-      .getAvailableTradies(trade, location)
-      .then((c) => active && setCandidates(c))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [trade, location?.address, location?.latitude, location?.longitude, tick]);
-
-  return { candidates, loading, refresh: () => setTick((t) => t + 1) };
-}
+import { backend, JobOffer } from '../services';
+import { Job } from '../types';
 
 /** All of a customer's jobs, newest first (live). */
 export function useCustomerJobs(customerId: string | undefined): Job[] {

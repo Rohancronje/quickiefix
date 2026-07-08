@@ -32,11 +32,24 @@ export type TradieStatus =
 /** Whether a tradie account has cleared admin approval. */
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
 
-/** The lifecycle of a single job. Each transition is timestamped. */
+/**
+ * The lifecycle of a single job. Each transition is timestamped.
+ *
+ * Wave-dispatch flow:
+ *   searching → accepted → confirmed → travelling → on_site → completed
+ *   searching → no_tradie_found  (all waves exhausted; founder concierge rescue)
+ *   any pre-completion → cancelled
+ *
+ * `accepted` = a tradie took the job; `confirmed` = the customer confirmed them
+ * (auto-confirmed for emergencies). A tradie can only start travelling once the
+ * job is `confirmed`.
+ */
 export type JobStatus =
   | 'draft'
   | 'searching'
+  | 'no_tradie_found'
   | 'accepted'
+  | 'confirmed'
   | 'travelling'
   | 'on_site'
   | 'completed'
@@ -130,10 +143,26 @@ export interface JobTimestamps {
   createdAt: number;
   searchingAt?: number;
   acceptedAt?: number;
+  confirmedAt?: number;
+  noTradieFoundAt?: number;
   travellingAt?: number;
   onSiteAt?: number;
   completedAt?: number;
   cancelledAt?: number;
+}
+
+/**
+ * Wave-dispatch snapshot, computed once at job creation.
+ *
+ * `candidateIds` is the ranked pool of eligible tradies (proximity → rating →
+ * response rate) captured at the moment the job was created. Wave membership is
+ * a pure function of a tradie's index in this list and the elapsed time since
+ * `startedAt`, so no server timer is needed to widen the search — every device
+ * evaluates it live. See `src/lib/dispatch.ts`.
+ */
+export interface JobDispatch {
+  candidateIds: string[];
+  startedAt: number;
 }
 
 export interface Rating {
@@ -156,11 +185,14 @@ export interface Job {
   status: JobStatus;
   timestamps: JobTimestamps;
 
-  // The specific tradie the customer directed this request to (chosen from the
-  // list of available tradies). Set at creation; the request waits on them.
-  requestedTradieId?: string;
+  /** Emergency-category job (gas, no power, flooding, lockout): auto-confirms
+   *  after a short window; standard jobs need an explicit customer confirm. */
+  isEmergency?: boolean;
 
-  // Assigned tradie (set on acceptance — equals requestedTradieId once accepted)
+  /** Wave-dispatch candidate snapshot (ranked pool + wave clock origin). */
+  dispatch?: JobDispatch;
+
+  // Assigned tradie (set on acceptance — the first candidate to accept wins)
   tradieId?: string;
   tradieName?: string;
 

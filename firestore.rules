@@ -97,12 +97,20 @@ service cloud.firestore {
       allow read: if signedIn();
       // A customer can only create a job under their own id.
       allow create: if signedIn() && request.auth.uid == request.resource.data.customerId;
-      // Only the customer, the tradie the request was directed to, or the
-      // assigned tradie may advance a job (plus platform admins).
+      // Who may advance a job:
+      //  - the customer who created it,
+      //  - the assigned tradie,
+      //  - any candidate in the dispatch pool WHILE the job is still searching
+      //    (this is how the first-to-accept wins — and how a candidate records a
+      //    decline), and
+      //  - platform admins.
       allow update: if signedIn() && (
         resource.data.customerId == request.auth.uid ||
-        resource.data.requestedTradieId == request.auth.uid ||
         resource.data.tradieId == request.auth.uid ||
+        (
+          resource.data.status == 'searching' &&
+          request.auth.uid in resource.data.dispatch.candidateIds
+        ) ||
         isPlatformAdmin()
       );
       allow delete: if false;

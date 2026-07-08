@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
-import { TradieSelectList } from '../../src/components/TradieSelectList';
 import { TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
 import { getCurrentLocation } from '../../src/lib/location';
@@ -19,7 +18,9 @@ import { colors, font, radius, spacing } from '../../src/theme';
 import { Location, TradeCategory, UrgencyType } from '../../src/types';
 
 // Photo attachments are a planned future release (needs Firebase Storage).
-const STEPS = ['Service', 'Details', 'Location', 'When', 'Choose tradie'];
+// Wave dispatch means the customer no longer picks a tradie — we auto-alert the
+// nearest available pros and the first to accept wins.
+const STEPS = ['Service', 'Details', 'Location', 'When'];
 
 export default function NewJob() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function NewJob() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyType>('now');
-  const [selectedTradieId, setSelectedTradieId] = useState<string | null>(null);
+  const [isEmergency, setIsEmergency] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,8 +53,6 @@ export default function NewJob() {
         return description.trim().length >= 5;
       case 2:
         return address.trim().length > 0;
-      case 4:
-        return !!selectedTradieId;
       default:
         return true;
     }
@@ -75,19 +74,20 @@ export default function NewJob() {
 
   const submit = async () => {
     setError(null);
-    if (!selectedTradieId || !user) return;
+    if (!user) return;
     try {
       setSubmitting(true);
       const job = await backend.createJob(
         { id: user.id, name: `${user.firstName} ${user.lastName}` },
         {
-        trade: trade!,
-        description: description.trim(),
-        photos: [],
-        location: jobLocation,
-        urgency,
-        requestedTradieId: selectedTradieId,
-      });
+          trade: trade!,
+          description: description.trim(),
+          photos: [],
+          location: jobLocation,
+          urgency,
+          isEmergency,
+        },
+      );
       router.replace({ pathname: '/track/[id]', params: { id: job.id } });
     } catch (e) {
       setError((e as Error).message);
@@ -211,21 +211,25 @@ export default function NewJob() {
                   </Txt>
                 </View>
               </Pressable>
-            </Step>
-          )}
 
-          {step === 4 && (
-            <Step
-              title="Choose your tradie"
-              subtitle="These verified pros are available now. Pick who you'd like to send your request to."
-            >
-              <TradieSelectList
-                trade={trade}
-                location={jobLocation}
-                excludeIds={user ? [user.id] : []}
-                selectedId={selectedTradieId}
-                onSelect={setSelectedTradieId}
-              />
+              {/* Emergency flag — auto-confirms fast and jumps the search queue. */}
+              <Pressable
+                style={[styles.emergency, isEmergency && styles.emergencyActive]}
+                onPress={() => setIsEmergency((v) => !v)}
+              >
+                <Txt style={{ fontSize: 22 }}>{isEmergency ? '🚨' : '⚠️'}</Txt>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="label" color={isEmergency ? colors.danger : colors.text}>
+                    This is an emergency
+                  </Txt>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    Gas leak, no power, flooding or a lockout. If anyone is in danger, call 111 first.
+                  </Txt>
+                </View>
+                <View style={[styles.checkbox, isEmergency && styles.checkboxOn]}>
+                  {isEmergency && <Txt style={{ color: colors.white, fontWeight: '800' }}>✓</Txt>}
+                </View>
+              </Pressable>
             </Step>
           )}
 
@@ -234,8 +238,8 @@ export default function NewJob() {
 
         <View style={styles.footer}>
           <Button
-            title={step === STEPS.length - 1 ? 'Send request' : 'Continue'}
-            icon={step === STEPS.length - 1 ? '📨' : undefined}
+            title={step === STEPS.length - 1 ? 'Find me a tradie' : 'Continue'}
+            icon={step === STEPS.length - 1 ? '⚡' : undefined}
             disabled={!canNext()}
             loading={submitting}
             onPress={next}
@@ -296,6 +300,28 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   optionActive: { borderColor: colors.amber, backgroundColor: colors.warningSoft },
+  emergency: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 2,
+    borderColor: colors.line,
+    marginTop: spacing.sm,
+  },
+  emergencyActive: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: { backgroundColor: colors.danger, borderColor: colors.danger },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: '600' },
   footer: {
     flexDirection: 'row',

@@ -20,6 +20,7 @@ import {
   TradieStatus,
 } from '../types';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
+import { rankCandidates } from '../lib/dispatch';
 import { uid } from '../lib/id';
 import {
   Backend,
@@ -32,7 +33,9 @@ import {
 } from './backend';
 import { DEMO_PASSWORD, seedCustomers, seedTradies } from './seed';
 
-const DB_KEY = 'quickiefix.db.v1';
+// v2: jobs carry a wave-dispatch snapshot (dispatch.candidateIds) instead of a
+// single requestedTradieId — drop any pre-wave jobs from local storage.
+const DB_KEY = 'quickiefix.db.v2';
 const SESSION_KEY = 'quickiefix.session.v1';
 
 interface DB {
@@ -253,6 +256,11 @@ class MockBackend implements Backend {
   async createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job> {
     await this.ensureLoaded();
     const now = Date.now();
+
+    // Snapshot the ranked candidate pool now — this is the wave dispatch order.
+    const candidates = await this.getAvailableTradies(input.trade, input.location);
+    const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
+
     const job: Job = {
       id: uid('job_'),
       customerId: requester.id,
@@ -263,9 +271,10 @@ class MockBackend implements Backend {
       location: input.location,
       urgency: input.urgency,
       scheduledFor: input.scheduledFor,
+      isEmergency: input.isEmergency ?? false,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      requestedTradieId: input.requestedTradieId,
+      dispatch: { candidateIds, startedAt: now },
       declinedBy: [],
     };
     this.db.jobs[job.id] = job;
@@ -315,10 +324,19 @@ class MockBackend implements Backend {
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  async reassignJob(jobId: string, tradieId: string): Promise<void> {
+  async confirmJob(jobId: string): Promise<void> {
+    await this.transitionJob(jobId, (job) => {
+      if (job.status !== 'accepted') return;
+      job.status = 'confirmed';
+      job.timestamps.confirmedAt = Date.now();
+    });
+  }
+
+  async markNoTradieFound(jobId: string): Promise<void> {
     await this.transitionJob(jobId, (job) => {
       if (job.status !== 'searching') return;
-      job.requestedTradieId = tradieId;
+      job.status = 'no_tradie_found';
+      job.timestamps.noTradieFoundAt = Date.now();
     });
   }
 
@@ -326,11 +344,12 @@ class MockBackend implements Backend {
     await this.ensureLoaded();
     const job = this.db.jobs[jobId];
     if (!job) throw new Error('Job no longer exists.');
+    // First candidate to accept wins.
     if (job.status !== 'searching') {
       throw new Error('Sorry, this job has already been taken.');
     }
-    if (job.requestedTradieId && job.requestedTradieId !== tradieId) {
-      throw new Error('This request was sent to a different tradie.');
+    if (job.dispatch && !job.dispatch.candidateIds.includes(tradieId)) {
+      throw new Error('This job is no longer being offered to you.');
     }
     const tradie = this.db.users[tradieId];
     if (!tradie || tradie.role !== 'tradie') throw new Error('Tradie not found.');
@@ -357,7 +376,8 @@ class MockBackend implements Backend {
 
   async startTravelling(jobId: string): Promise<void> {
     await this.transitionJob(jobId, (job) => {
-      if (job.status !== 'accepted') return;
+      // A tradie can only set off once the customer has confirmed.
+      if (job.status !== 'confirmed') return;
       job.status = 'travelling';
       job.timestamps.travellingAt = Date.now();
     });
@@ -365,7 +385,7 @@ class MockBackend implements Backend {
 
   async arriveOnSite(jobId: string, _source: 'gps' | 'manual' = 'manual'): Promise<void> {
     await this.transitionJob(jobId, (job) => {
-      if (job.status !== 'accepted' && job.status !== 'travelling') return;
+      if (job.status !== 'confirmed' && job.status !== 'travelling') return;
       job.status = 'on_site';
       job.timestamps.onSiteAt = Date.now();
       const t = job.tradieId ? this.db.users[job.tradieId] : null;
@@ -444,7 +464,7 @@ class MockBackend implements Backend {
   }
 
   subscribeTradieActiveJob(tradieId: string, cb: (job: Job | null) => void): Unsubscribe {
-    const active = ['accepted', 'travelling', 'on_site'];
+    const active = ['accepted', 'confirmed', 'travelling', 'on_site'];
     return this.subscribe(
       () =>
         Object.values(this.db.jobs).find(
@@ -471,10 +491,9 @@ class MockBackend implements Backend {
   }
 
   /**
-   * Directed dispatch. Returns still-searching jobs the customer sent directly
-   * to this tradie (requestedTradieId), that they haven't declined. Shown to an
-   * approved tradie regardless of their availability toggle, since a customer
-   * is actively waiting on them. Sorted nearest-first.
+   * Wave dispatch. Returns still-searching jobs whose candidate pool includes
+   * this tradie and which they haven't declined. The time-based wave gate is
+   * applied in the UI (which re-evaluates on a clock). Sorted nearest-first.
    */
   private matchOffers(tradieId: string): JobOffer[] {
     const tradie = this.db.users[tradieId];
@@ -484,7 +503,7 @@ class MockBackend implements Backend {
     const offers: JobOffer[] = [];
     for (const job of Object.values(this.db.jobs)) {
       if (job.status !== 'searching') continue;
-      if (job.requestedTradieId !== tradieId) continue;
+      if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
       if (job.declinedBy.includes(tradieId)) continue;
 
       let km = 0;

@@ -48,6 +48,7 @@ import {
   TradieStatus,
 } from '../types';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
+import { rankCandidates } from '../lib/dispatch';
 import {
   Backend,
   CustomerRegistration,
@@ -59,7 +60,7 @@ import {
 } from './backend';
 import { auth, db, storage } from './firebase';
 
-const ACTIVE_STATUSES: JobStatus[] = ['accepted', 'travelling', 'on_site'];
+const ACTIVE_STATUSES: JobStatus[] = ['accepted', 'confirmed', 'travelling', 'on_site'];
 
 export class FirestoreBackend implements Backend {
   // These are safe to force-unwrap: this class is only selected when
@@ -216,6 +217,12 @@ export class FirestoreBackend implements Backend {
     const jobRef = doc(collection(this.db, 'jobs'));
     const photos = await this.uploadPhotos(jobRef.id, input.photos);
     const now = Date.now();
+
+    // Snapshot the ranked candidate pool now — this is the wave dispatch order.
+    // Exclude the requester (a tradie booking help must not dispatch to himself).
+    const candidates = await this.getAvailableTradies(input.trade, input.location);
+    const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
+
     const job: Job = {
       id: jobRef.id,
       customerId: requester.id,
@@ -226,9 +233,10 @@ export class FirestoreBackend implements Backend {
       location: input.location,
       urgency: input.urgency,
       scheduledFor: input.scheduledFor,
+      isEmergency: input.isEmergency ?? false,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      requestedTradieId: input.requestedTradieId,
+      dispatch: { candidateIds, startedAt: now },
       declinedBy: [],
     };
     await setDoc(jobRef, job);
@@ -279,12 +287,27 @@ export class FirestoreBackend implements Backend {
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
   }
 
-  async reassignJob(jobId: string, tradieId: string): Promise<void> {
+  async confirmJob(jobId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) return;
+      if ((snap.data() as Job).status !== 'accepted') return;
+      tx.update(this.jobRef(jobId), {
+        status: 'confirmed',
+        'timestamps.confirmedAt': Date.now(),
+      });
+    });
+  }
+
+  async markNoTradieFound(jobId: string): Promise<void> {
     await runTransaction(this.db, async (tx) => {
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
       if ((snap.data() as Job).status !== 'searching') return;
-      tx.update(this.jobRef(jobId), { requestedTradieId: tradieId });
+      tx.update(this.jobRef(jobId), {
+        status: 'no_tradie_found',
+        'timestamps.noTradieFoundAt': Date.now(),
+      });
     });
   }
 
@@ -311,11 +334,14 @@ export class FirestoreBackend implements Backend {
       const jobSnap = await tx.get(this.jobRef(jobId));
       if (!jobSnap.exists()) throw new Error('Job no longer exists.');
       const job = jobSnap.data() as Job;
+      // First candidate to accept wins — the status guard makes this atomic.
       if (job.status !== 'searching') {
         throw new Error('Sorry, this job has already been taken.');
       }
-      if (job.requestedTradieId && job.requestedTradieId !== tradieId) {
-        throw new Error('This request was sent to a different tradie.');
+      // Only a tradie in this job's dispatch pool may accept it. (Legacy jobs
+      // created before wave dispatch have no snapshot — skip the guard there.)
+      if (job.dispatch && !job.dispatch.candidateIds.includes(tradieId)) {
+        throw new Error('This job is no longer being offered to you.');
       }
       const tradieSnap = await tx.get(this.userRef(tradieId));
       if (!tradieSnap.exists()) throw new Error('Tradie not found.');
@@ -348,9 +374,15 @@ export class FirestoreBackend implements Backend {
   }
 
   async startTravelling(jobId: string): Promise<void> {
-    await updateDoc(this.jobRef(jobId), {
-      status: 'travelling',
-      'timestamps.travellingAt': Date.now(),
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) return;
+      // A tradie can only set off once the customer has confirmed.
+      if ((snap.data() as Job).status !== 'confirmed') return;
+      tx.update(this.jobRef(jobId), {
+        status: 'travelling',
+        'timestamps.travellingAt': Date.now(),
+      });
     });
   }
 
@@ -359,7 +391,7 @@ export class FirestoreBackend implements Backend {
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
       const job = snap.data() as Job;
-      if (job.status !== 'accepted' && job.status !== 'travelling') return;
+      if (job.status !== 'confirmed' && job.status !== 'travelling') return;
       tx.update(this.jobRef(jobId), {
         status: 'on_site',
         'timestamps.onSiteAt': Date.now(),
@@ -456,18 +488,19 @@ export class FirestoreBackend implements Backend {
   }
 
   /**
-   * Directed dispatch feed. Live query of still-searching jobs the customer
-   * sent directly to this tradie (requestedTradieId). Recomputes distance
-   * against the tradie's current location.
+   * Wave-dispatch feed. Live query of still-searching jobs whose candidate pool
+   * includes this tradie. Returns every candidate job with recomputed distance;
+   * the time-based wave gate (`waveEligible`) is applied in the UI, which
+   * re-evaluates on a clock so offers surface as the search widens.
    */
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe {
     let tradie: Tradie | null = null;
-    let requested: Job[] = [];
+    let candidateJobs: Job[] = [];
 
     const emit = () => {
       if (!tradie || tradie.approval !== 'approved') return cb([]);
       const offers: JobOffer[] = [];
-      for (const job of requested) {
+      for (const job of candidateJobs) {
         if (job.status !== 'searching') continue;
         if (job.declinedBy.includes(tradieId)) continue;
         let km = 0;
@@ -491,10 +524,14 @@ export class FirestoreBackend implements Backend {
       tradie = snap.exists() ? (snap.data() as Tradie) : null;
       emit();
     });
+    // array-contains only (status filtered client-side) to avoid a composite index.
     const unsubJobs = onSnapshot(
-      query(collection(this.db, 'jobs'), where('requestedTradieId', '==', tradieId)),
+      query(
+        collection(this.db, 'jobs'),
+        where('dispatch.candidateIds', 'array-contains', tradieId),
+      ),
       (snap) => {
-        requested = snap.docs.map((d) => d.data() as Job);
+        candidateJobs = snap.docs.map((d) => d.data() as Job);
         emit();
       },
     );
