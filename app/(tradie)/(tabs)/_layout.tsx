@@ -2,13 +2,16 @@ import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { RequestAlert } from '../../../src/components/RequestAlert';
 import { TabBarIcon } from '../../../src/components/TabBarIcon';
-import { useTradie } from '../../../src/context/AuthContext';
+import { useAuth } from '../../../src/context/AuthContext';
 import { useJobOffers } from '../../../src/hooks/useData';
 import { colors, font } from '../../../src/theme';
 
 export default function TradieTabs() {
-  const tradie = useTradie();
-  const offers = useJobOffers(tradie.id);
+  // Use the non-throwing auth hook: on logout the user briefly becomes null
+  // before the route guard redirects, and a layout must tolerate that.
+  const { user } = useAuth();
+  const tradieId = user?.role === 'tradie' ? user.id : undefined;
+  const offers = useJobOffers(tradieId);
   const pending = offers.length;
 
   return (
