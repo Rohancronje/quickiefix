@@ -222,6 +222,7 @@ export default function NewJob() {
               <TradieSelectList
                 trade={trade}
                 location={jobLocation}
+                excludeIds={user ? [user.id] : []}
                 selectedId={selectedTradieId}
                 onSelect={setSelectedTradieId}
               />

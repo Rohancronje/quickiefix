@@ -150,14 +150,27 @@ export class FirestoreBackend implements Backend {
     );
   }
 
-  /** Resolve the persisted auth session once, then load the user doc. */
+  /** Resolve the persisted auth session once, then load the user doc. A hard
+   *  timeout guarantees startup never blocks forever if auth state stalls. */
   getSessionUser(): Promise<AppUser | null> {
     return new Promise((resolve) => {
+      let done = false;
+      const finish = (u: AppUser | null) => {
+        if (done) return;
+        done = true;
+        resolve(u);
+      };
+      const timer = setTimeout(() => finish(null), 8000);
       const unsub = onAuthStateChanged(this.auth, async (fbUser) => {
         unsub();
-        if (!fbUser) return resolve(null);
-        const snap = await getDoc(this.userRef(fbUser.uid));
-        resolve(snap.exists() ? (snap.data() as AppUser) : null);
+        clearTimeout(timer);
+        try {
+          if (!fbUser) return finish(null);
+          const snap = await getDoc(this.userRef(fbUser.uid));
+          finish(snap.exists() ? (snap.data() as AppUser) : null);
+        } catch {
+          finish(null);
+        }
       });
     });
   }
@@ -255,7 +268,12 @@ export class FirestoreBackend implements Backend {
   }
 
   async reassignJob(jobId: string, tradieId: string): Promise<void> {
-    await updateDoc(this.jobRef(jobId), { requestedTradieId: tradieId });
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) return;
+      if ((snap.data() as Job).status !== 'searching') return;
+      tx.update(this.jobRef(jobId), { requestedTradieId: tradieId });
+    });
   }
 
   /** Upload local photo URIs to Storage and return their download URLs. */
@@ -270,7 +288,7 @@ export class FirestoreBackend implements Backend {
         await uploadBytes(r, blob);
         urls.push(await getDownloadURL(r));
       } catch {
-        urls.push(uris[i]); // fall back to the original URI on upload failure
+        // Omit failed uploads — a local file:// URI is useless to other devices.
       }
     }
     return urls;
@@ -283,6 +301,9 @@ export class FirestoreBackend implements Backend {
       const job = jobSnap.data() as Job;
       if (job.status !== 'searching') {
         throw new Error('Sorry, this job has already been taken.');
+      }
+      if (job.requestedTradieId && job.requestedTradieId !== tradieId) {
+        throw new Error('This request was sent to a different tradie.');
       }
       const tradieSnap = await tx.get(this.userRef(tradieId));
       if (!tradieSnap.exists()) throw new Error('Tradie not found.');
@@ -345,11 +366,9 @@ export class FirestoreBackend implements Backend {
         status: 'completed',
         'timestamps.completedAt': Date.now(),
       });
+      // completedJobs is incremented by the onJobCompleted Cloud Function.
       if (job.tradieId) {
-        tx.update(this.userRef(job.tradieId), {
-          status: 'available',
-          completedJobs: increment(1),
-        });
+        tx.update(this.userRef(job.tradieId), { status: 'available' });
       }
     });
   }
@@ -375,22 +394,10 @@ export class FirestoreBackend implements Backend {
   }
 
   async rateAsCustomer(jobId: string, rating: Rating): Promise<void> {
-    await runTransaction(this.db, async (tx) => {
-      // All reads first (Firestore requires reads before writes).
-      const snap = await tx.get(this.jobRef(jobId));
-      if (!snap.exists()) return;
-      const job = snap.data() as Job;
-      const tSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
-
-      // Then writes.
-      tx.update(this.jobRef(jobId), { customerRating: rating });
-      if (job.tradieId && tSnap?.exists()) {
-        const t = tSnap.data() as Tradie;
-        const count = t.ratingCount + 1;
-        const avg = Math.round(((t.ratingAvg * t.ratingCount + rating.stars) / count) * 10) / 10;
-        tx.update(this.userRef(job.tradieId), { ratingAvg: avg, ratingCount: count });
-      }
-    });
+    // Only records the rating on the job. The tradie's rating aggregate is
+    // recomputed by the onJobRated Cloud Function (Admin SDK) so it can't be
+    // forged from the client.
+    await updateDoc(this.jobRef(jobId), { customerRating: rating });
   }
 
   async rateAsTradie(jobId: string, rating: Rating): Promise<void> {

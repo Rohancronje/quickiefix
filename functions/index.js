@@ -1,23 +1,27 @@
 /**
  * QuickieFix Cloud Functions.
  *
- * sendWelcomeEmail — sends a branded welcome email (with a temporary password)
- * to a newly-imported tradie via Brevo. The Brevo API key lives ONLY here, as a
- * Secret Manager secret — never in the client app.
- *
- * Set the secret before deploying:
- *   firebase functions:secrets:set BREVO_API_KEY
+ * - sendWelcomeEmail: branded welcome email (Brevo) for imported tradies.
+ *   Only callable by a company admin or platform admin.
+ * - onJobRated: recomputes a tradie's rating aggregate when a customer rates a
+ *   completed job — server-side so clients can't fake reputation.
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
+const admin = require('firebase-admin');
+
+admin.initializeApp();
 
 const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 
-// Must be a VERIFIED sender in your Brevo account (single sender or a verified
-// domain). Change this to your verified address.
+// Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
+const PLATFORM_ADMINS = ['admin@quickiefix.app'];
+
+// Must be a VERIFIED sender in your Brevo account.
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
-// Latest installable Android build. Update this when you cut a new APK.
+// Latest installable Android build. Update when you cut a new APK.
 const APP_DOWNLOAD_URL =
   'https://expo.dev/artifacts/eas/9ABmgBQRuYl8t_JZNr4jNxwp2i6qgGg_m2-xzGQxN2s.apk';
 
@@ -66,8 +70,24 @@ exports.sendWelcomeEmail = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'You must be signed in.');
     }
-    const { email, firstName, companyName, tempPassword } = request.data || {};
-    if (!email || !tempPassword || !companyName) {
+    // Only company admins or platform admins may send invites.
+    const email = (request.auth.token.email || '').toLowerCase();
+    const isPlatform = PLATFORM_ADMINS.includes(email);
+    let isCompanyAdmin = false;
+    if (!isPlatform) {
+      const adminDoc = await admin
+        .firestore()
+        .collection('companyAdmins')
+        .doc(request.auth.uid)
+        .get();
+      isCompanyAdmin = adminDoc.exists;
+    }
+    if (!isPlatform && !isCompanyAdmin) {
+      throw new HttpsError('permission-denied', 'Not authorised to send invites.');
+    }
+
+    const { email: to, firstName, companyName, tempPassword } = request.data || {};
+    if (!to || !tempPassword || !companyName) {
       throw new HttpsError('invalid-argument', 'Missing email, password or company.');
     }
 
@@ -80,9 +100,9 @@ exports.sendWelcomeEmail = onCall(
       },
       body: JSON.stringify({
         sender: SENDER,
-        to: [{ email, name: firstName || email }],
+        to: [{ email: to, name: firstName || to }],
         subject: `You've been added to ${companyName} on QuickieFix`,
-        htmlContent: welcomeHtml({ firstName, companyName, email, tempPassword }),
+        htmlContent: welcomeHtml({ firstName, companyName, email: to, tempPassword }),
       }),
     });
 
@@ -93,3 +113,39 @@ exports.sendWelcomeEmail = onCall(
     return { ok: true };
   },
 );
+
+// Server-side reputation: increment the tradie's completed-job count when a job
+// transitions to completed (clients can't write completedJobs directly).
+exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after || after.status !== 'completed' || before?.status === 'completed') return;
+  const tradieId = after.tradieId;
+  if (!tradieId) return;
+  await admin
+    .firestore()
+    .collection('users')
+    .doc(tradieId)
+    .update({ completedJobs: admin.firestore.FieldValue.increment(1) });
+});
+
+// Server-side reputation: recompute the tradie's rating when a job is rated.
+exports.onJobRated = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after || !after.customerRating || before?.customerRating) return; // only new ratings
+  const tradieId = after.tradieId;
+  const stars = after.customerRating.stars;
+  if (!tradieId || typeof stars !== 'number') return;
+
+  const db = admin.firestore();
+  await db.runTransaction(async (tx) => {
+    const ref = db.collection('users').doc(tradieId);
+    const snap = await tx.get(ref);
+    if (!snap.exists) return;
+    const t = snap.data();
+    const count = (t.ratingCount || 0) + 1;
+    const avg = Math.round((((t.ratingAvg || 0) * (t.ratingCount || 0) + stars) / count) * 10) / 10;
+    tx.update(ref, { ratingAvg: avg, ratingCount: count });
+  });
+});

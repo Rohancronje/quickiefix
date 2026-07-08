@@ -25,15 +25,18 @@ service cloud.firestore {
       allow read: if signedIn();
       // You may only create your own user document (during registration).
       allow create: if signedIn() && request.auth.uid == userId;
-      // Owner may update their own profile. Any signed-in user may update ONLY
-      // a tradie's rating aggregate (customer rating). A company admin may
-      // change ONLY the companyId/companyName of a tradie in their own company
-      // (used to remove a tradie from the company).
+      // Owner may update their own profile; platform admin may manage users; a
+      // company admin may change ONLY the companyId/companyName of a tradie in
+      // their own company (used to remove a tradie). Rating aggregates
+      // (ratingAvg/ratingCount) are written ONLY by the onJobRated Cloud
+      // Function via the Admin SDK — never by clients.
       allow update: if signedIn() && (
-        request.auth.uid == userId ||
+        (
+          request.auth.uid == userId &&
+          !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['ratingAvg', 'ratingCount', 'completedJobs'])
+        ) ||
         isPlatformAdmin() ||
-        request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['ratingAvg', 'ratingCount']) ||
         (
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['companyId', 'companyName']) &&
@@ -94,9 +97,14 @@ service cloud.firestore {
       allow read: if signedIn();
       // A customer can only create a job under their own id.
       allow create: if signedIn() && request.auth.uid == request.resource.data.customerId;
-      // MVP: any signed-in user can advance a job (accept/decline/transition).
-      // Tighten to the customer or assigned tradie for production.
-      allow update: if signedIn();
+      // Only the customer, the tradie the request was directed to, or the
+      // assigned tradie may advance a job (plus platform admins).
+      allow update: if signedIn() && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.requestedTradieId == request.auth.uid ||
+        resource.data.tradieId == request.auth.uid ||
+        isPlatformAdmin()
+      );
       allow delete: if false;
     }
   }

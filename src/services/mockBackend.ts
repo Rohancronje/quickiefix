@@ -329,6 +329,9 @@ class MockBackend implements Backend {
     if (job.status !== 'searching') {
       throw new Error('Sorry, this job has already been taken.');
     }
+    if (job.requestedTradieId && job.requestedTradieId !== tradieId) {
+      throw new Error('This request was sent to a different tradie.');
+    }
     const tradie = this.db.users[tradieId];
     if (!tradie || tradie.role !== 'tradie') throw new Error('Tradie not found.');
 

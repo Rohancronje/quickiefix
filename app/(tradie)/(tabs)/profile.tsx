@@ -19,7 +19,7 @@ export default function TradieProfile() {
 
   const joinCompany = async () => {
     setJoinError(null);
-    const code = inviteCode.trim();
+    const code = inviteCode.trim().toUpperCase();
     if (!code) return;
     try {
       setJoining(true);
