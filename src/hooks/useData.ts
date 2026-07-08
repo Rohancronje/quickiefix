@@ -1,6 +1,36 @@
 import { useEffect, useState } from 'react';
 import { backend, JobOffer } from '../services';
-import { FeeLineItem, Job } from '../types';
+import { FeeLineItem, Job, Property } from '../types';
+
+/** Properties a landlord owns (live). */
+export function useLandlordProperties(landlordId: string | undefined): Property[] {
+  const [props, setProps] = useState<Property[]>([]);
+  useEffect(() => {
+    if (!landlordId) return;
+    return backend.subscribeLandlordProperties(landlordId, setProps);
+  }, [landlordId]);
+  return props;
+}
+
+/** Properties a tenant is linked to (live). */
+export function useTenantProperties(tenantId: string | undefined): Property[] {
+  const [props, setProps] = useState<Property[]>([]);
+  useEffect(() => {
+    if (!tenantId) return;
+    return backend.subscribeTenantProperties(tenantId, setProps);
+  }, [tenantId]);
+  return props;
+}
+
+/** Jobs at a landlord's properties (live, visibility only). */
+export function useLandlordJobs(landlordId: string | undefined): Job[] {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  useEffect(() => {
+    if (!landlordId) return;
+    return backend.subscribeLandlordJobs(landlordId, setJobs);
+  }, [landlordId]);
+  return jobs;
+}
 
 /** All of a customer's jobs, newest first (live). */
 export function useCustomerJobs(customerId: string | undefined): Job[] {

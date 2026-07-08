@@ -18,6 +18,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   deleteField,
@@ -43,6 +44,7 @@ import {
   Job,
   JobStatus,
   Location,
+  Property,
   RateCard,
   Rating,
   Tradie,
@@ -229,6 +231,16 @@ export class FirestoreBackend implements Backend {
     const candidates = await this.getAvailableTradies(input.trade, input.location);
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
+    // Stamp the property + landlord (payer-of-record) if this job is at one.
+    let propertyStamp: Partial<Job> = {};
+    if (input.propertyId) {
+      const pSnap = await getDoc(doc(this.db, 'properties', input.propertyId));
+      if (pSnap.exists()) {
+        const p = pSnap.data() as Property;
+        propertyStamp = { propertyId: p.id, landlordId: p.landlordId, landlordName: p.landlordName };
+      }
+    }
+
     const job: Job = {
       id: jobRef.id,
       customerId: requester.id,
@@ -244,6 +256,7 @@ export class FirestoreBackend implements Backend {
       timestamps: { createdAt: now, searchingAt: now },
       dispatch: { candidateIds, startedAt: now },
       declinedBy: [],
+      ...propertyStamp,
     };
     await setDoc(jobRef, job);
     return job;
@@ -747,6 +760,84 @@ export class FirestoreBackend implements Backend {
 
   async setTradieRateCard(tradieId: string, rateCard: RateCard): Promise<void> {
     await updateDoc(this.userRef(tradieId), { rateCard });
+  }
+
+  /* --------------------------------------------------------- properties -- */
+
+  private propertyRef(id: string) {
+    return doc(this.db, 'properties', id);
+  }
+
+  async createProperty(
+    landlord: { id: string; name: string },
+    input: { label?: string; address: string; latitude?: number; longitude?: number },
+  ): Promise<Property> {
+    const ref = doc(collection(this.db, 'properties'));
+    const property: Property = {
+      id: ref.id,
+      landlordId: landlord.id,
+      landlordName: landlord.name,
+      address: input.address.trim(),
+      tenantIds: [],
+      tenantEmails: [],
+      createdAt: Date.now(),
+      ...(input.label?.trim() ? { label: input.label.trim() } : {}),
+      ...(input.latitude != null ? { latitude: input.latitude } : {}),
+      ...(input.longitude != null ? { longitude: input.longitude } : {}),
+    };
+    await setDoc(ref, property);
+    return property;
+  }
+
+  subscribeLandlordProperties(landlordId: string, cb: (p: Property[]) => void): Unsubscribe {
+    const q = query(collection(this.db, 'properties'), where('landlordId', '==', landlordId));
+    return onSnapshot(q, (snap) => {
+      const list = snap.docs.map((d) => d.data() as Property).sort((a, b) => b.createdAt - a.createdAt);
+      cb(list);
+    });
+  }
+
+  subscribeTenantProperties(tenantId: string, cb: (p: Property[]) => void): Unsubscribe {
+    const q = query(
+      collection(this.db, 'properties'),
+      where('tenantIds', 'array-contains', tenantId),
+    );
+    return onSnapshot(q, (snap) => cb(snap.docs.map((d) => d.data() as Property)));
+  }
+
+  async linkTenant(propertyId: string, tenantEmail: string): Promise<void> {
+    const email = tenantEmail.trim().toLowerCase();
+    const usnap = await getDocs(
+      query(collection(this.db, 'users'), where('email', '==', email)),
+    );
+    const user = usnap.docs.map((d) => d.data() as AppUser).find((u) => u.role === 'customer');
+    if (!user) {
+      throw new Error('No QuickieFix customer account with that email. Ask them to sign up first.');
+    }
+    await updateDoc(this.propertyRef(propertyId), {
+      tenantIds: arrayUnion(user.id),
+      tenantEmails: arrayUnion(email),
+    });
+  }
+
+  async unlinkTenant(propertyId: string, tenantId: string): Promise<void> {
+    const usnap = await getDoc(this.userRef(tenantId));
+    await updateDoc(this.propertyRef(propertyId), {
+      tenantIds: arrayRemove(tenantId),
+      ...(usnap.exists()
+        ? { tenantEmails: arrayRemove((usnap.data() as AppUser).email.toLowerCase()) }
+        : {}),
+    });
+  }
+
+  subscribeLandlordJobs(landlordId: string, cb: (jobs: Job[]) => void): Unsubscribe {
+    const q = query(collection(this.db, 'jobs'), where('landlordId', '==', landlordId));
+    return onSnapshot(q, (snap) => {
+      const jobs = snap.docs
+        .map((d) => d.data() as Job)
+        .sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt);
+      cb(jobs);
+    });
   }
 
   /* -------------------------------------------------------------- admin -- */

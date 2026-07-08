@@ -184,6 +184,25 @@ export interface Tradie extends BaseUser {
 
 export type AppUser = Customer | Tradie;
 
+/**
+ * A property claimed by a landlord (Pilot Spec §2, property-light). The landlord
+ * links tenants (by their QuickieFix email); jobs created at the property are
+ * stamped with the landlord as payer-of-record and the landlord gets visibility
+ * + an emailed job record. No approval gating in v0 — jobs dispatch immediately.
+ */
+export interface Property {
+  id: string;
+  landlordId: string;
+  landlordName: string;
+  label?: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  tenantIds: string[];
+  tenantEmails: string[];
+  createdAt: number;
+}
+
 export type UrgencyType = 'now' | 'scheduled';
 
 export interface JobTimestamps {
@@ -256,6 +275,10 @@ export interface Job {
   companyName?: string;
   /** Rate card in force at acceptance — the invoice-dispute baseline (§0). */
   rateSnapshot?: RateSnapshot;
+  /** Property this job is at, and the landlord as payer-of-record (§2). */
+  propertyId?: string;
+  landlordId?: string;
+  landlordName?: string;
 
   // Tradies who were offered this job and declined
   declinedBy: string[];

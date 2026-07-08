@@ -7,7 +7,7 @@
  *   completed job — server-side so clients can't fake reputation.
  */
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
+const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -233,6 +233,99 @@ exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
     });
   });
 });
+
+/** Send a branded transactional email via Brevo. */
+async function brevoSend({ to, toName, subject, html }) {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: {
+      'api-key': BREVO_API_KEY.value(),
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender: SENDER,
+      to: [{ email: to, name: toName || to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('Brevo send failed:', text.slice(0, 200));
+  }
+}
+
+function landlordEmailHtml({ heading, intro, job }) {
+  const t = job.timestamps || {};
+  const line = (label, val) => (val ? `<tr><td style="color:#5A6478;padding:2px 12px 2px 0">${label}</td><td style="font-weight:600">${val}</td></tr>` : '');
+  const when = (ts) => (ts ? new Date(ts).toLocaleString('en-NZ') : '');
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1220">
+    <div style="background:#0B1220;border-radius:16px;padding:24px;text-align:center">
+      <div style="font-size:24px;font-weight:800;color:#fff">Quickie<span style="color:#FFB020">Fix</span></div>
+    </div>
+    <div style="padding:24px 8px">
+      <h2 style="margin:0 0 8px">${heading}</h2>
+      <p style="color:#5A6478;line-height:1.6">${intro}</p>
+      <table style="margin:14px 0;font-size:14px;border-collapse:collapse">
+        ${line('Property', job.location?.address)}
+        ${line('Service', job.trade)}
+        ${line('Issue', job.description)}
+        ${line('Status', (job.status || '').replace('_', ' '))}
+        ${line('Tradie', job.tradieName)}
+        ${line('Accepted', when(t.acceptedAt))}
+        ${line('On site', when(t.onSiteAt))}
+        ${line('Completed', when(t.completedAt))}
+        ${line('Customer rating', job.customerRating ? job.customerRating.stars + '/5' : '')}
+      </table>
+      <p style="color:#8A93A6;font-size:12px">You're receiving this because you're the landlord of record for this property on QuickieFix.</p>
+    </div>
+  </div>`;
+}
+
+// Landlord visibility (§2): notify at creation and completion of jobs at their
+// property. The email is a formatted summary assembled from existing job data.
+exports.onLandlordJobCreated = onDocumentCreated(
+  { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const job = event.data?.data();
+    if (!job || !job.landlordId) return;
+    await emailLandlordRecord(job, {
+      subject: `New job requested at your property`,
+      heading: 'A job was requested at your property',
+      intro: `${job.customerName || 'Your tenant'} requested a ${job.trade} at ${job.location?.address || 'your property'}. We're dispatching a verified tradie now.`,
+    });
+  },
+);
+
+exports.onLandlordJobCompleted = onDocumentUpdated(
+  { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after || !after.landlordId) return;
+    if (after.status !== 'completed' || before?.status === 'completed') return;
+    await emailLandlordRecord(after, {
+      subject: `Job completed at your property`,
+      heading: 'A job was completed at your property',
+      intro: `Here's the record of the ${after.trade} completed at ${after.location?.address || 'your property'}.`,
+    });
+  },
+);
+
+async function emailLandlordRecord(job, { subject, heading, intro }) {
+  const snap = await admin.firestore().collection('users').doc(job.landlordId).get();
+  if (!snap.exists) return;
+  const landlord = snap.data();
+  if (!landlord.email) return;
+  await brevoSend({
+    to: landlord.email,
+    toName: `${landlord.firstName || ''} ${landlord.lastName || ''}`.trim(),
+    subject,
+    html: landlordEmailHtml({ heading, intro, job }),
+  }).catch((e) => console.error('emailLandlordRecord error', e));
+}
 
 // Server-side reputation: recompute the tradie's rating when a job is rated.
 exports.onJobRated = onDocumentUpdated('jobs/{jobId}', async (event) => {

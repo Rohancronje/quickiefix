@@ -16,6 +16,7 @@ import {
   FeeLineItem,
   GeoPoint,
   Job,
+  Property,
   RateCard,
   Rating,
   Tradie,
@@ -49,6 +50,7 @@ interface DB {
   tags: Record<string, CompanyTag>;
   complaints: Record<string, Complaint>;
   fees: Record<string, FeeLineItem>;
+  properties: Record<string, Property>;
 }
 
 function seedDb(): DB {
@@ -62,7 +64,16 @@ function seedDb(): DB {
     users[t.id] = t;
     credentials[t.email.toLowerCase()] = { password: DEMO_PASSWORD, userId: t.id };
   }
-  return { users, credentials, jobs: {}, companies: {}, tags: {}, complaints: {}, fees: {} };
+  return {
+    users,
+    credentials,
+    jobs: {},
+    companies: {},
+    tags: {},
+    complaints: {},
+    fees: {},
+    properties: {},
+  };
 }
 
 class MockBackend implements Backend {
@@ -88,6 +99,7 @@ class MockBackend implements Backend {
               tags: parsed.tags ?? {},
               complaints: parsed.complaints ?? {},
               fees: parsed.fees ?? {},
+              properties: parsed.properties ?? {},
             };
           } else await this.persist();
         } catch {
@@ -284,6 +296,13 @@ class MockBackend implements Backend {
       dispatch: { candidateIds, startedAt: now },
       declinedBy: [],
     };
+    // Stamp the property + landlord (payer-of-record) if this job is at one.
+    const property = input.propertyId ? this.db.properties[input.propertyId] : undefined;
+    if (property) {
+      job.propertyId = property.id;
+      job.landlordId = property.landlordId;
+      job.landlordName = property.landlordName;
+    }
     this.db.jobs[job.id] = job;
     this.commit();
     return job;
@@ -755,6 +774,85 @@ class MockBackend implements Backend {
       t.rateCard = rateCard;
       this.commit();
     }
+  }
+
+  /* --------------------------------------------------------- properties -- */
+
+  async createProperty(
+    landlord: { id: string; name: string },
+    input: { label?: string; address: string; latitude?: number; longitude?: number },
+  ): Promise<Property> {
+    await this.ensureLoaded();
+    const property: Property = {
+      id: uid('prop_'),
+      landlordId: landlord.id,
+      landlordName: landlord.name,
+      label: input.label?.trim() || undefined,
+      address: input.address.trim(),
+      latitude: input.latitude,
+      longitude: input.longitude,
+      tenantIds: [],
+      tenantEmails: [],
+      createdAt: Date.now(),
+    };
+    this.db.properties[property.id] = property;
+    this.commit();
+    return property;
+  }
+
+  subscribeLandlordProperties(landlordId: string, cb: (p: Property[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.properties)
+          .filter((p) => p.landlordId === landlordId)
+          .sort((a, b) => b.createdAt - a.createdAt),
+      cb,
+    );
+  }
+
+  subscribeTenantProperties(tenantId: string, cb: (p: Property[]) => void): Unsubscribe {
+    return this.subscribe(
+      () => Object.values(this.db.properties).filter((p) => p.tenantIds.includes(tenantId)),
+      cb,
+    );
+  }
+
+  async linkTenant(propertyId: string, tenantEmail: string): Promise<void> {
+    await this.ensureLoaded();
+    const property = this.db.properties[propertyId];
+    if (!property) throw new Error('Property not found.');
+    const email = tenantEmail.trim().toLowerCase();
+    const user = Object.values(this.db.users).find((u) => u.email.toLowerCase() === email);
+    if (!user || user.role !== 'customer') {
+      throw new Error('No QuickieFix customer account with that email. Ask them to sign up first.');
+    }
+    if (!property.tenantIds.includes(user.id)) property.tenantIds.push(user.id);
+    if (!property.tenantEmails.includes(email)) property.tenantEmails.push(email);
+    this.commit();
+  }
+
+  async unlinkTenant(propertyId: string, tenantId: string): Promise<void> {
+    await this.ensureLoaded();
+    const property = this.db.properties[propertyId];
+    if (!property) return;
+    const user = this.db.users[tenantId];
+    property.tenantIds = property.tenantIds.filter((id) => id !== tenantId);
+    if (user) {
+      property.tenantEmails = property.tenantEmails.filter(
+        (e) => e !== user.email.toLowerCase(),
+      );
+    }
+    this.commit();
+  }
+
+  subscribeLandlordJobs(landlordId: string, cb: (jobs: Job[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.jobs)
+          .filter((j) => j.landlordId === landlordId)
+          .sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt),
+      cb,
+    );
   }
 
   /* -------------------------------------------------------------- admin -- */

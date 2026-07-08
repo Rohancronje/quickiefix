@@ -17,6 +17,7 @@ import {
   GeoPoint,
   Job,
   Location,
+  Property,
   Qualification,
   RateCard,
   Rating,
@@ -60,6 +61,8 @@ export interface NewJobInput {
   scheduledFor?: number;
   /** Emergency-category job — auto-confirms faster and jumps the search queue. */
   isEmergency?: boolean;
+  /** Property this job is at (stamps landlord as payer-of-record). */
+  propertyId?: string;
 }
 
 /** A job offer surfaced to a tradie, annotated with distance/eta. */
@@ -160,6 +163,23 @@ export interface Backend {
   setCompanyRateCard(companyId: string, rateCard: RateCard): Promise<void>;
   /** Set a company's shared free-job credit pool (platform admin, §6.5). */
   setSharedCredits(companyId: string, credits: number): Promise<void>;
+
+  // ---- Properties (landlord / tenant, §2) ----
+  /** A landlord claims a property. */
+  createProperty(
+    landlord: { id: string; name: string },
+    input: { label?: string; address: string; latitude?: number; longitude?: number },
+  ): Promise<Property>;
+  /** Live list of a landlord's properties. */
+  subscribeLandlordProperties(landlordId: string, cb: (p: Property[]) => void): Unsubscribe;
+  /** Live list of properties a tenant is linked to. */
+  subscribeTenantProperties(tenantId: string, cb: (p: Property[]) => void): Unsubscribe;
+  /** Link a tenant to a property by their QuickieFix email (must have an account). */
+  linkTenant(propertyId: string, tenantEmail: string): Promise<void>;
+  /** Unlink a tenant from a property. */
+  unlinkTenant(propertyId: string, tenantId: string): Promise<void>;
+  /** Live feed of jobs at a landlord's properties (visibility only). */
+  subscribeLandlordJobs(landlordId: string, cb: (jobs: Job[]) => void): Unsubscribe;
 
   // ---- Admin ----
   listTradies(): Promise<Tradie[]>;

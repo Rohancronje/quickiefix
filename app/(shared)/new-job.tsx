@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
+import { useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -36,8 +37,16 @@ export default function NewJob() {
   const [locating, setLocating] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyType>('now');
   const [isEmergency, setIsEmergency] = useState(false);
+  const [propertyId, setPropertyId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Properties the requester owns or rents — a job can be attached to one.
+  const owned = useLandlordProperties(user?.id);
+  const rented = useTenantProperties(user?.id);
+  const properties = [...owned, ...rented].filter(
+    (p, i, arr) => arr.findIndex((x) => x.id === p.id) === i,
+  );
 
   const jobLocation: Location = {
     address: address.trim(),
@@ -65,6 +74,7 @@ export default function NewJob() {
       const loc = await getCurrentLocation();
       setAddress(loc.address);
       setCoords({ latitude: loc.latitude, longitude: loc.longitude });
+      setPropertyId(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -86,6 +96,7 @@ export default function NewJob() {
           location: jobLocation,
           urgency,
           isEmergency,
+          propertyId: propertyId ?? undefined,
         },
       );
       router.replace({ pathname: '/track/[id]', params: { id: job.id } });
@@ -154,6 +165,43 @@ export default function NewJob() {
 
           {step === 2 && (
             <Step title="Where's the job?">
+              {properties.length > 0 && (
+                <View style={{ gap: spacing.sm }}>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    For one of your properties?
+                  </Txt>
+                  {properties.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      style={[styles.option, propertyId === p.id && styles.optionActive]}
+                      onPress={() => {
+                        setPropertyId(p.id);
+                        setAddress(p.address);
+                        setCoords(
+                          p.latitude != null && p.longitude != null
+                            ? { latitude: p.latitude, longitude: p.longitude }
+                            : null,
+                        );
+                      }}
+                    >
+                      <Txt style={{ fontSize: 22 }}>🏠</Txt>
+                      <View style={{ flex: 1 }}>
+                        <Txt variant="label">{p.label || p.address}</Txt>
+                        <Txt variant="caption" color={colors.textMuted}>
+                          {p.landlordId === user?.id ? 'Your property' : `Managed by ${p.landlordName}`}
+                        </Txt>
+                      </View>
+                    </Pressable>
+                  ))}
+                  <View style={styles.orRow}>
+                    <View style={styles.orLine} />
+                    <Txt variant="caption" color={colors.textFaint}>
+                      or a different location
+                    </Txt>
+                    <View style={styles.orLine} />
+                  </View>
+                </View>
+              )}
               <Button
                 title={locating ? 'Locating…' : 'Use my current location'}
                 icon="📍"
@@ -175,6 +223,7 @@ export default function NewJob() {
                 onChangeText={(t) => {
                   setAddress(t);
                   setCoords(null);
+                  setPropertyId(null);
                 }}
               />
               {coords && (
