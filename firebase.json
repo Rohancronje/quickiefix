@@ -5,8 +5,17 @@
   "storage": {
     "rules": "storage.rules"
   },
-  "hosting": {
-    "public": "landing",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
-  }
+  "hosting": [
+    {
+      "site": "quickiefix-2ea2a",
+      "public": "landing",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+    },
+    {
+      "site": "quickiefix-portal",
+      "public": "portal/dist",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    }
+  ]
 }

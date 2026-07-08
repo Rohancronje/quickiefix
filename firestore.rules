@@ -19,11 +19,19 @@ service cloud.firestore {
       // You may only create your own user document (during registration).
       allow create: if signedIn() && request.auth.uid == userId;
       // Owner may update their own profile. Any signed-in user may update ONLY
-      // a tradie's rating aggregate (needed when a customer rates a tradie).
+      // a tradie's rating aggregate (customer rating). A company admin may
+      // change ONLY the companyId/companyName of a tradie in their own company
+      // (used to remove a tradie from the company).
       allow update: if signedIn() && (
         request.auth.uid == userId ||
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['ratingAvg', 'ratingCount'])
+          .hasOnly(['ratingAvg', 'ratingCount']) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['companyId', 'companyName']) &&
+          resource.data.companyId != null &&
+          get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid
+        )
       );
       allow delete: if false;
     }
