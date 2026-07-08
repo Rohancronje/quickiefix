@@ -12,6 +12,7 @@
  */
 import {
   createUserWithEmailAndPassword,
+  deleteUser,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut,
@@ -100,7 +101,13 @@ export class FirestoreBackend implements Backend {
       lastName: input.lastName.trim(),
       createdAt: Date.now(),
     };
-    await setDoc(this.userRef(customer.id), customer);
+    try {
+      await setDoc(this.userRef(customer.id), customer);
+    } catch (e) {
+      // Roll back the auth account so we never leave an orphan.
+      await deleteUser(cred.user).catch(() => {});
+      throw e;
+    }
     return customer;
   }
 
@@ -135,7 +142,12 @@ export class FirestoreBackend implements Backend {
       jobsOffered: 0,
       jobsAccepted: 0,
     };
-    await setDoc(this.userRef(tradie.id), tradie);
+    try {
+      await setDoc(this.userRef(tradie.id), tradie);
+    } catch (e) {
+      await deleteUser(cred.user).catch(() => {});
+      throw e;
+    }
     return tradie;
   }
 

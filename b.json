@@ -1,0 +1,49 @@
+[
+  {
+    "id": "15158242-1391-4879-a211-25a90df918c1",
+    "status": "FINISHED",
+    "platform": "ANDROID",
+    "artifacts": {
+      "buildUrl": "https://expo.dev/artifacts/eas/aX3Waego0y0MbaI9feO_t7cLk2vWY5qqw66ooaZwBD4.apk",
+      "applicationArchiveUrl": "https://expo.dev/artifacts/eas/aX3Waego0y0MbaI9feO_t7cLk2vWY5qqw66ooaZwBD4.apk"
+    },
+    "fingerprint": {
+      "id": "019f4100-ebe5-787d-8b57-21ad50f27835",
+      "hash": "2de43c9f3ce4e15577050126ad4a276afe2664d1"
+    },
+    "initiatingActor": {
+      "id": "951766d4-ab78-49f4-a7d5-36522e7119cb",
+      "displayName": "rohan87"
+    },
+    "logFiles": [
+      "https://storage.googleapis.com/eas-workflows-production/logs/af87594c-64e6-4ab1-8796-04cf077c722b/15158242-1391-4879-a211-25a90df918c1/2026-07-08T09%3A17%3A07Z-6efa2126-b63d-4bbd-b490-a6eaa1aa638c.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20260708%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20260708T092710Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=281ad7a0127bd47ccf66d63233ad99779969c57a23463542bb37baa5e5d9c943908242b5c53318b907810d1429389787f65e0e308d7a969805718fb7a4731cb20a5e96be03092f72fe93a8142748a6da5b5cc8cb107811ad51112725d5a8761ce4aac686a54d85541c32d5e80754afff1a9735724a89e1965653d479c06512d8e35f537faade748b9b4628f8e76bcab26d46236edf1dff833ee64ec54fda85ffd77228e1792513d466a517567c5a11562b4ac92b6c27d49931aa542370a84eb978831e6ce0ab3ca3a436dd9dea1b4f0e6692f30c40c7696ac9ed164ec855a79bd7d01041e67904cfc6e0ee849ff2e194058d38d34630977a5f911b133253c9a9"
+    ],
+    "project": {
+      "id": "af87594c-64e6-4ab1-8796-04cf077c722b",
+      "name": "QuickieFix",
+      "slug": "QuickieFix",
+      "ownerAccount": {
+        "id": "f7535b9a-d7d5-4d78-b728-78b9f913fc2a",
+        "name": "rohan87"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "sdkVersion": "54.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "1",
+    "gitCommitHash": "6c0a7713d8c3369bdf44e977dce9f0459676dc18",
+    "gitCommitMessage": "Remove expo-audio/expo-haptics to fix native launch crash\n\nThese two native modules (added after the clean SDK 54 baseline) are the prime\nsuspects for the ClassNotFoundException AnyTypeCache crash in expo-modules-core\nnative init. Removed them + their usage in RequestAlert (banner + tab badge\nalerting remain; sound/haptics to return via a build-safe path). Clean reinstall.",
+    "priority": "NORMAL",
+    "createdAt": "2026-07-08T09:13:27.233Z",
+    "updatedAt": "2026-07-08T09:23:37.968Z",
+    "completedAt": "2026-07-08T09:23:37.792Z",
+    "expirationDate": "2026-07-22T09:13:27.262Z",
+    "isForIosSimulator": false,
+    "metrics": {
+      "buildWaitTime": 4029,
+      "buildQueueTime": 221284,
+      "buildDuration": 385246
+    }
+  }
+]
