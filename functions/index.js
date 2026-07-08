@@ -19,7 +19,7 @@ const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
 // Latest installable Android build. Update this when you cut a new APK.
 const APP_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/SIXGT4M-JK1F9HCvHL9vRZfY5kYN7bjI_s960W2g_oY.apk';
+  'https://expo.dev/artifacts/eas/9ABmgBQRuYl8t_JZNr4jNxwp2i6qgGg_m2-xzGQxN2s.apk';
 
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
