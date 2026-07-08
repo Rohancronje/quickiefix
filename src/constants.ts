@@ -96,3 +96,23 @@ export const tradieStatusMeta: Record<TradieStatus, StatusMeta> = {
 
 /** Radius (km) within which a tradie is auto-flipped to "on site". */
 export const ON_SITE_RADIUS_KM = 0.15;
+
+/**
+ * Money (Pilot Spec §5). $15 + GST per completed job; first 5 jobs free.
+ * These mirror the server constants in functions/index.js — keep them in sync.
+ */
+export const FEE_CENTS = 1500; // $15.00 ex-GST per completed job
+export const GST_RATE = 0.15; // NZ GST
+export const FREE_CREDITS_DEFAULT = 5; // founding-member credit on approval
+
+/** GST portion (cents) for a given ex-GST amount. */
+export const gstOf = (amountCents: number): number => Math.round(amountCents * GST_RATE);
+
+/** "2026-07"-style billing period key for a timestamp. */
+export function monthKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Format cents as NZ dollars, e.g. 8625 -> "$86.25". */
+export const formatMoney = (cents: number): string => `$${(cents / 100).toFixed(2)}`;

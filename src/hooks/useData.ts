@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { backend, JobOffer } from '../services';
-import { Job } from '../types';
+import { FeeLineItem, Job } from '../types';
 
 /** All of a customer's jobs, newest first (live). */
 export function useCustomerJobs(customerId: string | undefined): Job[] {
@@ -50,6 +50,16 @@ export function useTradieHistory(tradieId: string | undefined): Job[] {
     return backend.subscribeTradieHistory(tradieId, setJobs);
   }, [tradieId]);
   return jobs;
+}
+
+/** A tradie's platform-fee ledger (live). */
+export function useTradieFees(tradieId: string | undefined): FeeLineItem[] {
+  const [fees, setFees] = useState<FeeLineItem[]>([]);
+  useEffect(() => {
+    if (!tradieId) return;
+    return backend.subscribeTradieFees(tradieId, setFees);
+  }, [tradieId]);
+  return fees;
 }
 
 /** A single user (live) — used to render tradie profiles to customers. */

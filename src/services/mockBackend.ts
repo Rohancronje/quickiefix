@@ -13,12 +13,14 @@ import {
   CompanyInvite,
   Complaint,
   Customer,
+  FeeLineItem,
   GeoPoint,
   Job,
   Rating,
   Tradie,
   TradieStatus,
 } from '../types';
+import { FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
 import { uid } from '../lib/id';
@@ -45,6 +47,7 @@ interface DB {
   companies: Record<string, Company>;
   invites: Record<string, CompanyInvite>;
   complaints: Record<string, Complaint>;
+  fees: Record<string, FeeLineItem>;
 }
 
 function seedDb(): DB {
@@ -58,7 +61,7 @@ function seedDb(): DB {
     users[t.id] = t;
     credentials[t.email.toLowerCase()] = { password: DEMO_PASSWORD, userId: t.id };
   }
-  return { users, credentials, jobs: {}, companies: {}, invites: {}, complaints: {} };
+  return { users, credentials, jobs: {}, companies: {}, invites: {}, complaints: {}, fees: {} };
 }
 
 class MockBackend implements Backend {
@@ -83,6 +86,7 @@ class MockBackend implements Backend {
               companies: parsed.companies ?? {},
               invites: parsed.invites ?? {},
               complaints: parsed.complaints ?? {},
+              fees: parsed.fees ?? {},
             };
           } else await this.persist();
         } catch {
@@ -180,6 +184,8 @@ class MockBackend implements Backend {
       completedJobs: 0,
       jobsOffered: 0,
       jobsAccepted: 0,
+      freeJobCredits: FREE_CREDITS_DEFAULT,
+      paymentHold: false,
     };
     this.db.users[tradie.id] = tradie;
     this.db.credentials[tradie.email.toLowerCase()] = {
@@ -310,6 +316,7 @@ class MockBackend implements Backend {
     for (const u of Object.values(this.db.users)) {
       if (u.role !== 'tradie') continue;
       if (u.approval !== 'approved' || u.status !== 'available') continue;
+      if (u.paymentHold) continue; // on payment hold → excluded from dispatch (§5.4)
       const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
       if (!trades.has(trade)) continue;
       let km = 0;
@@ -402,8 +409,33 @@ class MockBackend implements Backend {
       if (t && t.role === 'tradie') {
         t.status = 'available';
         t.completedJobs += 1;
+        this.recordFee(job, t);
       }
     });
+  }
+
+  /**
+   * Record the platform fee for a completed job (Pilot Spec §5.3). A free credit
+   * waives it; otherwise it's billable and pending the monthly invoice. In the
+   * live backend this is done by the onJobCompleted Cloud Function instead.
+   */
+  private recordFee(job: Job, tradie: Tradie): void {
+    const id = uid('fee_');
+    const useCredit = (tradie.freeJobCredits ?? 0) > 0;
+    if (useCredit) tradie.freeJobCredits -= 1;
+    this.db.fees[id] = {
+      id,
+      tradieId: tradie.id,
+      tradieName: tradie.businessName,
+      jobId: job.id,
+      trade: job.trade,
+      companyId: tradie.companyId,
+      amountCents: FEE_CENTS,
+      gstCents: gstOf(FEE_CENTS),
+      status: useCredit ? 'waived_credit' : 'pending',
+      monthKey: monthKey(job.timestamps.completedAt ?? Date.now()),
+      createdAt: Date.now(),
+    };
   }
 
   async cancelJob(jobId: string, _by: 'customer' | 'tradie'): Promise<void> {
@@ -482,6 +514,16 @@ class MockBackend implements Backend {
           .sort(
             (a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0),
           ),
+      cb,
+    );
+  }
+
+  subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.fees)
+          .filter((f) => f.tradieId === tradieId)
+          .sort((a, b) => b.createdAt - a.createdAt),
       cb,
     );
   }
@@ -570,6 +612,24 @@ class MockBackend implements Backend {
     const t = this.db.users[tradieId];
     if (t && t.role === 'tradie') {
       t.approval = approval;
+      this.commit();
+    }
+  }
+
+  async setPaymentHold(tradieId: string, hold: boolean): Promise<void> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') {
+      t.paymentHold = hold;
+      this.commit();
+    }
+  }
+
+  async setFreeCredits(tradieId: string, credits: number): Promise<void> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') {
+      t.freeJobCredits = Math.max(0, Math.floor(credits));
       this.commit();
     }
   }

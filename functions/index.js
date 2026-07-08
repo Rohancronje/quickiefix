@@ -26,6 +26,14 @@ const SENDER = { email: 'noreply@quickiefix.app', name: 'QuickieFix' };
 const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found
 const EMERGENCY_AUTO_CONFIRM_MS = 180_000; // accepted emergency → confirmed
 
+// Money — must mirror src/constants.ts.
+const FEE_CENTS = 1500; // $15.00 ex-GST per completed job
+const GST_RATE = 0.15;
+function monthKeyOf(ts) {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
 // Latest installable Android build. Update when you cut a new APK.
 const APP_DOWNLOAD_URL =
   'https://expo.dev/artifacts/eas/9ABmgBQRuYl8t_JZNr4jNxwp2i6qgGg_m2-xzGQxN2s.apk';
@@ -160,19 +168,54 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
   );
 });
 
-// Server-side reputation: increment the tradie's completed-job count when a job
-// transitions to completed (clients can't write completedJobs directly).
+/**
+ * On job completion (clients can't write these fields directly):
+ *  - increment the tradie's completed-job count, and
+ *  - record the platform fee (Pilot Spec §5.3). A free credit waives it and is
+ *    decremented; otherwise the fee is billable and `pending`. The fee doc id is
+ *    the jobId, so this is idempotent — a job is only ever billed once.
+ */
 exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
   const before = event.data?.before?.data();
   const after = event.data?.after?.data();
   if (!after || after.status !== 'completed' || before?.status === 'completed') return;
   const tradieId = after.tradieId;
   if (!tradieId) return;
-  await admin
-    .firestore()
-    .collection('users')
-    .doc(tradieId)
-    .update({ completedJobs: admin.firestore.FieldValue.increment(1) });
+
+  const db = admin.firestore();
+  const jobId = event.params.jobId;
+  const feeRef = db.collection('feeLineItems').doc(jobId);
+  const tradieRef = db.collection('users').doc(tradieId);
+
+  await db.runTransaction(async (tx) => {
+    const feeSnap = await tx.get(feeRef);
+    if (feeSnap.exists) return; // already billed — idempotent
+    const tradieSnap = await tx.get(tradieRef);
+    if (!tradieSnap.exists) return;
+    const tradie = tradieSnap.data();
+
+    const credits = tradie.freeJobCredits || 0;
+    const useCredit = credits > 0;
+    const completedAt = after.timestamps?.completedAt || Date.now();
+
+    tx.update(tradieRef, {
+      completedJobs: admin.firestore.FieldValue.increment(1),
+      ...(useCredit ? { freeJobCredits: admin.firestore.FieldValue.increment(-1) } : {}),
+    });
+    tx.set(feeRef, {
+      id: jobId,
+      tradieId,
+      tradieName: tradie.businessName || '',
+      jobId,
+      trade: after.trade,
+      ...(tradie.companyId ? { companyId: tradie.companyId } : {}),
+      amountCents: FEE_CENTS,
+      gstCents: Math.round(FEE_CENTS * GST_RATE),
+      status: useCredit ? 'waived_credit' : 'pending',
+      monthKey: monthKeyOf(completedAt),
+      createdAt: Date.now(),
+    });
+  });
 });
 
 // Server-side reputation: recompute the tradie's rating when a job is rated.

@@ -45,6 +45,24 @@ export interface Tradie {
   ratingAvg: number;
   ratingCount: number;
   completedJobs: number;
+  freeJobCredits?: number;
+  paymentHold?: boolean;
+}
+
+export type FeeStatus = 'waived_credit' | 'pending' | 'invoiced' | 'paid';
+
+export interface FeeLineItem {
+  id: string;
+  tradieId: string;
+  tradieName: string;
+  jobId: string;
+  trade: string;
+  companyId?: string;
+  amountCents: number;
+  gstCents: number;
+  status: FeeStatus;
+  monthKey: string;
+  createdAt: number;
 }
 
 export interface Customer {

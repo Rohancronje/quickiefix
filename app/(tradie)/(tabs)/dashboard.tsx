@@ -4,12 +4,13 @@ import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
-import { tradeMeta, tradieStatusMeta } from '../../../src/constants';
+import { formatMoney, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
   useCustomerJobs,
   useJobOffers,
   useTradieActiveJob,
+  useTradieFees,
   useTradieHistory,
 } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
@@ -17,6 +18,7 @@ import { waveEligible } from '../../../src/lib/dispatch';
 import { formatDistance } from '../../../src/lib/geo';
 import { getCurrentLocation } from '../../../src/lib/location';
 import { backend, JobOffer } from '../../../src/services';
+import { FeeLineItem } from '../../../src/types';
 import { colors, font, radius, spacing } from '../../../src/theme';
 
 export default function TradieDashboard() {
@@ -32,6 +34,7 @@ export default function TradieDashboard() {
     ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   );
   const history = useTradieHistory(tradie.id);
+  const fees = useTradieFees(tradie.id);
 
   const [locating, setLocating] = useState(false);
   const isApproved = tradie.approval === 'approved';
@@ -101,6 +104,22 @@ export default function TradieDashboard() {
           />
         </Card>
       )}
+
+      {/* Payment hold — the founder has paused this tradie from dispatch */}
+      {tradie.paymentHold && (
+        <Card style={styles.pending}>
+          <Txt variant="heading" color={colors.danger}>
+            ⏸️ Dispatch paused
+          </Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            Your account is on a payment hold, so you won't receive new jobs. Please settle your
+            QuickieFix invoice — dispatch resumes as soon as it's cleared.
+          </Txt>
+        </Card>
+      )}
+
+      {/* This-month fee tally (informational — billing happens off-app) */}
+      {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
 
       {/* Availability toggle */}
       {isApproved && !onActiveJob && (
@@ -284,6 +303,44 @@ function OfferCard({
   );
 }
 
+function MoneyPanel({
+  fees,
+  creditsRemaining,
+  now,
+}: {
+  fees: FeeLineItem[];
+  creditsRemaining: number;
+  now: number;
+}) {
+  const mk = monthKey(now);
+  const thisMonth = fees.filter((f) => f.monthKey === mk);
+  const completed = thisMonth.length;
+  const waived = thisMonth.filter((f) => f.status === 'waived_credit').length;
+  const billable = thisMonth.filter((f) => f.status !== 'waived_credit');
+  const exGst = billable.reduce((s, f) => s + f.amountCents, 0);
+  const incGst = billable.reduce((s, f) => s + f.amountCents + f.gstCents, 0);
+
+  return (
+    <Card style={styles.money}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Txt variant="label" color={colors.white}>
+          💳 This month
+        </Txt>
+        <Txt variant="caption" color={colors.amber} style={{ fontWeight: '700' }}>
+          {creditsRemaining} free {creditsRemaining === 1 ? 'credit' : 'credits'} left
+        </Txt>
+      </View>
+      <Txt variant="heading" color={colors.white}>
+        {formatMoney(incGst)} <Txt variant="caption" color={colors.onNavyMuted}>incl. GST</Txt>
+      </Txt>
+      <Txt variant="caption" color={colors.onNavyMuted}>
+        {completed} completed · {waived} free · {billable.length} billable ({formatMoney(exGst)} + GST).
+        {' '}Invoiced on the 1st — no in-app payment.
+      </Txt>
+    </Card>
+  );
+}
+
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
@@ -348,4 +405,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  money: { backgroundColor: colors.navy, gap: 4 },
 });

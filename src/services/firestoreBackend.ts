@@ -38,6 +38,7 @@ import {
   Company,
   CompanyInvite,
   Customer,
+  FeeLineItem,
   GeoPoint,
   Job,
   JobStatus,
@@ -47,6 +48,7 @@ import {
   TradeCategory,
   TradieStatus,
 } from '../types';
+import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
 import {
@@ -142,6 +144,8 @@ export class FirestoreBackend implements Backend {
       completedJobs: 0,
       jobsOffered: 0,
       jobsAccepted: 0,
+      freeJobCredits: FREE_CREDITS_DEFAULT,
+      paymentHold: false,
     };
     try {
       await setDoc(this.userRef(tradie.id), tradie);
@@ -273,6 +277,7 @@ export class FirestoreBackend implements Backend {
     for (const d of snap.docs) {
       const u = d.data() as AppUser;
       if (u.role !== 'tradie' || u.approval !== 'approved') continue;
+      if (u.paymentHold) continue; // on payment hold → excluded from dispatch (§5.4)
       const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
       if (!trades.has(trade)) continue;
       let km = 0;
@@ -487,6 +492,16 @@ export class FirestoreBackend implements Backend {
     });
   }
 
+  subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe {
+    const q = query(collection(this.db, 'feeLineItems'), where('tradieId', '==', tradieId));
+    return onSnapshot(q, (snap) => {
+      const fees = snap.docs
+        .map((d) => d.data() as FeeLineItem)
+        .sort((a, b) => b.createdAt - a.createdAt);
+      cb(fees);
+    });
+  }
+
   /**
    * Wave-dispatch feed. Live query of still-searching jobs whose candidate pool
    * includes this tradie. Returns every candidate job with recomputed distance;
@@ -584,6 +599,14 @@ export class FirestoreBackend implements Backend {
 
   async setApproval(tradieId: string, approval: Tradie['approval']): Promise<void> {
     await updateDoc(this.userRef(tradieId), { approval });
+  }
+
+  async setPaymentHold(tradieId: string, hold: boolean): Promise<void> {
+    await updateDoc(this.userRef(tradieId), { paymentHold: hold });
+  }
+
+  async setFreeCredits(tradieId: string, credits: number): Promise<void> {
+    await updateDoc(this.userRef(tradieId), { freeJobCredits: Math.max(0, Math.floor(credits)) });
   }
 }
 

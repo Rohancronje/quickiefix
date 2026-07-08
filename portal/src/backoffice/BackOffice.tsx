@@ -5,22 +5,32 @@ import {
   listAllUsers,
   listCompanies,
   listComplaints,
+  listFeeLineItems,
   resolveComplaint,
   setApproval,
+  setFreeCredits,
+  setPaymentHold,
 } from '../adminApi';
 import { useAuth } from '../auth';
 import { formatDate, formatDuration, initials, stars } from '../lib';
-import { Company, Complaint, Customer, Job, Tradie, tradeLabel } from '../types';
+import { Company, Complaint, Customer, FeeLineItem, Job, Tradie, tradeLabel } from '../types';
 
-type Tab = 'overview' | 'tradies' | 'jobs' | 'customers' | 'complaints';
+type Tab = 'overview' | 'tradies' | 'jobs' | 'customers' | 'billing' | 'complaints';
 
 const NAV: { key: Tab; label: string; ico: string }[] = [
   { key: 'overview', label: 'Overview', ico: '📊' },
   { key: 'tradies', label: 'Tradies', ico: '🧰' },
   { key: 'jobs', label: 'Jobs', ico: '📋' },
   { key: 'customers', label: 'Customers', ico: '👥' },
+  { key: 'billing', label: 'Billing', ico: '💳' },
   { key: 'complaints', label: 'Complaints', ico: '⚠️' },
 ];
+
+const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 export function BackOffice() {
   const { adminEmail, logout } = useAuth();
@@ -29,20 +39,23 @@ export function BackOffice() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [fees, setFees] = useState<FeeLineItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const [u, j, c, co] = await Promise.all([
+    const [u, j, c, co, f] = await Promise.all([
       listAllUsers(),
       listAllJobs(),
       listComplaints(),
       listCompanies(),
+      listFeeLineItems(),
     ]);
     setUsers(u);
     setJobs(j);
     setComplaints(c);
     setCompanies(co);
+    setFees(f);
     setLoading(false);
   };
   useEffect(() => {
@@ -59,6 +72,14 @@ export function BackOffice() {
   };
   const resolve = async (c: Complaint) => {
     await resolveComplaint(c.id);
+    await load();
+  };
+  const toggleHold = async (t: Tradie) => {
+    await setPaymentHold(t.id, !t.paymentHold);
+    await load();
+  };
+  const updateCredits = async (t: Tradie, credits: number) => {
+    await setFreeCredits(t.id, credits);
     await load();
   };
 
@@ -113,11 +134,18 @@ export function BackOffice() {
               openComplaints={openComplaints.length}
             />
           ) : tab === 'tradies' ? (
-            <Tradies tradies={tradies} onApprove={approve} />
+            <Tradies
+              tradies={tradies}
+              onApprove={approve}
+              onToggleHold={toggleHold}
+              onUpdateCredits={updateCredits}
+            />
           ) : tab === 'jobs' ? (
             <Jobs jobs={jobs} />
           ) : tab === 'customers' ? (
             <Customers customers={customers} jobs={jobs} />
+          ) : tab === 'billing' ? (
+            <Billing fees={fees} />
           ) : (
             <Complaints complaints={complaints} onResolve={resolve} />
           )}
@@ -144,7 +172,7 @@ function Overview({
 }) {
   const completed = jobs.filter((j) => j.status === 'completed').length;
   const active = jobs.filter((j) =>
-    ['searching', 'accepted', 'travelling', 'on_site'].includes(j.status),
+    ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   ).length;
   const pending = tradies.filter((t) => t.approval === 'pending').length;
 
@@ -186,9 +214,13 @@ function ApprovalBadge({ a }: { a: Tradie['approval'] }) {
 function Tradies({
   tradies,
   onApprove,
+  onToggleHold,
+  onUpdateCredits,
 }: {
   tradies: Tradie[];
   onApprove: (t: Tradie, a: Tradie['approval']) => void;
+  onToggleHold: (t: Tradie) => void;
+  onUpdateCredits: (t: Tradie, credits: number) => void;
 }) {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const list = tradies.filter((t) => (filter === 'all' ? true : t.approval === filter));
@@ -220,6 +252,7 @@ function Tradies({
                 <th>Trade</th>
                 <th>Company</th>
                 <th>Rating</th>
+                <th>Credits</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -250,7 +283,15 @@ function Tradies({
                     )}
                   </td>
                   <td>
+                    <CreditControl tradie={t} onUpdate={onUpdateCredits} />
+                  </td>
+                  <td>
                     <ApprovalBadge a={t.approval} />
+                    {t.paymentHold && (
+                      <span className="badge badge-gray" style={{ marginLeft: 6 }}>
+                        on hold
+                      </span>
+                    )}
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {t.approval !== 'approved' && (
@@ -258,6 +299,13 @@ function Tradies({
                         Approve
                       </button>
                     )}{' '}
+                    <button
+                      className={`btn btn-sm ${t.paymentHold ? 'btn-primary' : 'btn-ghost'}`}
+                      onClick={() => onToggleHold(t)}
+                      title="Pause/reinstate dispatch for non-payment"
+                    >
+                      {t.paymentHold ? 'Reinstate' : 'Hold'}
+                    </button>{' '}
                     {t.approval === 'approved' ? (
                       <button className="btn btn-danger btn-sm" onClick={() => onApprove(t, 'suspended')}>
                         Suspend
@@ -278,12 +326,149 @@ function Tradies({
   );
 }
 
+function CreditControl({
+  tradie,
+  onUpdate,
+}: {
+  tradie: Tradie;
+  onUpdate: (t: Tradie, credits: number) => void;
+}) {
+  const [val, setVal] = useState(String(tradie.freeJobCredits ?? 0));
+  const dirty = val !== String(tradie.freeJobCredits ?? 0);
+  return (
+    <div className="flex" style={{ gap: 6 }}>
+      <input
+        type="number"
+        min={0}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        style={{ width: 56, padding: '4px 6px', borderRadius: 6, border: '1px solid var(--line)' }}
+      />
+      {dirty && (
+        <button className="btn btn-primary btn-sm" onClick={() => onUpdate(tradie, Number(val) || 0)}>
+          Save
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* --------------------------------------------------------------- Billing -- */
+
+function Billing({ fees }: { fees: FeeLineItem[] }) {
+  const months = Array.from(new Set(fees.map((f) => f.monthKey))).sort().reverse();
+  const [month, setMonth] = useState(months[0] ?? currentMonthKey());
+  const monthFees = fees.filter((f) => f.monthKey === month);
+
+  // Group billable (non-waived) fees per payer for the monthly invoice run.
+  const byPayer = new Map<string, { name: string; billable: number; waived: number; exGst: number; incGst: number }>();
+  for (const f of monthFees) {
+    const row = byPayer.get(f.tradieId) ?? { name: f.tradieName, billable: 0, waived: 0, exGst: 0, incGst: 0 };
+    if (f.status === 'waived_credit') row.waived += 1;
+    else {
+      row.billable += 1;
+      row.exGst += f.amountCents;
+      row.incGst += f.amountCents + f.gstCents;
+    }
+    byPayer.set(f.tradieId, row);
+  }
+  const payers = [...byPayer.entries()];
+  const totalIncGst = payers.reduce((s, [, r]) => s + r.incGst, 0);
+
+  const downloadCsv = () => {
+    const header = ['Tradie', 'Billable jobs', 'Free (waived)', 'Amount ex-GST', 'GST', 'Total incl. GST'];
+    const rows = payers.map(([, r]) => [
+      r.name,
+      String(r.billable),
+      String(r.waived),
+      (r.exGst / 100).toFixed(2),
+      ((r.incGst - r.exGst) / 100).toFixed(2),
+      (r.incGst / 100).toFixed(2),
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `quickiefix-billing-${month}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="grid" style={{ gap: 16 }}>
+      <div className="between">
+        <div className="flex" style={{ gap: 8 }}>
+          {(months.length ? months : [currentMonthKey()]).map((m) => (
+            <button
+              key={m}
+              className={`btn btn-sm ${month === m ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => setMonth(m)}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+        <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+          <span className="faint">
+            {payers.length} payers · <strong style={{ color: 'var(--text)' }}>{fmtMoney(totalIncGst)}</strong> incl. GST
+          </span>
+          <button className="btn btn-primary btn-sm" onClick={downloadCsv} disabled={!payers.length}>
+            ⬇ Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 12, background: 'var(--amber-soft, #FFF7E6)' }}>
+        <span className="faint" style={{ fontSize: 13 }}>
+          Invoicing happens off-app. This is the run sheet: raise one invoice per payer from these
+          totals (7-day terms), then use the Hold button on the Tradies tab for sustained non-payment.
+        </span>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {payers.length === 0 ? (
+          <div className="empty">
+            <div className="e-ico">💳</div>
+            <p>No fees recorded for {month}.</p>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Payer</th>
+                <th>Billable</th>
+                <th>Free (waived)</th>
+                <th>Ex-GST</th>
+                <th>Total incl. GST</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payers.map(([id, r]) => (
+                <tr key={id}>
+                  <td style={{ fontWeight: 700 }}>{r.name}</td>
+                  <td>{r.billable}</td>
+                  <td className="faint">{r.waived}</td>
+                  <td>{fmtMoney(r.exGst)}</td>
+                  <td style={{ fontWeight: 700 }}>{fmtMoney(r.incGst)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ Jobs -- */
 
 const STATUS_BADGE: Record<string, string> = {
   completed: 'badge-green',
   searching: 'badge-amber',
+  no_tradie_found: 'badge-gray',
   accepted: 'badge-blue',
+  confirmed: 'badge-blue',
   travelling: 'badge-blue',
   on_site: 'badge-blue',
   cancelled: 'badge-gray',

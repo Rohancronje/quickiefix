@@ -133,5 +133,7 @@ function mkTradie(a: MkArgs): Tradie {
     completedJobs: a.completedJobs,
     jobsOffered: a.completedJobs + 8,
     jobsAccepted: a.completedJobs,
+    freeJobCredits: 0, // established demo tradies have used their free credits
+    paymentHold: false,
   };
 }

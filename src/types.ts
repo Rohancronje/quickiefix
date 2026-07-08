@@ -133,6 +133,12 @@ export interface Tradie extends BaseUser {
   completedJobs: number;
   jobsOffered: number;
   jobsAccepted: number;
+  // Money (Pilot Spec §5). Platform fee is billed off-app; the app only records
+  // the tally. `freeJobCredits` waive the fee on the first N completed jobs.
+  freeJobCredits: number;
+  // Founder-set access lever for sustained non-payment: excluded from dispatch
+  // until cleared. There is no automated dunning (§5.4).
+  paymentHold?: boolean;
 }
 
 export type AppUser = Customer | Tradie;
@@ -202,6 +208,33 @@ export interface Job {
   // Ratings exchanged after completion
   customerRating?: Rating; // customer -> tradie
   tradieRating?: Rating; // tradie -> customer
+}
+
+/**
+ * A single platform-fee entry, written server-side when a job completes
+ * (Pilot Spec §5.3). The app never charges money — this ledger drives the
+ * tradie's in-app tally and the founder's monthly CSV export, and later the
+ * automated charging with zero migration.
+ *
+ *  - `waived_credit`: covered by a free-job credit (no money owed)
+ *  - `pending`: billable, awaiting the monthly invoice
+ *  - `invoiced` / `paid`: set by the founder's off-app billing process
+ */
+export type FeeStatus = 'waived_credit' | 'pending' | 'invoiced' | 'paid';
+
+export interface FeeLineItem {
+  id: string;
+  tradieId: string;
+  tradieName: string;
+  jobId: string;
+  trade: TradeCategory;
+  companyId?: string; // stamped for company-tagged jobs (Phase 3)
+  amountCents: number; // fee ex-GST (e.g. 1500 = $15.00)
+  gstCents: number; // GST portion
+  status: FeeStatus;
+  /** Billing period key, e.g. "2026-07", for monthly grouping. */
+  monthKey: string;
+  createdAt: number;
 }
 
 /** A complaint raised by a customer about a job/tradie, for admin handling. */

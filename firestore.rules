@@ -34,7 +34,7 @@ service cloud.firestore {
         (
           request.auth.uid == userId &&
           !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['ratingAvg', 'ratingCount', 'completedJobs'])
+            .hasAny(['ratingAvg', 'ratingCount', 'completedJobs', 'freeJobCredits', 'paymentHold'])
         ) ||
         isPlatformAdmin() ||
         (
@@ -91,6 +91,15 @@ service cloud.firestore {
         && request.resource.data.status == 'open';
       allow update: if isPlatformAdmin();
       allow delete: if false;
+    }
+
+    // Platform-fee ledger. A tradie may read their own fees; platform admins read
+    // all. Writes are server-only (onJobCompleted Cloud Function via Admin SDK) —
+    // clients can never create, alter, or waive a fee.
+    match /feeLineItems/{id} {
+      allow read: if isPlatformAdmin() ||
+        (signedIn() && resource.data.tradieId == request.auth.uid);
+      allow write: if false;
     }
 
     match /jobs/{jobId} {

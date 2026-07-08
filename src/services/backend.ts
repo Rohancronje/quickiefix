@@ -13,6 +13,7 @@ import {
   Company,
   CompanyInvite,
   Customer,
+  FeeLineItem,
   GeoPoint,
   Job,
   Location,
@@ -124,6 +125,8 @@ export interface Backend {
   /** Live feed of matching, still-searching job offers for a tradie. */
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe;
   subscribeTradieHistory(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
+  /** Live platform-fee ledger for a tradie (drives the in-app money tally). */
+  subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe;
 
   // ---- Company invites (tradie side) ----
   /** Preview an invite (to show the company name before joining). */
@@ -136,4 +139,8 @@ export interface Backend {
   // ---- Admin ----
   listTradies(): Promise<Tradie[]>;
   setApproval(tradieId: string, approval: Tradie['approval']): Promise<void>;
+  /** Founder access lever: exclude/reinstate a tradie from dispatch (§5.4). */
+  setPaymentHold(tradieId: string, hold: boolean): Promise<void>;
+  /** Founder credit control: set a tradie's remaining free-job credits (§5.2). */
+  setFreeCredits(tradieId: string, credits: number): Promise<void>;
 }
