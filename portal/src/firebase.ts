@@ -3,7 +3,7 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 // Same Firebase project as the mobile app. Web config values are not secret.
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: 'AIzaSyCSpZ-nKTCTpbg95qi6Ko11Zx0iQfHQu3k',
   authDomain: 'quickiefix-2ea2a.firebaseapp.com',
   projectId: 'quickiefix-2ea2a',

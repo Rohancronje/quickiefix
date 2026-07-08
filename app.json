@@ -9,12 +9,14 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "app.quickiefix",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "QuickieFix uses your location to match you with nearby jobs and detect when you arrive on site.",
         "NSPhotoLibraryUsageDescription": "QuickieFix lets you attach photos of the issue to a job request."
       }
     },
     "android": {
+      "package": "app.quickiefix",
       "adaptiveIcon": {
         "backgroundColor": "#0B1220",
         "foregroundImage": "./assets/android-icon-foreground.png",
