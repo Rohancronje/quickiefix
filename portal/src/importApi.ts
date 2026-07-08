@@ -6,6 +6,7 @@ import {
   signOut,
 } from 'firebase/auth';
 import { doc, getFirestore, setDoc } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { firebaseConfig } from './firebase';
 import { Company, TRADE_LABELS } from './types';
 
@@ -160,7 +161,8 @@ export async function importTradies(
       continue;
     }
     try {
-      const cred = await createUserWithEmailAndPassword(secAuth, r.email, tempPassword());
+      const pw = tempPassword();
+      const cred = await createUserWithEmailAndPassword(secAuth, r.email, pw);
       const uid = cred.user.uid;
       // Written by the new tradie (secondary auth) so it satisfies the rules.
       await setDoc(doc(secDb, 'users', uid), {
@@ -188,9 +190,28 @@ export async function importTradies(
         companyId: company.id,
         companyName: company.name,
       });
-      await sendPasswordResetEmail(secAuth, r.email);
+      // Preferred: branded welcome email (Brevo) via Cloud Function.
+      // Fallback: Firebase's free "set your password" email.
+      let message = 'Account created';
+      try {
+        const fn = httpsCallable(getFunctions(), 'sendWelcomeEmail');
+        await fn({
+          email: r.email,
+          firstName: r.firstName,
+          companyName: company.name,
+          tempPassword: pw,
+        });
+        message = 'Invited — welcome email sent';
+      } catch {
+        try {
+          await sendPasswordResetEmail(secAuth, r.email);
+          message = 'Invited — set-password email sent';
+        } catch {
+          message = 'Account created (email pending)';
+        }
+      }
       await signOut(secAuth);
-      results.push({ email: r.email, ok: true, message: 'Invited — password email sent' });
+      results.push({ email: r.email, ok: true, message });
     } catch (e) {
       const code = (e as { code?: string }).code ?? '';
       results.push({
