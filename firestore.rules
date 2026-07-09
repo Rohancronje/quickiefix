@@ -122,6 +122,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Append-only audit trail — written ONLY by Cloud Functions (Admin SDK).
+    // Platform admins may read it in the back office; no client may ever write.
+    match /auditLog/{id} {
+      allow read: if isPlatformAdmin();
+      allow write: if false;
+    }
+
     // Platform-fee ledger. A tradie may read their own fees; platform admins read
     // all. Writes are server-only (onJobCompleted Cloud Function via Admin SDK) —
     // clients can never create, alter, or waive a fee.

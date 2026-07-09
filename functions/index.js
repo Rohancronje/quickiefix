@@ -402,6 +402,75 @@ exports.onJobReleased = onDocumentUpdated('jobs/{jobId}', async (event) => {
 });
 
 /**
+ * Append-only audit trail. Written ONLY server-side (Admin SDK bypasses rules;
+ * clients are denied by firestore.rules). Captures money- and status-changing
+ * events so there's an immutable record for support/disputes. Best-effort: an
+ * audit failure never breaks the triggering operation.
+ */
+async function writeAudit(entry) {
+  try {
+    await admin
+      .firestore()
+      .collection('auditLog')
+      .add({ ...entry, at: Date.now(), createdAt: admin.firestore.FieldValue.serverTimestamp() });
+  } catch (e) {
+    console.error('audit write failed:', entry.type, e);
+  }
+}
+
+/** Audit job lifecycle transitions (assigned / completed / cancelled / no-match). */
+exports.onJobAudit = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after || before?.status === after.status) return;
+  const base = {
+    jobId: event.params.jobId,
+    trade: after.trade,
+    customerId: after.customerId,
+    tradieId: after.tradieId || null,
+  };
+  switch (after.status) {
+    case 'accepted':
+    case 'confirmed':
+      await writeAudit({ type: 'job.assigned', mode: after.assignmentMode || 'auto', ...base });
+      break;
+    case 'completed':
+      await writeAudit({ type: 'job.completed', ...base });
+      break;
+    case 'cancelled':
+      await writeAudit({ type: 'job.cancelled', ...base });
+      break;
+    case 'no_tradie_found':
+      await writeAudit({ type: 'job.no_tradie_found', ...base });
+      break;
+    default:
+      break;
+  }
+});
+
+/** Audit tradie account levers: approval, payment hold, and free-credit changes. */
+exports.onUserAudit = onDocumentUpdated('users/{uid}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after || after.role !== 'tradie') return;
+  const base = { subjectId: event.params.uid, businessName: after.businessName || null };
+  if (before?.approval !== after.approval) {
+    await writeAudit({ type: 'tradie.approval', from: before?.approval || null, to: after.approval, ...base });
+  }
+  if (Boolean(before?.paymentHold) !== Boolean(after.paymentHold)) {
+    await writeAudit({ type: 'tradie.paymentHold', to: Boolean(after.paymentHold), ...base });
+  }
+  if ((before?.freeJobCredits ?? null) !== (after.freeJobCredits ?? null)) {
+    await writeAudit({
+      type: 'tradie.credits',
+      from: before?.freeJobCredits ?? null,
+      to: after.freeJobCredits ?? null,
+      ...base,
+    });
+  }
+});
+
+/**
  * Stable app-download redirect. Served at quickiefix.store/download (Hosting
  * rewrite) — resolves the newest FINISHED internal Android build from EAS at
  * request time and 302-redirects to its APK. Emails/links never go stale: as
