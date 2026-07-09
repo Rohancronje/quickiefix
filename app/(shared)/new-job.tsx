@@ -1,6 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -115,7 +117,44 @@ export default function NewJob() {
     if (step < STEPS.length - 1) setStep(step + 1);
     else submit();
   };
-  const back = () => (step === 0 ? router.back() : setStep(step - 1));
+
+  // Warn before abandoning a partly-filled request. "Dirty" = the user has made
+  // a real choice worth protecting (not just landed on the screen).
+  const dirty = !!trade || description.trim().length > 0 || address.trim().length > 0;
+  const confirmLeave = () => {
+    Alert.alert(
+      'Discard this request?',
+      "You haven't submitted this request yet — leaving now will discard what you've entered.",
+      [
+        { text: 'Keep editing', style: 'cancel' },
+        { text: 'Discard request', style: 'destructive', onPress: () => router.back() },
+      ],
+    );
+  };
+
+  /** Shared back logic for the header chevron and the Android hardware button. */
+  const goBack = (): boolean => {
+    if (submitting) return true; // don't let them bail mid-submit
+    if (step > 0) {
+      setStep(step - 1);
+      return true;
+    }
+    if (dirty) {
+      confirmLeave();
+      return true;
+    }
+    return false; // nothing entered → just leave
+  };
+  const back = () => {
+    if (!goBack()) router.back();
+  };
+
+  // Intercept the Android hardware back button with the same guard.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', goBack);
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, dirty, submitting]);
 
   return (
     <SafeAreaView style={styles.safe}>
