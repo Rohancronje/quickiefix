@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RequestAlert } from '../../../src/components/RequestAlert';
-import { TabBarIcon } from '../../../src/components/TabBarIcon';
+import { NewJobTabButton, TabBarIcon } from '../../../src/components/TabBarIcon';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useJobOffers } from '../../../src/hooks/useData';
 import { colors, font } from '../../../src/theme';
@@ -38,24 +38,37 @@ export default function TradieTabs() {
         <Tabs.Screen
           name="dashboard"
           options={{
-            title: 'Jobs',
+            title: 'Home',
             tabBarBadge: pending > 0 ? pending : undefined,
             tabBarBadgeStyle: { backgroundColor: colors.danger, fontSize: 11 },
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧰" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon active="home" inactive="home-outline" focused={focused} />
+            ),
           }}
         />
         <Tabs.Screen
           name="timesheets"
           options={{
             title: 'Timesheets',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="📋" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon active="receipt" inactive="receipt-outline" focused={focused} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="new-job-launcher"
+          options={{
+            title: 'New Job',
+            tabBarButton: () => <NewJobTabButton />,
           }}
         />
         <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="👤" focused={focused} />,
+            tabBarIcon: ({ focused }) => (
+              <TabBarIcon active="person" inactive="person-outline" focused={focused} />
+            ),
           }}
         />
       </Tabs>
