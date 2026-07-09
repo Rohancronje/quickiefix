@@ -21,6 +21,7 @@ const getReactNativePersistence = (
   }
 ).getReactNativePersistence;
 import { Firestore, getFirestore, initializeFirestore } from 'firebase/firestore';
+import { Functions, getFunctions } from 'firebase/functions';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
 import { firebaseConfig } from './firebaseConfig';
 
@@ -31,6 +32,7 @@ let app: FirebaseApp | null = null;
 let authInstance: Auth | null = null;
 let dbInstance: Firestore | null = null;
 let storageInstance: FirebaseStorage | null = null;
+let functionsInstance: Functions | null = null;
 
 if (isFirebaseConfigured) {
   // Wrapped so a failure here can never crash app startup — worst case the app
@@ -56,6 +58,7 @@ if (isFirebaseConfigured) {
       dbInstance = getFirestore(app);
     }
     storageInstance = getStorage(app);
+    functionsInstance = getFunctions(app);
   } catch (e) {
     console.error('Firebase init failed:', e);
   }
@@ -65,3 +68,4 @@ if (isFirebaseConfigured) {
 export const auth = authInstance;
 export const db = dbInstance;
 export const storage = storageInstance;
+export const functions = functionsInstance;

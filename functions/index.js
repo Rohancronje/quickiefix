@@ -136,6 +136,64 @@ exports.sendWelcomeEmail = onCall(
  *  - an accepted EMERGENCY job past its auto-confirm window → confirmed.
  * Standard (non-emergency) jobs are left for the customer to confirm explicitly.
  */
+function resetHtml({ link }) {
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1220">
+    <div style="background:#0B1220;border-radius:16px;padding:28px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:#fff">Quickie<span style="color:#FFB020">Fix</span></div>
+    </div>
+    <div style="padding:28px 8px">
+      <h2 style="margin:0 0 8px">Reset your password</h2>
+      <p style="color:#5A6478;line-height:1.6">
+        We received a request to reset your QuickieFix password. Tap the button below to choose a new
+        one. If you didn't request this, you can safely ignore this email — your password won't change.
+      </p>
+      <div style="text-align:center;margin:24px 0 8px">
+        <a href="${link}"
+           style="display:inline-block;background:#FFB020;color:#0B1220;font-weight:800;
+                  text-decoration:none;padding:15px 30px;border-radius:12px;font-size:15px">
+          Reset my password
+        </a>
+      </div>
+      <p style="color:#8A93A6;font-size:12px;line-height:1.6">
+        Button not working? Paste this link into your browser:<br/>
+        <a href="${link}" style="color:#3D7BFF;word-break:break-all">${link}</a>
+      </p>
+    </div>
+    <div style="text-align:center;color:#8A93A6;font-size:12px;padding:12px">
+      QuickieFix · Get trusted help fast
+    </div>
+  </div>`;
+}
+
+// Branded password reset via Brevo (better deliverability than Firebase's
+// default sender). Generates the reset link with the Admin SDK and emails it.
+exports.sendPasswordReset = onCall(
+  { secrets: [BREVO_API_KEY], cors: true },
+  async (request) => {
+    const email = String(request.data?.email || '').trim().toLowerCase();
+    if (!email) throw new HttpsError('invalid-argument', 'Email is required.');
+    let link;
+    try {
+      link = await admin.auth().generatePasswordResetLink(email);
+    } catch (e) {
+      // Never reveal whether an account exists.
+      if (e.code === 'auth/user-not-found' || e.code === 'auth/email-not-found') {
+        return { ok: true };
+      }
+      console.error('generatePasswordResetLink failed', e);
+      throw new HttpsError('internal', 'Could not start the reset. Please try again.');
+    }
+    await brevoSend({
+      to: email,
+      toName: email,
+      subject: 'Reset your QuickieFix password',
+      html: resetHtml({ link }),
+    });
+    return { ok: true };
+  },
+);
+
 exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
   const db = admin.firestore();
   const now = Date.now();

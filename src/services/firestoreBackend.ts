@@ -34,6 +34,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   AppUser,
@@ -68,7 +69,7 @@ import {
   TradieRegistration,
   Unsubscribe,
 } from './backend';
-import { auth, db, storage } from './firebase';
+import { auth, db, functions, storage } from './firebase';
 
 const ACTIVE_STATUSES: JobStatus[] = ['accepted', 'confirmed', 'travelling', 'on_site'];
 
@@ -212,6 +213,16 @@ export class FirestoreBackend implements Backend {
   }
 
   async resetPassword(email: string): Promise<void> {
+    // Preferred path: our branded email via Brevo (Cloud Function). Falls back to
+    // Firebase's default sender if the Functions client isn't available.
+    if (functions) {
+      try {
+        await httpsCallable(functions, 'sendPasswordReset')({ email: email.trim() });
+        return;
+      } catch {
+        // Fall through to Firebase's built-in email.
+      }
+    }
     try {
       await sendPasswordResetEmail(this.auth, email.trim());
     } catch (e) {
