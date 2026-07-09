@@ -8,6 +8,7 @@ import { TRADES, tradeMeta } from '../../../src/constants';
 import { useCustomer } from '../../../src/context/AuthContext';
 import { useCustomerJobs } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
+import { greeting } from '../../../src/lib/greeting';
 import { backend } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
 import { Job } from '../../../src/types';
@@ -65,11 +66,26 @@ export default function CustomerHome() {
       />
 
       <View style={styles.header}>
-        <View>
-          <Txt variant="caption" color={colors.textMuted}>
-            Kia ora,
+        <View style={{ flex: 1 }}>
+          <Txt variant="title">
+            {greeting()}, {customer.firstName}
           </Txt>
-          <Txt variant="title">{customer.firstName} 👋</Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            What do you need sorted today?
+          </Txt>
+        </View>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.iconBtn} onPress={() => router.push('/activity')}>
+            <Txt style={{ fontSize: 18 }}>🔔</Txt>
+            {active.length > 0 && (
+              <View style={styles.bellBadge}>
+                <Txt style={styles.bellBadgeText}>{active.length}</Txt>
+              </View>
+            )}
+          </Pressable>
+          <Pressable style={styles.avatar} onPress={() => router.push('/account')}>
+            <Txt style={styles.avatarText}>{customer.firstName.charAt(0).toUpperCase()}</Txt>
+          </Pressable>
         </View>
       </View>
 
@@ -173,7 +189,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
   cta: { backgroundColor: colors.navy, gap: spacing.xs },
   resume: { backgroundColor: colors.navy, gap: spacing.xs, borderWidth: 1, borderColor: colors.amber },
   resumeActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
