@@ -11,7 +11,7 @@ import { Txt } from './ui';
  * A loud, hard-to-miss in-app alert for incoming direct requests. Renders as a
  * floating banner over ALL tradie screens (so the tradie is alerted even when
  * they're not on the dashboard), pulses for attention, buzzes on arrival, and
- * jumps to the dashboard on tap. Time-sensitive by design.
+ * opens the job (accept / decline / ask a question) on tap.
  */
 export function RequestAlert({ offers }: { offers: JobOffer[] }) {
   const router = useRouter();
@@ -62,7 +62,7 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
       pointerEvents="box-none"
       style={[styles.wrap, { paddingTop: insets.top + 6, transform: [{ translateY: drop }] }]}
     >
-      <Pressable onPress={() => router.push('/dashboard')}>
+      <Pressable onPress={() => router.push({ pathname: '/job/[id]', params: { id: top.job.id } })}>
         <Animated.View style={[styles.banner, { transform: [{ scale }] }]}>
           <View style={styles.bell}>
             <Txt style={{ fontSize: 22 }}>🔔</Txt>

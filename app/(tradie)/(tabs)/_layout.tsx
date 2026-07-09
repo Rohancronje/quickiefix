@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RequestAlert } from '../../../src/components/RequestAlert';
-import { NewJobTabButton, TabBarIcon } from '../../../src/components/TabBarIcon';
+import { TabBarIcon } from '../../../src/components/TabBarIcon';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useJobOffers } from '../../../src/hooks/useData';
 import { colors, font } from '../../../src/theme';
@@ -53,13 +53,6 @@ export default function TradieTabs() {
             tabBarIcon: ({ focused }) => (
               <TabBarIcon active="receipt" inactive="receipt-outline" focused={focused} />
             ),
-          }}
-        />
-        <Tabs.Screen
-          name="new-job-launcher"
-          options={{
-            title: 'New Job',
-            tabBarButton: () => <NewJobTabButton />,
           }}
         />
         <Tabs.Screen

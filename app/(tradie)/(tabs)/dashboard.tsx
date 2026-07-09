@@ -6,7 +6,6 @@ import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, Txt } from '../../../src/components/ui';
 import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
-import { relativeTime } from '../../../src/lib/format';
 import { greeting } from '../../../src/lib/greeting';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
@@ -65,17 +64,6 @@ export default function TradieDashboard() {
       await backend.setTradieStatus(tradie.id, 'offline');
     }
   };
-
-  const accept = async (offer: JobOffer) => {
-    try {
-      await backend.acceptJob(offer.job.id, tradie.id);
-      router.push({ pathname: '/job/[id]', params: { id: offer.job.id } });
-    } catch (e) {
-      Alert.alert('Could not accept', (e as Error).message);
-    }
-  };
-
-  const decline = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);
 
   // ---- Browse & choose ----
   const acceptSelection = async (offer: JobOffer) => {
@@ -258,31 +246,6 @@ export default function TradieDashboard() {
         </View>
       )}
 
-      {/* New job offers — only surfaces when there's something to act on; the
-          RequestAlert + notifications cover discovery, so no empty block. */}
-      {isApproved && !onActiveJob && offers.length > 0 && (
-        <View style={{ gap: spacing.sm }}>
-          <View style={styles.offersHeader}>
-            <Txt variant="label">New job offers</Txt>
-            <View style={styles.countPill}>
-              <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
-                {offers.length}
-              </Txt>
-            </View>
-          </View>
-          {offers.map((offer) => (
-            <OfferCard
-              key={offer.job.id}
-              offer={offer}
-              now={now}
-              onAccept={() => accept(offer)}
-              onDecline={() => decline(offer)}
-              onAsk={() => router.push({ pathname: '/job/[id]', params: { id: offer.job.id } })}
-            />
-          ))}
-        </View>
-      )}
-
       {/* Need help yourself — a tradie can also request a service */}
       <Card style={styles.needHelp}>
         <View style={{ flex: 1, gap: 2 }}>
@@ -318,89 +281,6 @@ export default function TradieDashboard() {
       {/* This month — fee tally (informational; billing happens off-app) */}
       {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
     </Screen>
-  );
-}
-
-/** Suburb-ish part of an address ("30 Davey Cres, Orewa, Auckland" → "Orewa"). */
-function suburbOf(address: string): string {
-  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
-  return parts.length > 1 ? parts[1] : parts[0] ?? address;
-}
-
-/** Typical on-site duration by trade — display-only guidance for the tradie. */
-const TYPICAL_DURATION: Partial<Record<string, string>> = {
-  electrician: '45–90 min',
-  plumber: '60–120 min',
-  locksmith: '30–60 min',
-  handyman: '60–120 min',
-  gasfitter: '60–120 min',
-  appliance_repair: '45–90 min',
-};
-
-function OfferCard({
-  offer,
-  now,
-  onAccept,
-  onDecline,
-  onAsk,
-}: {
-  offer: JobOffer;
-  now: number;
-  onAccept: () => void;
-  onDecline: () => void;
-  onAsk: () => void;
-}) {
-  const meta = tradeMeta(offer.job.trade);
-  const emergency = offer.job.isEmergency;
-  const duration = TYPICAL_DURATION[offer.job.trade];
-  return (
-    <Card style={styles.offer}>
-      <View style={[styles.requestedBanner, emergency && { backgroundColor: colors.dangerSoft }]}>
-        <Txt variant="caption" color={emergency ? colors.danger : colors.blue} style={{ fontWeight: '700' }}>
-          {emergency ? '🚨 Emergency job' : '⚡ New job'} · requested{' '}
-          {relativeTime(offer.job.timestamps.createdAt, now)}
-        </Txt>
-      </View>
-      <View style={styles.offerTop}>
-        <View style={styles.offerIcon}>
-          <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Txt variant="label">{meta.label}</Txt>
-          <Txt variant="caption" color={colors.textMuted}>
-            {suburbOf(offer.job.location.address)} · {formatDistance(offer.distanceKm)} away
-          </Txt>
-        </View>
-        <View style={styles.offerEta}>
-          <Txt style={styles.offerEtaValue}>~{offer.etaMinutes}</Txt>
-          <Txt variant="caption" color={colors.textMuted}>
-            min away
-          </Txt>
-        </View>
-      </View>
-      <Txt variant="body" color={colors.text} numberOfLines={2}>
-        {offer.job.description}
-      </Txt>
-      <View style={styles.offerMetaRow}>
-        <Txt variant="caption" color={colors.textFaint} numberOfLines={1} style={{ flex: 1 }}>
-          📍 {offer.job.location.address}
-        </Txt>
-        {duration && (
-          <Txt variant="caption" color={colors.textMuted} style={{ fontWeight: '700' }}>
-            ⏱ {duration}
-          </Txt>
-        )}
-      </View>
-      <View style={styles.offerActions}>
-        <View style={{ flex: 1 }}>
-          <Button title="Decline" kind="ghost" small onPress={onDecline} />
-        </View>
-        <View style={{ flex: 2 }}>
-          <Button title="Accept job" kind="success" onPress={onAccept} />
-        </View>
-      </View>
-      <Button title="💬 Ask a question first" kind="secondary" small onPress={onAsk} />
-    </Card>
   );
 }
 
@@ -693,16 +573,6 @@ const styles = StyleSheet.create({
   pending: { backgroundColor: colors.warningSoft, gap: spacing.sm, alignItems: 'flex-start' },
   activeCard: { backgroundColor: colors.navy, gap: 4 },
   activeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  offersHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  countPill: {
-    backgroundColor: colors.danger,
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-  },
   offer: { gap: spacing.sm, borderWidth: 1, borderColor: colors.line },
   requestedBanner: {
     backgroundColor: colors.infoSoft,
@@ -712,9 +582,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   offerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  offerEta: { alignItems: 'center' },
-  offerEtaValue: { fontSize: 20, fontWeight: '800', color: colors.navy },
-  offerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   offerIcon: {
     width: 44,
     height: 44,

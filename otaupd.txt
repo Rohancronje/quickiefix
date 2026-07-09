@@ -1,0 +1,79 @@
+- Exporting...
+[expo-cli] Starting Metro Bundler
+[expo-cli] iOS node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓░░░░░░░░░░░░░░ 17.0% (13/41)
+[expo-cli] iOS node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓░░░░░░░░░░░░░ 19.2% (154/351)
+[expo-cli] iOS node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓░░░░░░░░░░ 40.4% (424/680)
+[expo-cli] iOS node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 84.9% (786/853)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓░░░░░░░░░░░░░░ 17.4% ( 17/133)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 93.0% (1000/1044)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓░░░░░░░░░░░░░░ 17.4% (152/373)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1048/1048)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 63.1% (621/782)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1048/1048)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 94.9% (928/982)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1048/1048)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.8% (1051/1052)
+[expo-cli] Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1048/1048)
+[expo-cli] Android Bundled 30346ms node_modules\expo-router\entry.js (1048 modules)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.8% (1051/1052)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1052/1052)
+[expo-cli] iOS Bundled 56187ms node_modules\expo-router\entry.js (1052 modules)
+[expo-cli] iOS node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1052/1052)
+[expo-cli] Creating asset map
+[expo-cli] 
+[expo-cli] › Assets (32):
+[expo-cli] assets\logo-light.png (2.1 MB)
+[expo-cli] node_modules\@react-navigation\elements\lib\module\assets\back-icon-mask.png (653 B)
+[expo-cli] node_modules\@react-navigation\elements\lib\module\assets\back-icon.png (8 variations | 359 B)
+[expo-cli] node_modules\@react-navigation\elements\lib\module\assets\clear-icon.png (4 variations | 425 B)
+[expo-cli] node_modules\@react-navigation\elements\lib\module\assets\close-icon.png (4 variations | 235 B)
+[expo-cli] node_modules\@react-navigation\elements\lib\module\assets\search-icon.png (7 variations | 592 B)
+[expo-cli] node_modules\expo-router\assets\arrow_down.png (9.46 kB)
+[expo-cli] node_modules\expo-router\assets\error.png (469 B)
+[expo-cli] node_modules\expo-router\assets\file.png (138 B)
+[expo-cli] node_modules\expo-router\assets\forward.png (188 B)
+[expo-cli] node_modules\expo-router\assets\pkg.png (364 B)
+[expo-cli] node_modules\expo-router\assets\sitemap.png (465 B)
+[expo-cli] node_modules\expo-router\assets\unmatched.png (4.75 kB)
+[expo-cli] 
+[expo-cli] › android bundles (2):
+[expo-cli] _expo/static/js/android/entry-831967118dc3fda22bcb52ad88fd4391.hbc (2.78 MB)
+[expo-cli] _expo/static/js/android/entry-831967118dc3fda22bcb52ad88fd4391.hbc.map (9.96 MB)
+[expo-cli] 
+[expo-cli] › ios bundles (2):
+[expo-cli] _expo/static/js/ios/entry-c687a69b03a252424686dcb72257ae75.hbc (2.79 MB)
+[expo-cli] _expo/static/js/ios/entry-c687a69b03a252424686dcb72257ae75.hbc.map (9.96 MB)
+[expo-cli] 
+[expo-cli] › Files (2):
+[expo-cli] assetmap.json (11.4 kB)
+[expo-cli] metadata.json (3.7 kB)
+[expo-cli] 
+[expo-cli] Exported: dist
+✔ Exported bundle(s)
+- Uploading...
+- Uploading assetmap.json (0 / 11.1 KB)
+✔ Uploaded assetmap.json 4s
+√ Uploaded 2 app bundles
+√ Uploaded 1 asset (reused 33 assets)
+i 28 iOS assets, 28 Android assets (maximum: 2000 total per update). Learn more about asset limits: https://expo.fyi/eas-update-asset-limits
+- Computing project fingerprints
+⌛️ Computing the project fingerprints is taking longer than expected...
+⏩ To skip this step, set the environment variable: EAS_SKIP_AUTO_FINGERPRINT=1
+✔ Computed project fingerprints
+- Publishing...
+✔ Published!
+
+Branch             preview
+Runtime version    1.0.0
+Platform           android, ios
+Update group ID    5f43590d-469a-4060-a94b-388cd16e34c6
+Android update ID  019f442f-3f35-7795-9999-d46f65b771b8
+iOS update ID      019f442f-3f35-7a5b-9f2a-7afbb47a44ef
+Message            GST off, 30s no-tradie timeout, availability wording, tab colors, onboarding
+Commit             4f04b85b5cbc13a5389dade97ccc99a6d408ca3f*
+EAS Dashboard      https://expo.dev/accounts/rohan87/projects/QuickieFix/updates/5f43590d-469a-4060-a94b-388cd16e34c6
+

@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { NewJobTabButton, TabBarIcon } from '../../../src/components/TabBarIcon';
+import { TabBarIcon } from '../../../src/components/TabBarIcon';
 import { colors, font } from '../../../src/theme';
 
 export default function CustomerTabs() {
@@ -30,13 +30,6 @@ export default function CustomerTabs() {
           tabBarIcon: ({ focused }) => (
             <TabBarIcon active="home" inactive="home-outline" focused={focused} />
           ),
-        }}
-      />
-      <Tabs.Screen
-        name="new-job-launcher"
-        options={{
-          title: 'New Job',
-          tabBarButton: () => <NewJobTabButton />,
         }}
       />
       <Tabs.Screen

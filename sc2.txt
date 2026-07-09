@@ -1,0 +1,5 @@
+
+[32m[1m+  hosting:sites:[22m[39m Site [1mquickiefix-app[22m has been created in project [1mquickiefix-2ea2a[22m.
+[32m[1m+  hosting:sites:[22m[39m Site URL: https://quickiefix-app.web.app
+
+To deploy to this site, follow the guide at https://firebase.google.com/docs/hosting/multisites.
