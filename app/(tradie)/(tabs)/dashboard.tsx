@@ -2,9 +2,11 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
+import { Fab } from '../../../src/components/Fab';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
 import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
+import { greeting } from '../../../src/lib/greeting';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
   useChooseFeed,
@@ -32,6 +34,7 @@ export default function TradieDashboard() {
   const now = useNow(5000); // fast tick so offers surface as each wave widens
   // Only show jobs whose current wave includes this tradie (widens over time).
   const offers = allOffers.filter((o) => waveEligible(o.job, tradie.id, now));
+  const pendingCount = offers.length + chooseFeed.selected.length + chooseFeed.requests.length;
   const activeRequests = myRequests.filter((j) =>
     ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   );
@@ -94,20 +97,33 @@ export default function TradieDashboard() {
   };
   const dismissRequest = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);
 
+  const expandRadius = () =>
+    backend.setServiceRadius(tradie.id, Math.min(tradie.serviceRadiusKm + 5, 50));
+
   return (
-    <Screen>
+    <View style={{ flex: 1 }}>
+      <Screen>
       <View style={styles.header}>
-        <View>
-          <Txt variant="caption" color={colors.textMuted}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="caption" color={colors.textMuted} numberOfLines={1}>
             {tradie.businessName}
           </Txt>
-          <Txt variant="title">Kia ora, {tradie.firstName}</Txt>
-        </View>
-        <View style={[styles.statusChip, { backgroundColor: statusMeta.soft }]}>
-          <View style={[styles.statusDot, { backgroundColor: statusMeta.color }]} />
-          <Txt variant="caption" color={statusMeta.color} style={{ fontWeight: '700' }}>
-            {statusMeta.label}
+          <Txt variant="title">
+            {greeting()}, {tradie.firstName}
           </Txt>
+        </View>
+        <View style={styles.headerActions}>
+          <Pressable style={styles.iconBtn} onPress={() => router.push('/profile')}>
+            <Txt style={{ fontSize: 18 }}>🔔</Txt>
+            {pendingCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Txt style={styles.bellBadgeText}>{pendingCount}</Txt>
+              </View>
+            )}
+          </Pressable>
+          <Pressable style={styles.avatar} onPress={() => router.push('/profile')}>
+            <Txt style={styles.avatarText}>{tradie.firstName.charAt(0).toUpperCase()}</Txt>
+          </Pressable>
         </View>
       </View>
 
@@ -160,8 +176,24 @@ export default function TradieDashboard() {
         </Card>
       )}
 
-      {/* This-month fee tally (informational — billing happens off-app) */}
-      {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
+      {/* Operational summary — the numbers a working tradie actually cares about */}
+      {isApproved && (
+        <>
+          <OperationalSummary
+            completed={tradie.completedJobs}
+            inProgress={activeJob ? 1 : 0}
+            rating={tradie.ratingAvg}
+            ratingCount={tradie.ratingCount}
+            radiusKm={tradie.serviceRadiusKm}
+            lastCompletedAt={history[0]?.timestamps.completedAt}
+          />
+          <PerformanceBanner
+            rating={tradie.ratingAvg}
+            ratingCount={tradie.ratingCount}
+            completed={tradie.completedJobs}
+          />
+        </>
+      )}
 
       {/* Availability toggle */}
       {isApproved && !onActiveJob && (
@@ -269,11 +301,17 @@ export default function TradieDashboard() {
               />
             </Card>
           ) : (
-            <Card>
+            <Card style={{ gap: spacing.md }}>
               <EmptyState
                 emoji="📭"
-                title="No jobs right now"
-                subtitle="When a nearby customer needs your trade, it appears here instantly — be quick, first to accept wins."
+                title="No nearby jobs"
+                subtitle="Stay available — we’ll notify you the instant a customer nearby needs your trade."
+              />
+              <Button
+                title={`Expand search radius (${tradie.serviceRadiusKm}km)`}
+                kind="secondary"
+                small
+                onPress={expandRadius}
               />
             </Card>
           )}
@@ -284,10 +322,10 @@ export default function TradieDashboard() {
       <Card style={styles.needHelp}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="label" color={colors.white}>
-            Need a hand yourself?
+            Need another trade?
           </Txt>
           <Txt variant="caption" color={colors.onNavyMuted}>
-            Book another trade — you're the customer this time.
+            Request trusted help in minutes — you're the customer this time.
           </Txt>
         </View>
         <Button
@@ -312,20 +350,29 @@ export default function TradieDashboard() {
         </View>
       )}
 
-      {/* Today */}
-      <Card>
-        <Txt variant="label" style={{ marginBottom: spacing.md }}>
-          Your stats
-        </Txt>
-        <View style={styles.statsRow}>
-          <Stat value={`${history.length}`} label="Completed" />
-          <View style={styles.statDivider} />
-          <Stat value={tradie.ratingAvg ? tradie.ratingAvg.toFixed(1) : '—'} label="Rating" />
-          <View style={styles.statDivider} />
-          <Stat value={`${tradie.serviceRadiusKm}km`} label="Radius" />
-        </View>
-      </Card>
-    </Screen>
+      {/* This month — fee tally (informational; billing happens off-app) */}
+      {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
+      </Screen>
+
+      {/* Quick actions */}
+      <Fab
+        actions={[
+          {
+            icon: isAvailable ? '🌙' : '🟢',
+            label: isAvailable ? 'Go offline' : 'Go available',
+            onPress: () => toggleAvailability(!isAvailable),
+          },
+          { icon: '🔍', label: 'View nearby jobs', onPress: () => router.push('/dashboard') },
+          { icon: '🧰', label: 'Request a tradie', onPress: () => router.push('/new-job') },
+          {
+            icon: '🚨',
+            label: 'Emergency job',
+            tone: 'danger',
+            onPress: () => router.push({ pathname: '/new-job', params: { emergency: '1' } }),
+          },
+        ]}
+      />
+    </View>
   );
 }
 
@@ -471,6 +518,94 @@ function RequestCard({
   );
 }
 
+/** Short, human "when" for the last-completed line. */
+function formatWhen(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return d.toDateString() === now.toDateString()
+    ? `today at ${time}`
+    : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+}
+
+/** Operational summary — completed / in-progress / rating / radius, at a glance. */
+function OperationalSummary({
+  completed,
+  inProgress,
+  rating,
+  ratingCount,
+  radiusKm,
+  lastCompletedAt,
+}: {
+  completed: number;
+  inProgress: number;
+  rating: number;
+  ratingCount: number;
+  radiusKm: number;
+  lastCompletedAt?: number;
+}) {
+  const cells = [
+    { label: 'Completed', value: `${completed}` },
+    { label: 'In progress', value: `${inProgress}` },
+    { label: 'Rating', value: ratingCount > 0 ? `★ ${rating.toFixed(1)}` : '★ New' },
+    { label: 'Radius', value: `${radiusKm} km` },
+  ];
+  return (
+    <Card style={styles.summary}>
+      <View style={styles.summaryGrid}>
+        {cells.map((c) => (
+          <View key={c.label} style={styles.summaryCell}>
+            <Txt style={styles.summaryValue}>{c.value}</Txt>
+            <Txt variant="caption" color={colors.onNavyMuted}>
+              {c.label}
+            </Txt>
+          </View>
+        ))}
+      </View>
+      {lastCompletedAt != null && (
+        <Txt variant="caption" color={colors.onNavyMuted} style={styles.summaryFoot}>
+          Last completed {formatWhen(lastCompletedAt)}
+        </Txt>
+      )}
+    </Card>
+  );
+}
+
+/** A little achievement badge — engagement over billing. */
+function PerformanceBanner({
+  rating,
+  ratingCount,
+  completed,
+}: {
+  rating: number;
+  ratingCount: number;
+  completed: number;
+}) {
+  let emoji = '🚀';
+  let title = 'Ready to earn';
+  let sub = 'Accept your first job to start building your reputation.';
+  if (ratingCount >= 5 && rating >= 4.8) {
+    emoji = '🏆';
+    title = 'Top-rated pro';
+    sub = `Customers rate you ${rating.toFixed(1)}★ — outstanding.`;
+  } else if (completed >= 1) {
+    emoji = '⭐';
+    title = `${completed} job${completed > 1 ? 's' : ''} completed`;
+    sub = 'Great work — stay available to keep the momentum going.';
+  }
+  return (
+    <Card style={styles.perf}>
+      <Txt style={{ fontSize: 24 }}>{emoji}</Txt>
+      <View style={{ flex: 1 }}>
+        <Txt variant="label">{title}</Txt>
+        <Txt variant="caption" color={colors.textMuted}>
+          {sub}
+        </Txt>
+      </View>
+    </Card>
+  );
+}
+
 function MoneyPanel({
   fees,
   creditsRemaining,
@@ -524,6 +659,45 @@ function Stat({ value, label }: { value: string; label: string }) {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bellBadgeText: { color: colors.white, fontSize: 10, fontWeight: '800' },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.pill,
+    backgroundColor: colors.navy,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
+  summary: { backgroundColor: colors.navy, gap: spacing.md },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  summaryCell: { width: '25%', gap: 2 },
+  summaryValue: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  summaryFoot: { borderTopWidth: 1, borderTopColor: colors.navyLine, paddingTop: spacing.sm },
+  perf: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
