@@ -55,3 +55,6 @@ brevo.key
 # APKs and emulator logs
 *.apk
 emu.log
+
+# lint/report artifacts
+eslint-report.txt

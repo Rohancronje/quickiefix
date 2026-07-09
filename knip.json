@@ -1,0 +1,16 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["app/**/*.{ts,tsx}", "index.{ts,tsx,js}", "App.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
+  "ignore": [
+    "web-build/**",
+    "portal/**",
+    "functions/**",
+    "landing/**",
+    "scripts/**",
+    "__tests__/**",
+    "test/**"
+  ],
+  "ignoreDependencies": ["react-native-web", "react-dom", "@types/jest", "ts-jest"],
+  "ignoreExportsUsedInFile": true
+}

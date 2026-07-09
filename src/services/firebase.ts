@@ -15,16 +15,16 @@ import { Auth, getAuth, initializeAuth, Persistence } from 'firebase/auth';
 // only exists in Firebase's React Native build (absent from the web type defs),
 // so we access it dynamically and fall back to web defaults if it's missing.
 import * as firebaseAuth from 'firebase/auth';
-const getReactNativePersistence = (
-  firebaseAuth as unknown as {
-    getReactNativePersistence?: (storage: unknown) => Persistence;
-  }
-).getReactNativePersistence;
 import { Firestore, getFirestore, initializeFirestore } from 'firebase/firestore';
 import { Functions, getFunctions } from 'firebase/functions';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
 import { initAppCheck } from './appCheck';
 import { firebaseConfig } from './firebaseConfig';
+const getReactNativePersistence = (
+  firebaseAuth as unknown as {
+    getReactNativePersistence?: (storage: unknown) => Persistence;
+  }
+).getReactNativePersistence;
 
 export const isFirebaseConfigured =
   !!firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('TODO');

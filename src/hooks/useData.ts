@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { backend, ChooseFeed, JobOffer, TradieCandidate } from '../services';
 import { FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
 
+/** A single user (live) — used to render tradie profiles to customers. */
+import { AppUser } from '../types';
+
 /** Live message thread for a job (oldest first). */
 export function useMessages(jobId: string | undefined): Message[] {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -128,9 +131,6 @@ export function useTradieFees(tradieId: string | undefined): FeeLineItem[] {
   }, [tradieId]);
   return fees;
 }
-
-/** A single user (live) — used to render tradie profiles to customers. */
-import { AppUser } from '../types';
 export function useUser(userId: string | undefined): AppUser | null {
   const [user, setUser] = useState<AppUser | null>(null);
   useEffect(() => {

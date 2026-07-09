@@ -1,0 +1,38 @@
+name: Code health
+
+# Report-only hygiene checks — never blocks a merge, just surfaces smells at PR
+# time and on a weekly cadence: lint, dead-code (knip), and formatting drift.
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 20 * * 0' # Sundays 20:00 UTC (~Mon morning NZ)
+
+concurrency:
+  group: code-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  health:
+    name: Lint · dead-code · format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: ESLint (report-only)
+        run: npx eslint . || true
+
+      - name: Dead code — knip (report-only)
+        run: npx knip || true
+
+      - name: Formatting drift — prettier (report-only)
+        run: npm run format:check || true
