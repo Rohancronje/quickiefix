@@ -115,6 +115,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Password-reset rate-limit counters — written only by the Cloud Function
+    // (Admin SDK). No client may read or write them.
+    match /resetThrottle/{key} {
+      allow read, write: if false;
+    }
+
     // Platform-fee ledger. A tradie may read their own fees; platform admins read
     // all. Writes are server-only (onJobCompleted Cloud Function via Admin SDK) —
     // clients can never create, alter, or waive a fee.

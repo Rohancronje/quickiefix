@@ -27,6 +27,32 @@ const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found (pool had c
 const NO_CANDIDATES_AFTER_MS = 30_000; // empty pool → fail fast
 const EMERGENCY_AUTO_CONFIRM_MS = 180_000; // accepted emergency → confirmed
 
+// Password-reset abuse limits (rolling window). Per-email stops victim inbox
+// bombing; per-IP stops one attacker hammering many addresses / burning quota.
+const RESET_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+const RESET_MAX_PER_EMAIL = 3;
+const RESET_MAX_PER_IP = 20;
+
+/** Increment a rolling-window counter; returns false once the limit is hit. */
+async function underRateLimit(key, max) {
+  const ref = admin.firestore().collection('resetThrottle').doc(key);
+  return admin.firestore().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const now = Date.now();
+    let count = 0;
+    let windowStart = now;
+    if (snap.exists) {
+      const d = snap.data();
+      if (now - (d.windowStart || 0) < RESET_WINDOW_MS) {
+        count = d.count || 0;
+        windowStart = d.windowStart;
+      }
+    }
+    tx.set(ref, { count: count + 1, windowStart });
+    return count < max;
+  });
+}
+
 // Money — must mirror src/constants.ts.
 const FEE_CENTS = 1500; // $15.00 per completed job
 const GST_RATE = 0.15;
@@ -173,6 +199,23 @@ exports.sendPasswordReset = onCall(
   async (request) => {
     const email = String(request.data?.email || '').trim().toLowerCase();
     if (!email) throw new HttpsError('invalid-argument', 'Email is required.');
+
+    // Rate-limit before doing any work. If throttled, return success without
+    // sending — this neither reveals the throttle nor lets a victim be spammed.
+    const req = request.rawRequest;
+    const ipRaw =
+      (req && (req.headers['x-forwarded-for'] || req.ip)) || 'unknown';
+    const ip = String(ipRaw).split(',')[0].trim().replace(/[^\w.:-]/g, '_') || 'unknown';
+    const emailKey = `email_${email.replace(/[^\w.@-]/g, '_')}`;
+    const [emailOk, ipOk] = await Promise.all([
+      underRateLimit(emailKey, RESET_MAX_PER_EMAIL),
+      underRateLimit(`ip_${ip}`, RESET_MAX_PER_IP),
+    ]);
+    if (!emailOk || !ipOk) {
+      console.warn('reset throttled', { emailOk, ipOk });
+      return { ok: true };
+    }
+
     let link;
     try {
       link = await admin.auth().generatePasswordResetLink(email);
