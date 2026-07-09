@@ -54,11 +54,19 @@ export function waveEligible(job: Job, tradieId: string, now: number): boolean {
   return idx < waveSize(now - startedAt);
 }
 
-/** Has a searching job exhausted every wave with no acceptance? */
+/** Has a searching job timed out? Empty pool fails fast (30s); otherwise it
+ *  runs the full wave sequence before giving up. */
 export function isSearchExhausted(job: Job, now: number): boolean {
   if (job.status !== 'searching') return false;
   const startedAt = job.dispatch?.startedAt ?? job.timestamps.searchingAt ?? job.timestamps.createdAt;
-  return now - startedAt >= WAVE.noTradieAfterMs;
+  const noCandidates = (job.dispatch?.candidateIds?.length ?? 0) === 0;
+  const threshold = noCandidates ? WAVE.noCandidatesTimeoutMs : WAVE.noTradieAfterMs;
+  return now - startedAt >= threshold;
+}
+
+/** True when the job never had any matching tradie in its area. */
+export function hadNoCandidates(job: Job): boolean {
+  return (job.dispatch?.candidateIds?.length ?? 0) === 0;
 }
 
 /** Should an accepted job auto-advance to confirmed (emergency window passed)? */

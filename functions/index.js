@@ -23,12 +23,14 @@ const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
 // Wave-dispatch timing — must mirror WAVE in src/constants.ts.
-const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found
+const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found (pool had candidates)
+const NO_CANDIDATES_AFTER_MS = 30_000; // empty pool → fail fast
 const EMERGENCY_AUTO_CONFIRM_MS = 180_000; // accepted emergency → confirmed
 
 // Money — must mirror src/constants.ts.
-const FEE_CENTS = 1500; // $15.00 ex-GST per completed job
+const FEE_CENTS = 1500; // $15.00 per completed job
 const GST_RATE = 0.15;
+const GST_ENABLED = false; // not GST-registered yet — must mirror src/constants.ts
 function monthKeyOf(ts) {
   const d = new Date(ts);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -144,7 +146,9 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
     searching.docs.map(async (d) => {
       const job = d.data();
       const startedAt = job.dispatch?.startedAt ?? job.timestamps?.searchingAt ?? job.timestamps?.createdAt;
-      if (startedAt && now - startedAt >= NO_TRADIE_AFTER_MS) {
+      const noCandidates = !(job.dispatch?.candidateIds && job.dispatch.candidateIds.length);
+      const threshold = noCandidates ? NO_CANDIDATES_AFTER_MS : NO_TRADIE_AFTER_MS;
+      if (startedAt && now - startedAt >= threshold) {
         await d.ref.update({
           status: 'no_tradie_found',
           'timestamps.noTradieFoundAt': now,
@@ -226,7 +230,7 @@ exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
       trade: after.trade,
       ...(companyId ? { companyId } : {}),
       amountCents: FEE_CENTS,
-      gstCents: Math.round(FEE_CENTS * GST_RATE),
+      gstCents: GST_ENABLED ? Math.round(FEE_CENTS * GST_RATE) : 0,
       status: useCredit ? 'waived_credit' : 'pending',
       monthKey: monthKeyOf(completedAt),
       createdAt: Date.now(),

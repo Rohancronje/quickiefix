@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
-import { formatMoney, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
+import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
   useCustomerJobs,
@@ -146,13 +146,15 @@ export default function TradieDashboard() {
       {isApproved && !onActiveJob && (
         <Card style={styles.availCard}>
           <View style={{ flex: 1, gap: 2 }}>
-            <Txt variant="heading">{isAvailable ? 'You’re online' : 'You’re offline'}</Txt>
+            <Txt variant="heading">
+              {isAvailable ? 'You are available to accept jobs' : 'You are not accepting jobs'}
+            </Txt>
             <Txt variant="caption" color={colors.textMuted}>
               {locating
                 ? 'Getting your location…'
                 : isAvailable
-                ? 'Receiving nearby job requests.'
-                : 'Go online to receive jobs.'}
+                ? 'You’ll be alerted to nearby jobs in real time.'
+                : 'Turn on availability to start receiving jobs.'}
             </Txt>
           </View>
           <Switch
@@ -211,8 +213,8 @@ export default function TradieDashboard() {
             <Card>
               <EmptyState
                 emoji="🌙"
-                title="You’re offline"
-                subtitle="Go online to start receiving nearby job alerts."
+                title="You’re not accepting jobs"
+                subtitle="Turn on availability to start receiving nearby job alerts."
               />
             </Card>
           ) : (
@@ -338,8 +340,7 @@ function MoneyPanel({
   const completed = thisMonth.length;
   const waived = thisMonth.filter((f) => f.status === 'waived_credit').length;
   const billable = thisMonth.filter((f) => f.status !== 'waived_credit');
-  const exGst = billable.reduce((s, f) => s + f.amountCents, 0);
-  const incGst = billable.reduce((s, f) => s + f.amountCents + f.gstCents, 0);
+  const feeTotal = billable.reduce((s, f) => s + f.amountCents + f.gstCents, 0);
 
   return (
     <Card style={styles.money}>
@@ -352,10 +353,11 @@ function MoneyPanel({
         </Txt>
       </View>
       <Txt variant="heading" color={colors.white}>
-        {formatMoney(incGst)} <Txt variant="caption" color={colors.onNavyMuted}>incl. GST</Txt>
+        {formatMoney(feeTotal)}
+        {GST_ENABLED ? <Txt variant="caption" color={colors.onNavyMuted}> incl. GST</Txt> : null}
       </Txt>
       <Txt variant="caption" color={colors.onNavyMuted}>
-        {completed} completed · {waived} free · {billable.length} billable ({formatMoney(exGst)} + GST).
+        {completed} completed · {waived} free · {billable.length} billable ({formatMoney(feeTotal)}).
         {' '}Invoiced on the 1st — no in-app payment.
       </Txt>
     </Card>

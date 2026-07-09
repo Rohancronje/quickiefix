@@ -570,13 +570,11 @@ function Billing({ fees }: { fees: FeeLineItem[] }) {
   const totalIncGst = payers.reduce((s, [, r]) => s + r.incGst, 0);
 
   const downloadCsv = () => {
-    const header = ['Tradie', 'Billable jobs', 'Free (waived)', 'Amount ex-GST', 'GST', 'Total incl. GST'];
+    const header = ['Tradie', 'Billable jobs', 'Free (waived)', 'Total'];
     const rows = payers.map(([, r]) => [
       r.name,
       String(r.billable),
       String(r.waived),
-      (r.exGst / 100).toFixed(2),
-      ((r.incGst - r.exGst) / 100).toFixed(2),
       (r.incGst / 100).toFixed(2),
     ]);
     const csv = [header, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n');
@@ -605,7 +603,7 @@ function Billing({ fees }: { fees: FeeLineItem[] }) {
         </div>
         <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
           <span className="faint">
-            {payers.length} payers · <strong style={{ color: 'var(--text)' }}>{fmtMoney(totalIncGst)}</strong> incl. GST
+            {payers.length} payers · <strong style={{ color: 'var(--text)' }}>{fmtMoney(totalIncGst)}</strong> total
           </span>
           <button className="btn btn-primary btn-sm" onClick={downloadCsv} disabled={!payers.length}>
             ⬇ Export CSV
@@ -633,8 +631,7 @@ function Billing({ fees }: { fees: FeeLineItem[] }) {
                 <th>Payer</th>
                 <th>Billable</th>
                 <th>Free (waived)</th>
-                <th>Ex-GST</th>
-                <th>Total incl. GST</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -643,7 +640,6 @@ function Billing({ fees }: { fees: FeeLineItem[] }) {
                   <td style={{ fontWeight: 700 }}>{r.name}</td>
                   <td>{r.billable}</td>
                   <td className="faint">{r.waived}</td>
-                  <td>{fmtMoney(r.exGst)}</td>
                   <td style={{ fontWeight: 700 }}>{fmtMoney(r.incGst)}</td>
                 </tr>
               ))}

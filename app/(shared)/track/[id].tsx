@@ -12,7 +12,7 @@ import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, tradeMeta } from '../../../src/constants';
 import { useJob, useUser } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
-import { isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
+import { hadNoCandidates, isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
 import { formatDuration } from '../../../src/lib/format';
 import { estimateEtaMinutes } from '../../../src/lib/geo';
 import { backend } from '../../../src/services';
@@ -112,16 +112,17 @@ export default function TrackJob() {
           </Card>
         )}
 
-        {/* No tradie found — founder concierge rescue */}
+        {/* No tradie found */}
         {noneFound && (
           <Card style={[styles.searchHero, { backgroundColor: colors.navyCard }]}>
             <Txt style={{ fontSize: 34 }}>😕</Txt>
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
-              No tradie free right now
+              {hadNoCandidates(job) ? 'No tradies available' : 'No tradie free right now'}
             </Txt>
             <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
-              We couldn't reach an available pro for this one. Our team has been alerted and will
-              try to line someone up. You can also try again shortly.
+              {hadNoCandidates(job)
+                ? 'There are no tradies available in your area at this time. Please try again shortly.'
+                : "We couldn't reach an available pro for this one. Our team has been alerted and will try to line someone up — you can also try again shortly."}
             </Txt>
             <Button title="Try again" onPress={() => router.replace('/new-job')} />
           </Card>

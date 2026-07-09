@@ -80,6 +80,8 @@ export const WAVE = {
   widenAt2Ms: 180_000,
   /** Time after the final wave with no acceptance → no_tradie_found. */
   noTradieAfterMs: 240_000,
+  /** If NO tradies matched at creation (empty pool), fail fast at 30s. */
+  noCandidatesTimeoutMs: 30_000,
   /** Emergency jobs auto-confirm this long after acceptance. */
   emergencyAutoConfirmMs: 180_000,
   /** Standard jobs give the customer this long to confirm explicitly. */
@@ -98,15 +100,20 @@ export const tradieStatusMeta: Record<TradieStatus, StatusMeta> = {
 export const ON_SITE_RADIUS_KM = 0.15;
 
 /**
- * Money (Pilot Spec §5). $15 + GST per completed job; first 5 jobs free.
+ * Money (Pilot Spec §5). $15 per completed job; first 5 jobs free.
  * These mirror the server constants in functions/index.js — keep them in sync.
+ *
+ * GST is OFF until the business is GST-registered — flip GST_ENABLED to true
+ * (here AND in functions/index.js) to start adding + showing GST everywhere.
  */
-export const FEE_CENTS = 1500; // $15.00 ex-GST per completed job
+export const FEE_CENTS = 1500; // $15.00 per completed job
 export const GST_RATE = 0.15; // NZ GST
+export const GST_ENABLED = false; // not GST-registered yet
 export const FREE_CREDITS_DEFAULT = 5; // founding-member credit on approval
 
-/** GST portion (cents) for a given ex-GST amount. */
-export const gstOf = (amountCents: number): number => Math.round(amountCents * GST_RATE);
+/** GST portion (cents) for a given amount — 0 until GST-registered. */
+export const gstOf = (amountCents: number): number =>
+  GST_ENABLED ? Math.round(amountCents * GST_RATE) : 0;
 
 /** "2026-07"-style billing period key for a timestamp. */
 export function monthKey(ts: number): string {
