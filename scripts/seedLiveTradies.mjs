@@ -59,20 +59,21 @@ async function ensureAccount(email) {
 async function seed() {
   let n = 0;
 
-  // Demo customer
+  // Demo customer = User1@testaccount.com
   try {
-    const { uid, created } = await ensureAccount('customer@quickiefix.store');
+    const email = 'User1@testaccount.com';
+    const { uid, created } = await ensureAccount(email);
     await setDoc(doc(db, 'users', uid), {
-      id: uid, role: 'customer', email: 'customer@quickiefix.store',
+      id: uid, role: 'customer', email,
       firstName: 'Sam', lastName: 'Taylor', createdAt: Date.now(),
       homeAddress: { address: '12 Hurstmere Rd, Takapuna', latitude: -36.788, longitude: 174.774 },
     });
-    console.log(`${created ? '✓ created' : '↻ updated'} customer@quickiefix.store`);
+    console.log(`${created ? '✓ created' : '↻ updated'} ${email} (customer)`);
   } catch (e) { console.log('customer:', e.code || e.message); }
 
   for (const t of TRADES) {
     for (let k = 0; k < 5; k++) {
-      const email = k === 0 ? `${t.key}@quickiefix.store` : `${t.key}${k + 1}@quickiefix.store`;
+      const email = `User${n + 2}@testaccount.com`; // User2..User21
       const first = FIRST[n % FIRST.length];
       const last = LAST[n % LAST.length];
       const rating = Math.round((4.4 + (n % 6) * 0.08) * 10) / 10;
