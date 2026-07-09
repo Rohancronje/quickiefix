@@ -24,6 +24,8 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.2",
+    "@emnapi/runtime": "^1.11.2",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.10",
     "eslint": "^9.39.4",
