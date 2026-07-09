@@ -25,9 +25,10 @@ export default function TradieTabs() {
             backgroundColor: colors.surface,
             borderTopColor: colors.line,
             height: 88,
-            paddingTop: 8,
+            paddingTop: 10,
+            paddingBottom: 6,
           },
-          tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.semibold },
+          tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.bold, marginTop: 4 },
         }}
       >
         <Tabs.Screen
@@ -43,7 +44,7 @@ export default function TradieTabs() {
           name="timesheets"
           options={{
             title: 'Timesheets',
-            tabBarIcon: ({ focused }) => <TabBarIcon emoji="🧾" focused={focused} />,
+            tabBarIcon: ({ focused }) => <TabBarIcon emoji="📋" focused={focused} />,
           }}
         />
         <Tabs.Screen

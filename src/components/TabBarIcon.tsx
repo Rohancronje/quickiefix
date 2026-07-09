@@ -1,11 +1,32 @@
 import React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { colors, radius } from '../theme';
 
-/** Emoji-based tab icon (keeps the app icon-library free for the MVP). */
+/**
+ * Tab icon. The active tab gets a branded amber pill behind its glyph so the
+ * current tab is unmistakable; inactive tabs dim their glyph. (Emoji-based to
+ * keep the app icon-library free — the pill + label tint carry the state, since
+ * emoji can't be colour-tinted.)
+ */
 export function TabBarIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
-    <View style={{ alignItems: 'center', justifyContent: 'center', opacity: focused ? 1 : 0.9 }}>
-      <Text style={{ fontSize: 22 }}>{emoji}</Text>
+    <View style={[styles.pill, focused && styles.pillActive]}>
+      <Text style={[styles.glyph, !focused && styles.glyphInactive]}>{emoji}</Text>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: {
+    width: 56,
+    height: 30,
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillActive: {
+    backgroundColor: colors.amber,
+  },
+  glyph: { fontSize: 18 },
+  glyphInactive: { opacity: 0.55 },
+});

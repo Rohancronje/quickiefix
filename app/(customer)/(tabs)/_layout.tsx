@@ -13,9 +13,10 @@ export default function CustomerTabs() {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
           height: 88,
-          paddingTop: 8,
+          paddingTop: 10,
+          paddingBottom: 6,
         },
-        tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.semibold },
+        tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.bold, marginTop: 4 },
       }}
     >
       <Tabs.Screen
