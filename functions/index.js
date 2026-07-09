@@ -22,11 +22,32 @@ const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 // Must be a VERIFIED sender in your Brevo account.
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
-// Where the reset flow sends the user after they set a new password. Uses the
-// branded domain; if it isn't an authorised auth domain yet, the reset link is
-// generated without it (see sendPasswordReset). Add quickiefix.store under
-// Firebase Auth → Settings → Authorized domains to activate.
-const RESET_CONTINUE_URL = 'https://quickiefix.store/reset-complete.html';
+// Where the reset flow sends the user after they set a new password. Tried in
+// order: the branded custom domain first (activates once quickiefix.store is an
+// authorised auth domain), then the always-authorised web.app, then a plain
+// link with no continue. All point at the same branded "open the app" page.
+const RESET_CONTINUE_URLS = [
+  'https://quickiefix.store/reset-complete.html',
+  'https://quickiefix-2ea2a.web.app/reset-complete.html',
+];
+
+const isMissingAcct = (code) => code === 'auth/user-not-found' || code === 'auth/email-not-found';
+const isBadContinue = (code) =>
+  code === 'auth/unauthorized-continue-uri' || code === 'auth/invalid-continue-uri';
+
+/** Generate a reset link, preferring the branded continue URL, degrading safely. */
+async function generateResetLink(email) {
+  for (const url of RESET_CONTINUE_URLS) {
+    try {
+      return await admin.auth().generatePasswordResetLink(email, { url, handleCodeInApp: false });
+    } catch (e) {
+      if (isMissingAcct(e.code)) throw e; // let the caller swallow it
+      if (!isBadContinue(e.code)) throw e; // real error
+      // else: this continue URL isn't authorised — try the next one
+    }
+  }
+  return admin.auth().generatePasswordResetLink(email); // plain link, no continue
+}
 
 // Wave-dispatch timing — must mirror WAVE in src/constants.ts.
 const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found (pool had candidates)
@@ -222,36 +243,13 @@ exports.sendPasswordReset = onCall(
       return { ok: true };
     }
 
-    const isMissing = (code) => code === 'auth/user-not-found' || code === 'auth/email-not-found';
-    const isBadContinue = (code) =>
-      code === 'auth/unauthorized-continue-uri' || code === 'auth/invalid-continue-uri';
-    const makeLink = (withContinue) =>
-      admin
-        .auth()
-        .generatePasswordResetLink(
-          email,
-          withContinue ? { url: RESET_CONTINUE_URL, handleCodeInApp: false } : undefined,
-        );
-
     let link;
     try {
-      link = await makeLink(true);
+      link = await generateResetLink(email);
     } catch (e) {
-      // Never reveal whether an account exists.
-      if (isMissing(e.code)) return { ok: true };
-      if (isBadContinue(e.code)) {
-        // Custom domain not an authorised auth domain yet — send a plain link.
-        try {
-          link = await makeLink(false);
-        } catch (e2) {
-          if (isMissing(e2.code)) return { ok: true };
-          console.error('generatePasswordResetLink failed', e2);
-          throw new HttpsError('internal', 'Could not start the reset. Please try again.');
-        }
-      } else {
-        console.error('generatePasswordResetLink failed', e);
-        throw new HttpsError('internal', 'Could not start the reset. Please try again.');
-      }
+      if (isMissingAcct(e.code)) return { ok: true }; // never reveal account existence
+      console.error('generatePasswordResetLink failed', e);
+      throw new HttpsError('internal', 'Could not start the reset. Please try again.');
     }
     await brevoSend({
       to: email,
