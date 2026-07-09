@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RequestAlert } from '../../../src/components/RequestAlert';
 import { TabBarIcon } from '../../../src/components/TabBarIcon';
 import { useAuth } from '../../../src/context/AuthContext';
@@ -10,6 +11,9 @@ export default function TradieTabs() {
   // Use the non-throwing auth hook: on logout the user briefly becomes null
   // before the route guard redirects, and a layout must tolerate that.
   const { user } = useAuth();
+  // Android draws edge-to-edge (SDK 54), so reserve the bottom inset for the
+  // system nav bar — otherwise the tab bar sits under the nav buttons.
+  const insets = useSafeAreaInsets();
   const tradieId = user?.role === 'tradie' ? user.id : undefined;
   const offers = useJobOffers(tradieId);
   const pending = offers.length;
@@ -24,9 +28,9 @@ export default function TradieTabs() {
           tabBarStyle: {
             backgroundColor: colors.surface,
             borderTopColor: colors.line,
-            height: 88,
+            height: 64 + insets.bottom,
             paddingTop: 10,
-            paddingBottom: 6,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           },
           tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.bold, marginTop: 4 },
         }}

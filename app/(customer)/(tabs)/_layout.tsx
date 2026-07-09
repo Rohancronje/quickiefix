@@ -1,8 +1,12 @@
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBarIcon } from '../../../src/components/TabBarIcon';
 import { colors, font } from '../../../src/theme';
 
 export default function CustomerTabs() {
+  // Reserve the bottom inset so the tab bar clears the Android system nav bar
+  // (the app draws edge-to-edge on SDK 54).
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -12,9 +16,9 @@ export default function CustomerTabs() {
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
-          height: 88,
+          height: 64 + insets.bottom,
           paddingTop: 10,
-          paddingBottom: 6,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
         },
         tabBarLabelStyle: { fontSize: font.size.xs, fontWeight: font.weight.bold, marginTop: 4 },
       }}
