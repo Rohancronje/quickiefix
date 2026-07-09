@@ -23,6 +23,7 @@ const getReactNativePersistence = (
 import { Firestore, getFirestore, initializeFirestore } from 'firebase/firestore';
 import { Functions, getFunctions } from 'firebase/functions';
 import { FirebaseStorage, getStorage } from 'firebase/storage';
+import { initAppCheck } from './appCheck';
 import { firebaseConfig } from './firebaseConfig';
 
 export const isFirebaseConfigured =
@@ -39,6 +40,7 @@ if (isFirebaseConfigured) {
   // loads with Firebase disabled rather than dying before the first screen.
   try {
     app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+    initAppCheck(app); // no-op until App Check is enabled (see appCheck.ts)
     try {
       authInstance =
         typeof getReactNativePersistence === 'function'
