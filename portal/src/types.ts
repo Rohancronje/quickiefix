@@ -114,6 +114,14 @@ export interface Complaint {
   resolvedAt?: number;
 }
 
+export interface WaitlistEntry {
+  id: string;
+  email: string;
+  role: string;
+  createdAt: number;
+  source?: string;
+}
+
 export interface Rating {
   stars: number;
   review?: string;

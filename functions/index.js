@@ -19,6 +19,10 @@ const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 // Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
 const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 
+// Where waitlist-signup notifications go. Use a real, deliverable inbox (Gmail),
+// not admin@quickiefix.store (a login-only address with no mailbox).
+const FOUNDER_EMAIL = 'rohan87cronje@gmail.com';
+
 // Must be a VERIFIED sender in your Brevo account.
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
@@ -91,7 +95,7 @@ function monthKeyOf(ts) {
 
 // Latest installable Android build. Update when you cut a new APK.
 const APP_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/DiVsYjnUhdv3B_i6dw0qCIr1Y7aFQkouUSyjWTT9Prw.apk';
+  'https://expo.dev/artifacts/eas/RGbVFq0Gmwj009TudPfhxYxyV7lk-m7AF08FBtvowCI.apk';
 
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
@@ -455,6 +459,54 @@ async function emailLandlordRecord(job, { subject, heading, intro }) {
     html: landlordEmailHtml({ heading, intro, job }),
   }).catch((e) => console.error('emailLandlordRecord error', e));
 }
+
+function waitlistThanksHtml({ role }) {
+  const line =
+    role === 'tradie'
+      ? 'the moment we open to tradies in your area, so you can start getting jobs first.'
+      : "the moment we launch in your area, so you're first in line for fast, verified help.";
+  return `
+  <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1220">
+    <div style="background:#0B1220;border-radius:16px;padding:28px;text-align:center">
+      <div style="font-size:26px;font-weight:800;color:#fff">Quickie<span style="color:#FFB020">Fix</span></div>
+    </div>
+    <div style="padding:28px 8px">
+      <h2 style="margin:0 0 8px">You're on the list 🎉</h2>
+      <p style="color:#5A6478;line-height:1.6">
+        Thanks for joining the QuickieFix waitlist. We'll email you ${line}
+      </p>
+      <p style="color:#8A93A6;font-size:12px;margin-top:18px">
+        You're receiving this because you signed up at quickiefix.store. No further action needed.
+      </p>
+    </div>
+    <div style="text-align:center;color:#8A93A6;font-size:12px;padding:12px">
+      QuickieFix · Get trusted help fast
+    </div>
+  </div>`;
+}
+
+// Waitlist signup → confirm to the person, notify the founder.
+exports.onWaitlistJoined = onDocumentCreated(
+  { document: 'waitlist/{id}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data || !data.email) return;
+    const email = String(data.email).trim();
+    const role = data.role === 'tradie' ? 'tradie' : 'customer';
+    await brevoSend({
+      to: email,
+      toName: email,
+      subject: "You're on the QuickieFix waitlist 🎉",
+      html: waitlistThanksHtml({ role }),
+    }).catch((e) => console.error('waitlist confirm failed', e));
+    await brevoSend({
+      to: FOUNDER_EMAIL,
+      toName: 'QuickieFix',
+      subject: `New waitlist signup: ${email} (${role})`,
+      html: `<p>New <strong>${role}</strong> waitlist signup:</p><p style="font-size:16px"><strong>${email}</strong></p><p style="color:#8A93A6">Source: ${data.source || 'landing'}</p>`,
+    }).catch((e) => console.error('waitlist notify failed', e));
+  },
+);
 
 // Server-side reputation: recompute the tradie's rating when a job is rated.
 exports.onJobRated = onDocumentUpdated('jobs/{jobId}', async (event) => {

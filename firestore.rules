@@ -47,12 +47,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Public landing-page waitlist: anyone may add their email, nobody can read
-    // the list back (only you, via the console/Admin SDK).
+    // Public landing-page waitlist: anyone may add their email; only platform
+    // admins can read the list back (in the back-office Waitlist tab).
     match /waitlist/{id} {
       allow create: if request.resource.data.email is string
                     && request.resource.data.email.size() < 320;
-      allow read, update, delete: if false;
+      allow read: if isPlatformAdmin();
+      allow update, delete: if false;
     }
 
     // Companies are owned by their admin (created via the web portal).

@@ -7,6 +7,7 @@ import {
   listComplaints,
   listFeeLineItems,
   listPendingTags,
+  listWaitlist,
   resolveComplaint,
   setApproval,
   setFreeCredits,
@@ -25,6 +26,7 @@ import {
   Job,
   Tradie,
   tradeLabel,
+  WaitlistEntry,
 } from '../types';
 
 type Tab =
@@ -34,6 +36,7 @@ type Tab =
   | 'companies'
   | 'jobs'
   | 'customers'
+  | 'waitlist'
   | 'billing'
   | 'complaints'
   | 'metrics';
@@ -45,6 +48,7 @@ const NAV: { key: Tab; label: string; ico: string }[] = [
   { key: 'companies', label: 'Companies', ico: '🏢' },
   { key: 'jobs', label: 'Jobs', ico: '📋' },
   { key: 'customers', label: 'Customers', ico: '👥' },
+  { key: 'waitlist', label: 'Waitlist', ico: '✉️' },
   { key: 'billing', label: 'Billing', ico: '💳' },
   { key: 'complaints', label: 'Complaints', ico: '⚠️' },
   { key: 'metrics', label: 'Metrics', ico: '📈' },
@@ -65,17 +69,19 @@ export function BackOffice() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [fees, setFees] = useState<FeeLineItem[]>([]);
   const [pendingTags, setPendingTags] = useState<CompanyTag[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const [u, j, c, co, f, pt] = await Promise.all([
+    const [u, j, c, co, f, pt, wl] = await Promise.all([
       listAllUsers(),
       listAllJobs(),
       listComplaints(),
       listCompanies(),
       listFeeLineItems(),
       listPendingTags(),
+      listWaitlist(),
     ]);
     setUsers(u);
     setJobs(j);
@@ -83,6 +89,7 @@ export function BackOffice() {
     setCompanies(co);
     setFees(f);
     setPendingTags(pt);
+    setWaitlist(wl);
     setLoading(false);
   };
   useEffect(() => {
@@ -188,6 +195,8 @@ export function BackOffice() {
             <Jobs jobs={jobs} />
           ) : tab === 'customers' ? (
             <Customers customers={customers} jobs={jobs} />
+          ) : tab === 'waitlist' ? (
+            <Waitlist entries={waitlist} />
           ) : tab === 'billing' ? (
             <Billing fees={fees} />
           ) : tab === 'complaints' ? (
@@ -774,6 +783,82 @@ function Customers({ customers, jobs }: { customers: Customer[]; jobs: Job[] }) 
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- Waitlist -- */
+
+function Waitlist({ entries }: { entries: WaitlistEntry[] }) {
+  const customers = entries.filter((e) => e.role === 'customer').length;
+  const tradies = entries.filter((e) => e.role === 'tradie').length;
+
+  const downloadCsv = () => {
+    const header = ['Email', 'Role', 'Joined', 'Source'];
+    const rows = entries.map((e) => [
+      e.email,
+      e.role,
+      formatDate(e.createdAt),
+      e.source ?? '',
+    ]);
+    const csv = [header, ...rows].map((r) => r.map((c) => `"${c}"`).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'quickiefix-waitlist.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="grid" style={{ gap: 16 }}>
+      <div className="between">
+        <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
+          <span className="faint">
+            <strong style={{ color: 'var(--text)' }}>{entries.length}</strong> signups ·{' '}
+            <span className="badge badge-blue">{customers} customers</span>{' '}
+            <span className="badge badge-green">{tradies} tradies</span>
+          </span>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={downloadCsv} disabled={!entries.length}>
+          ⬇ Export CSV
+        </button>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {entries.length === 0 ? (
+          <div className="empty">
+            <div className="e-ico">✉️</div>
+            <p>No signups yet.</p>
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((e) => (
+                <tr key={e.id}>
+                  <td style={{ fontWeight: 600 }}>{e.email}</td>
+                  <td>
+                    <span className={`badge ${e.role === 'tradie' ? 'badge-green' : 'badge-blue'}`}>
+                      {e.role}
+                    </span>
+                  </td>
+                  <td>{formatDate(e.createdAt)}</td>
+                  <td className="faint">{e.source ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

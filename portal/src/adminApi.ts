@@ -8,7 +8,16 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Company, CompanyTag, Complaint, Customer, FeeLineItem, Job, Tradie } from './types';
+import {
+  Company,
+  CompanyTag,
+  Complaint,
+  Customer,
+  FeeLineItem,
+  Job,
+  Tradie,
+  WaitlistEntry,
+} from './types';
 
 export async function listAllUsers(): Promise<(Tradie | Customer)[]> {
   const snap = await getDocs(collection(db, 'users'));
@@ -98,6 +107,26 @@ export async function setSharedCredits(companyId: string, n: number): Promise<vo
   await updateDoc(doc(db, 'companies', companyId), {
     sharedCredits: Math.max(0, Math.floor(n)),
   });
+}
+
+export async function listWaitlist(): Promise<WaitlistEntry[]> {
+  const snap = await getDocs(collection(db, 'waitlist'));
+  return snap.docs
+    .map((doc) => {
+      const d = doc.data() as { email: string; role: string; createdAt?: unknown; source?: string };
+      const createdAt =
+        typeof (d.createdAt as { toMillis?: () => number })?.toMillis === 'function'
+          ? (d.createdAt as { toMillis: () => number }).toMillis()
+          : ((d.createdAt as number) || 0);
+      return {
+        id: doc.id,
+        email: d.email,
+        role: d.role,
+        createdAt,
+        source: d.source,
+      } as WaitlistEntry;
+    })
+    .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function isTradie(u: Tradie | Customer): u is Tradie {
