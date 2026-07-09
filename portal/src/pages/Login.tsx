@@ -30,36 +30,38 @@ export function Login() {
   };
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-card">
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <img src="/logo.png" alt="QuickieFix" style={{ height: 104, maxWidth: '100%' }} />
-          <div className="brand-sub" style={{ marginTop: 4 }}>Business Portal</div>
+    <div className="co-auth">
+      <div className="co-auth-card">
+        <div className="co-auth-brand">
+          <img src="/logo-lockup.svg" alt="QuickieFix" style={{ height: 34, width: 'auto' }} />
         </div>
+        <div className="co-auth-sub">Business Portal</div>
 
-        <h2 style={{ fontSize: 24, fontWeight: 800, marginBottom: 4 }}>
+        <h2 className="co-auth-title">
           {mode === 'login' ? 'Welcome back' : 'Create your company'}
         </h2>
-        <p className="muted" style={{ marginBottom: 24, fontSize: 15 }}>
+        <p className="co-auth-lead">
           {mode === 'login'
             ? 'Sign in to manage your tradies.'
             : 'Set up your business to manage and invite tradies.'}
         </p>
 
-        <form onSubmit={submit}>
+        <form onSubmit={submit} className="co-stack">
           {mode === 'signup' && (
             <>
-              <div className="field">
+              <div className="co-field">
                 <label>Company name</label>
                 <input
+                  className="co-input"
                   placeholder="Your Business Ltd"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>
-              <div className="field">
+              <div className="co-field">
                 <label>Your name</label>
                 <input
+                  className="co-input"
                   placeholder="Alex Manager"
                   value={adminName}
                   onChange={(e) => setAdminName(e.target.value)}
@@ -67,18 +69,20 @@ export function Login() {
               </div>
             </>
           )}
-          <div className="field">
+          <div className="co-field">
             <label>Email</label>
             <input
+              className="co-input"
               type="email"
               placeholder="you@company.co.nz"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="field">
+          <div className="co-field">
             <label>Password</label>
             <input
+              className="co-input"
               type="password"
               placeholder={mode === 'signup' ? 'At least 6 characters' : '••••••••'}
               value={password}
@@ -86,17 +90,22 @@ export function Login() {
             />
           </div>
 
-          {error && <div className="err">{error}</div>}
+          {error && <div className="co-err">{error}</div>}
 
-          <button className="btn btn-primary btn-block" disabled={busy} type="submit">
+          <button
+            className="co-btn co-btn-primary"
+            style={{ width: '100%', height: 40, justifyContent: 'center' }}
+            disabled={busy}
+            type="submit"
+          >
             {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create company'}
           </button>
         </form>
 
-        <p className="muted" style={{ textAlign: 'center', marginTop: 20, fontSize: 14 }}>
+        <p className="co-auth-switch">
           {mode === 'login' ? "Don't have a company account? " : 'Already registered? '}
           <a
-            style={{ color: 'var(--amber-dark)', fontWeight: 700, cursor: 'pointer' }}
+            className="co-auth-link"
             onClick={() => {
               setMode(mode === 'login' ? 'signup' : 'login');
               setError(null);

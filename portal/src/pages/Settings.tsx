@@ -57,25 +57,26 @@ export function Settings() {
   };
 
   return (
-    <div className="grid" style={{ gap: 24, maxWidth: 620 }}>
+    <div className="co-stack" style={{ maxWidth: 620 }}>
       {/* Rate card */}
-      <div className="card">
-        <div className="between" style={{ marginBottom: 6 }}>
-          <div className="section-title" style={{ margin: 0 }}>
+      <div className="co-card">
+        <div className="co-between" style={{ marginBottom: 8 }}>
+          <div className="co-sectionhead" style={{ marginBottom: 0 }}>
             Rate card
           </div>
-          <span className={`badge ${isLive ? 'badge-green' : 'badge-amber'}`}>
+          <span className={`co-chip ${isLive ? 'co-chip-green' : 'co-chip-amber'}`}>
             {isLive ? 'Active' : 'Setup'}
           </span>
         </div>
         {!isLive && (
-          <p className="muted" style={{ fontSize: 14, marginBottom: 14 }}>
+          <p className="co-help">
             Set your rate card to go live. Your hourly rate is required; callout fees are optional.
           </p>
         )}
-        <div className="field">
+        <div className="co-field" style={{ marginBottom: 12 }}>
           <label>Hourly rate (NZD)</label>
           <input
+            className="co-input"
             type="number"
             min={0}
             step="0.01"
@@ -84,10 +85,11 @@ export function Settings() {
             placeholder="85.00"
           />
         </div>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div className="field">
+        <div className="co-formrow cols-2" style={{ marginBottom: 12 }}>
+          <div className="co-field">
             <label>Callout fee (optional)</label>
             <input
+              className="co-input"
               type="number"
               min={0}
               step="0.01"
@@ -96,9 +98,10 @@ export function Settings() {
               placeholder="0.00"
             />
           </div>
-          <div className="field">
+          <div className="co-field">
             <label>After-hours callout (optional)</label>
             <input
+              className="co-input"
               type="number"
               min={0}
               step="0.01"
@@ -109,7 +112,7 @@ export function Settings() {
           </div>
         </div>
         {rateCard && (
-          <p className="faint" style={{ fontSize: 13, marginBottom: 12 }}>
+          <p className="co-sub co-num" style={{ fontSize: 13, marginBottom: 12 }}>
             Current: {centsToDollars(rateCard.hourlyRateCents)}/hr
             {rateCard.calloutFeeCents !== undefined
               ? ` · callout ${centsToDollars(rateCard.calloutFeeCents)}`
@@ -120,7 +123,7 @@ export function Settings() {
           </p>
         )}
         <button
-          className="btn btn-primary"
+          className="co-btn co-btn-primary"
           disabled={savingRate || !hourly.trim()}
           onClick={saveRateCard}
         >
@@ -129,51 +132,56 @@ export function Settings() {
       </div>
 
       {/* Company profile */}
-      <div className="card">
-        <div className="section-title">Company profile</div>
-        <div className="field">
+      <div className="co-card">
+        <div className="co-sectionhead">Company profile</div>
+        <div className="co-field" style={{ marginBottom: 12 }}>
           <label>Company name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="co-input" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="field">
+        <div className="co-field" style={{ marginBottom: 16 }}>
           <label>Billing email</label>
           <input
+            className="co-input"
             value={billingEmail}
             onChange={(e) => setBillingEmail(e.target.value)}
             placeholder="accounts@yourcompany.co.nz"
           />
         </div>
-        <button className="btn btn-primary" disabled={saving || !name.trim()} onClick={saveProfile}>
+        <button
+          className="co-btn co-btn-primary"
+          disabled={saving || !name.trim()}
+          onClick={saveProfile}
+        >
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
 
-      <div className="card">
-        <div className="section-title">Account</div>
-        <table>
+      <div className="co-card">
+        <div className="co-sectionhead">Account</div>
+        <table className="co-table">
           <tbody>
             <tr>
-              <td className="faint">Admin email</td>
+              <td className="co-sub">Admin email</td>
               <td style={{ fontWeight: 600 }}>{company?.adminEmail}</td>
             </tr>
             <tr>
-              <td className="faint">Company ID</td>
+              <td className="co-sub">Company ID</td>
               <td>
-                <span className="pill-code">{company?.id}</span>
+                <span className="co-code">{company?.id}</span>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div className="card">
-        <div className="section-title">Session</div>
-        <button className="btn btn-ghost" onClick={logout}>
+      <div className="co-card">
+        <div className="co-sectionhead">Session</div>
+        <button className="co-btn co-btn-ghost" onClick={logout}>
           Log out
         </button>
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="co-toast">{toast}</div>}
     </div>
   );
 }

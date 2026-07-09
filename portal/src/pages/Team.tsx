@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
 import { useAuth } from '../auth';
+import { IconTag, IconTradies } from '../backoffice/icons';
 import {
   downloadTemplate,
   importTradies,
@@ -13,11 +14,11 @@ import {
 import { initials } from '../lib';
 import { Company, CompanyTag, CompanyTagStatus, Tradie, tradeLabel } from '../types';
 
-const TAG_BADGE: Record<CompanyTagStatus, string> = {
-  issued: 'badge-amber',
-  claimed: 'badge-blue',
-  validated: 'badge-green',
-  removed: 'badge-gray',
+const TAG_CHIP: Record<CompanyTagStatus, string> = {
+  issued: 'co-chip-amber',
+  claimed: 'co-chip-blue',
+  validated: 'co-chip-green',
+  removed: 'co-chip-grey',
 };
 
 export function Team() {
@@ -113,21 +114,28 @@ export function Team() {
   );
   const rosterCount = tradies.length + extraValidated.length;
 
+  const readyRows = rows?.filter((r) => !r._error).length ?? 0;
+  const issueRows = rows?.filter((r) => r._error).length ?? 0;
+
   return (
-    <div className="grid" style={{ gap: 24 }}>
+    <div className="co-stack">
       {/* Roster (validated members) */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="section-title" style={{ padding: '18px 22px', margin: 0 }}>
-          Tradies in {company?.name} ({rosterCount})
+      <div className="co-card flush">
+        <div className="co-card-head plain">
+          <span className="co-card-title">
+            Tradies in {company?.name} ({rosterCount})
+          </span>
         </div>
         {rosterCount === 0 ? (
-          <div className="empty">
-            <div className="e-ico">🧰</div>
-            <p style={{ fontWeight: 700, color: 'var(--text)' }}>No validated tradies yet</p>
-            <p>Add a seat below and send the code to your tradie.</p>
+          <div className="co-empty">
+            <span className="co-empty-ico">
+              <IconTradies size={28} />
+            </span>
+            <div className="co-empty-title">No validated tradies yet</div>
+            <div className="co-empty-sub">Add a seat below and send the code to your tradie.</div>
           </div>
         ) : (
-          <table>
+          <table className="co-table">
             <thead>
               <tr>
                 <th>Tradie</th>
@@ -138,31 +146,31 @@ export function Team() {
             </thead>
             <tbody>
               {tradies.map((t) => (
-                <tr key={t.id}>
-                  <td className="row-link" onClick={() => nav(`/tradie/${t.id}`)}>
-                    <div className="flex">
-                      <div className="avatar">{initials(t.firstName, t.lastName)}</div>
-                      <div style={{ fontWeight: 700 }}>
+                <tr key={t.id} className="co-rowlink" onClick={() => nav(`/tradie/${t.id}`)}>
+                  <td>
+                    <div className="co-idcell">
+                      <div className="co-avatar">{initials(t.firstName, t.lastName)}</div>
+                      <div className="co-idcell-name">
                         {t.firstName} {t.lastName}
                       </div>
                     </div>
                   </td>
                   <td>{tradeLabel(t.primaryTrade)}</td>
-                  <td className="faint">{t.email}</td>
-                  <td style={{ textAlign: 'right' }} />
+                  <td className="co-sub">{t.email}</td>
+                  <td />
                 </tr>
               ))}
               {extraValidated.map((tag) => (
                 <tr key={tag.id}>
                   <td>
-                    <div className="flex">
-                      <div className="avatar">{initials(tag.issuedToName, '')}</div>
-                      <div style={{ fontWeight: 700 }}>{tag.issuedToName}</div>
+                    <div className="co-idcell">
+                      <div className="co-avatar">{initials(tag.issuedToName, '')}</div>
+                      <div className="co-idcell-name">{tag.issuedToName}</div>
                     </div>
                   </td>
-                  <td className="faint">—</td>
-                  <td className="faint">{tag.issuedToEmail}</td>
-                  <td style={{ textAlign: 'right' }} />
+                  <td className="co-sub">—</td>
+                  <td className="co-sub">{tag.issuedToEmail}</td>
+                  <td />
                 </tr>
               ))}
             </tbody>
@@ -171,51 +179,63 @@ export function Team() {
       </div>
 
       {/* Add seat */}
-      <div className="card">
-        <div className="section-title">Add a seat</div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 16 }}>
+      <div className="co-card">
+        <div className="co-sectionhead">Add a seat</div>
+        <p className="co-help">
           Issue a tag for a tradie. They enter the code in the app to claim their seat; a platform
           admin then validates it.
         </p>
-        <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-          <div className="field">
+        <div className="co-formrow cols-3" style={{ marginBottom: 16 }}>
+          <div className="co-field">
             <label>Name</label>
-            <input value={seatName} onChange={(e) => setSeatName(e.target.value)} placeholder="Mike Jones" />
+            <input
+              className="co-input"
+              value={seatName}
+              onChange={(e) => setSeatName(e.target.value)}
+              placeholder="Mike Jones"
+            />
           </div>
-          <div className="field">
+          <div className="co-field">
             <label>Email</label>
-            <input value={seatEmail} onChange={(e) => setSeatEmail(e.target.value)} placeholder="mike@lazer.co.nz" />
+            <input
+              className="co-input"
+              value={seatEmail}
+              onChange={(e) => setSeatEmail(e.target.value)}
+              placeholder="mike@lazer.co.nz"
+            />
           </div>
-          <div className="field">
+          <div className="co-field">
             <label>Phone (optional)</label>
-            <input value={seatPhone} onChange={(e) => setSeatPhone(e.target.value)} placeholder="021 234 5678" />
+            <input
+              className="co-input"
+              value={seatPhone}
+              onChange={(e) => setSeatPhone(e.target.value)}
+              placeholder="021 234 5678"
+            />
           </div>
         </div>
         <button
-          className="btn btn-primary"
+          className="co-btn co-btn-primary"
           disabled={busy || !seatName.trim() || !seatEmail.trim()}
           onClick={addSeat}
         >
-          + Add seat
+          Add seat
         </button>
 
         {lastTag && (
-          <div
-            className="card"
-            style={{ marginTop: 16, background: 'var(--amber-soft, #FFF7E6)', padding: 16 }}
-          >
-            <p style={{ fontWeight: 700, marginBottom: 8 }}>
+          <div className="co-notice" style={{ marginTop: 16 }}>
+            <p style={{ fontWeight: 600, marginBottom: 10 }}>
               Tag issued for {lastTag.issuedToName}
             </p>
-            <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
-              <span className="pill-code" style={{ fontSize: 20, letterSpacing: 1 }}>
+            <div className="co-flex" style={{ gap: 12 }}>
+              <span className="co-code" style={{ fontSize: 18, letterSpacing: 1 }}>
                 {lastTag.code}
               </span>
-              <button className="btn btn-secondary btn-sm" onClick={() => copyCode(lastTag.code)}>
+              <button className="co-btn co-btn-ghost co-btn-sm" onClick={() => copyCode(lastTag.code)}>
                 Copy code
               </button>
             </div>
-            <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+            <p className="co-sub" style={{ fontSize: 13, marginTop: 10 }}>
               Send this code to the tradie. It expires in 14 days.
             </p>
           </div>
@@ -223,24 +243,24 @@ export function Team() {
       </div>
 
       {/* Spreadsheet import */}
-      <div className="card">
-        <div className="between" style={{ marginBottom: 6 }}>
-          <div className="section-title" style={{ margin: 0 }}>
+      <div className="co-card">
+        <div className="co-between" style={{ marginBottom: 8 }}>
+          <div className="co-sectionhead" style={{ marginBottom: 0 }}>
             Import from a spreadsheet
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={downloadTemplate}>
-            ⬇ Download template
+          <button className="co-btn co-btn-ghost co-btn-sm" onClick={downloadTemplate}>
+            Download template
           </button>
         </div>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 14 }}>
+        <p className="co-help">
           Download the template, fill in your tradies, then upload it. Each tradie gets an account
           linked to {company?.name} (with a pre-validated tag) and an email to set their password.
-          Valid trades: <span className="faint">{VALID_TRADES.join(', ')}</span>.
+          Valid trades: <span className="co-sub">{VALID_TRADES.join(', ')}</span>.
         </p>
 
         {!importing && !results && (
-          <label className="btn btn-secondary btn-sm" style={{ display: 'inline-block' }}>
-            📄 Choose CSV file
+          <label className="co-btn co-btn-ghost co-btn-sm" style={{ display: 'inline-flex' }}>
+            Choose CSV file
             <input type="file" accept=".csv,text/csv" onChange={onFile} style={{ display: 'none' }} />
           </label>
         )}
@@ -248,29 +268,32 @@ export function Team() {
         {/* Preview parsed rows */}
         {rows && !importing && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 700, marginBottom: 10 }}>
-              {rows.filter((r) => !r._error).length} ready ·{' '}
-              <span style={{ color: 'var(--danger)' }}>
-                {rows.filter((r) => r._error).length} with issues
-              </span>
+            <p style={{ fontWeight: 600, marginBottom: 10, fontSize: 13.5 }}>
+              {readyRows} ready ·{' '}
+              <span style={{ color: 'var(--danger)' }}>{issueRows} with issues</span>
             </p>
-            <div style={{ maxHeight: 220, overflow: 'auto', border: '1px solid var(--line)', borderRadius: 10 }}>
-              <table>
+            <div
+              style={{
+                maxHeight: 220,
+                overflow: 'auto',
+                border: '1px solid var(--line-200)',
+                borderRadius: 8,
+              }}
+            >
+              <table className="co-table">
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={i}>
                       <td>
                         {r.firstName} {r.lastName}
                       </td>
-                      <td className="faint">{r.email}</td>
+                      <td className="co-sub">{r.email}</td>
                       <td>{tradeLabel(r.primaryTrade)}</td>
                       <td style={{ textAlign: 'right' }}>
                         {r._error ? (
-                          <span className="badge badge-gray" style={{ color: 'var(--danger)' }}>
-                            {r._error}
-                          </span>
+                          <span className="co-chip co-chip-red">{r._error}</span>
                         ) : (
-                          <span className="badge badge-green">ready</span>
+                          <span className="co-chip co-chip-green">ready</span>
                         )}
                       </td>
                     </tr>
@@ -278,15 +301,15 @@ export function Team() {
                 </tbody>
               </table>
             </div>
-            <div className="flex" style={{ gap: 10, marginTop: 14 }}>
+            <div className="co-flex" style={{ gap: 10, marginTop: 14 }}>
               <button
-                className="btn btn-primary btn-sm"
-                disabled={rows.filter((r) => !r._error).length === 0}
+                className="co-btn co-btn-primary co-btn-sm"
+                disabled={readyRows === 0}
                 onClick={runImport}
               >
-                Import {rows.filter((r) => !r._error).length} tradie(s)
+                Import {readyRows} tradie(s)
               </button>
-              <button className="btn btn-ghost btn-sm" onClick={() => setRows(null)}>
+              <button className="co-btn co-btn-ghost co-btn-sm" onClick={() => setRows(null)}>
                 Cancel
               </button>
             </div>
@@ -294,27 +317,33 @@ export function Team() {
         )}
 
         {importing && (
-          <div className="flex" style={{ gap: 12, marginTop: 16 }}>
+          <div className="co-flex" style={{ gap: 12, marginTop: 16 }}>
             <div className="spinner" />
-            <span className="muted">Creating accounts &amp; sending emails… {progress}</span>
+            <span className="co-sub">Creating accounts &amp; sending emails… {progress}</span>
           </div>
         )}
 
         {results && (
           <div style={{ marginTop: 16 }}>
-            <p style={{ fontWeight: 700, marginBottom: 10 }}>
+            <p style={{ fontWeight: 600, marginBottom: 10, fontSize: 13.5 }}>
               {results.filter((r) => r.ok).length} imported ·{' '}
               {results.filter((r) => !r.ok).length} skipped
             </p>
             <div style={{ maxHeight: 220, overflow: 'auto' }}>
               {results.map((r, i) => (
-                <div key={i} className="between" style={{ padding: '6px 0' }}>
-                  <span className="faint">{r.email}</span>
-                  <span className={`badge ${r.ok ? 'badge-green' : 'badge-gray'}`}>{r.message}</span>
+                <div key={i} className="co-between" style={{ padding: '6px 0' }}>
+                  <span className="co-sub">{r.email}</span>
+                  <span className={`co-chip ${r.ok ? 'co-chip-green' : 'co-chip-grey'}`}>
+                    {r.message}
+                  </span>
                 </div>
               ))}
             </div>
-            <button className="btn btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => setResults(null)}>
+            <button
+              className="co-btn co-btn-ghost co-btn-sm"
+              style={{ marginTop: 12 }}
+              onClick={() => setResults(null)}
+            >
               Done
             </button>
           </div>
@@ -322,17 +351,20 @@ export function Team() {
       </div>
 
       {/* Tag roster */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="section-title" style={{ padding: '18px 22px', margin: 0 }}>
-          Tags ({tags.length})
+      <div className="co-card flush">
+        <div className="co-card-head plain">
+          <span className="co-card-title">Tags ({tags.length})</span>
         </div>
         {tags.length === 0 ? (
-          <div className="empty">
-            <div className="e-ico">🏷️</div>
-            <p>No tags issued yet.</p>
+          <div className="co-empty">
+            <span className="co-empty-ico">
+              <IconTag size={28} />
+            </span>
+            <div className="co-empty-title">No tags issued yet</div>
+            <div className="co-empty-sub">Add a seat above to issue your first tag.</div>
           </div>
         ) : (
-          <table>
+          <table className="co-table">
             <thead>
               <tr>
                 <th>Code</th>
@@ -345,32 +377,35 @@ export function Team() {
               {tags.map((tag) => (
                 <tr key={tag.id}>
                   <td>
-                    <span className="pill-code">{tag.code}</span>
+                    <span className="co-code">{tag.code}</span>
                   </td>
                   <td>
-                    <div style={{ fontWeight: 600 }}>{tag.issuedToName}</div>
-                    <div className="faint" style={{ fontSize: 12 }}>
+                    <div className="co-idcell-name">{tag.issuedToName}</div>
+                    <div className="co-idcell-sub">
                       {tag.issuedToEmail}
                       {tag.issuedToPhone ? ` · ${tag.issuedToPhone}` : ''}
                     </div>
                   </td>
                   <td>
-                    <span className={`badge ${TAG_BADGE[tag.status]}`}>{tag.status}</span>
+                    <span className={`co-chip ${TAG_CHIP[tag.status]}`}>{tag.status}</span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {tag.status !== 'removed' ? (
                       <>
                         {tag.status === 'issued' && (
-                          <button className="btn btn-ghost btn-sm" onClick={() => copyCode(tag.code)}>
+                          <button
+                            className="co-btn co-btn-ghost co-btn-sm"
+                            onClick={() => copyCode(tag.code)}
+                          >
                             Copy code
                           </button>
                         )}{' '}
-                        <button className="btn btn-danger btn-sm" onClick={() => remove(tag)}>
+                        <button className="co-btn co-btn-danger co-btn-sm" onClick={() => remove(tag)}>
                           Remove
                         </button>
                       </>
                     ) : (
-                      <span className="faint" style={{ fontSize: 12 }}>
+                      <span className="co-sub" style={{ fontSize: 12 }}>
                         {tag.removalReason ?? '—'}
                       </span>
                     )}
@@ -382,7 +417,7 @@ export function Team() {
         )}
       </div>
 
-      {toast && <div className="toast">{toast}</div>}
+      {toast && <div className="co-toast">{toast}</div>}
     </div>
   );
 }

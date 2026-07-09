@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
 import {
   isTradie,
   listAllJobs,
@@ -28,6 +28,24 @@ import {
   tradeLabel,
   WaitlistEntry,
 } from '../types';
+import {
+  IconActivity,
+  IconArrowRight,
+  IconBilling,
+  IconCheck,
+  IconCompanies,
+  IconComplaint,
+  IconCustomers,
+  IconJobs,
+  IconLogout,
+  IconMetrics,
+  IconOverview,
+  IconSearch,
+  IconShield,
+  IconTag,
+  IconTradies,
+  IconWaitlist,
+} from './icons';
 
 type Tab =
   | 'overview'
@@ -41,23 +59,106 @@ type Tab =
   | 'complaints'
   | 'metrics';
 
-const NAV: { key: Tab; label: string; ico: string }[] = [
-  { key: 'overview', label: 'Overview', ico: '📊' },
-  { key: 'tradies', label: 'Tradies', ico: '🧰' },
-  { key: 'tags', label: 'Tag queue', ico: '🏷️' },
-  { key: 'companies', label: 'Companies', ico: '🏢' },
-  { key: 'jobs', label: 'Jobs', ico: '📋' },
-  { key: 'customers', label: 'Customers', ico: '👥' },
-  { key: 'waitlist', label: 'Waitlist', ico: '✉️' },
-  { key: 'billing', label: 'Billing', ico: '💳' },
-  { key: 'complaints', label: 'Complaints', ico: '⚠️' },
-  { key: 'metrics', label: 'Metrics', ico: '📈' },
+type SvgIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
+
+type NavItem = { key: Tab; label: string; Icon: SvgIcon };
+type NavGroup = { heading: string; items: NavItem[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    heading: 'Operations',
+    items: [
+      { key: 'overview', label: 'Overview', Icon: IconOverview },
+      { key: 'jobs', label: 'Jobs', Icon: IconJobs },
+      { key: 'tags', label: 'Tag queue', Icon: IconTag },
+      { key: 'complaints', label: 'Complaints', Icon: IconComplaint },
+    ],
+  },
+  {
+    heading: 'People',
+    items: [
+      { key: 'tradies', label: 'Tradies', Icon: IconTradies },
+      { key: 'companies', label: 'Companies', Icon: IconCompanies },
+      { key: 'customers', label: 'Customers', Icon: IconCustomers },
+    ],
+  },
+  {
+    heading: 'Platform',
+    items: [
+      { key: 'billing', label: 'Billing', Icon: IconBilling },
+      { key: 'metrics', label: 'Metrics', Icon: IconMetrics },
+      { key: 'waitlist', label: 'Waitlist', Icon: IconWaitlist },
+    ],
+  },
 ];
+
+const TAB_TITLES: Record<Tab, string> = {
+  overview: 'Overview',
+  tradies: 'Tradies',
+  tags: 'Tag queue',
+  companies: 'Companies',
+  jobs: 'Jobs',
+  customers: 'Customers',
+  waitlist: 'Waitlist',
+  billing: 'Billing',
+  complaints: 'Complaints',
+  metrics: 'Metrics',
+};
 
 const fmtMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 function currentMonthKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+const ACTIVE_STATUSES = ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'];
+
+/* ------------------------------------------------- Status chip system ---- */
+
+type ChipTone =
+  | 'bo-chip-grey'
+  | 'bo-chip-blue'
+  | 'bo-chip-amber'
+  | 'bo-chip-green'
+  | 'bo-chip-red'
+  | 'bo-chip-redout';
+
+function statusTone(status: string): ChipTone {
+  switch (status) {
+    case 'searching':
+      return 'bo-chip-grey';
+    case 'accepted':
+    case 'confirmed':
+      return 'bo-chip-blue';
+    case 'travelling':
+    case 'on_site':
+      return 'bo-chip-amber';
+    case 'completed':
+      return 'bo-chip-green';
+    case 'cancelled':
+      return 'bo-chip-red';
+    case 'no_tradie_found':
+      return 'bo-chip-redout';
+    default:
+      return 'bo-chip-grey';
+  }
+}
+
+function StatusChip({ status }: { status: string }) {
+  return <span className={`bo-chip ${statusTone(status)}`}>{status.replace(/_/g, ' ')}</span>;
+}
+
+function relativeTime(ts?: number): string {
+  if (!ts) return '—';
+  const diff = Date.now() - ts;
+  const mins = Math.round(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return formatDate(ts);
 }
 
 export function BackOffice() {
@@ -96,9 +197,20 @@ export function BackOffice() {
     void load();
   }, []);
 
+  useEffect(() => {
+    document.title = `${TAB_TITLES[tab]} · QuickieFix Back Office`;
+  }, [tab]);
+
   const tradies = users.filter(isTradie) as Tradie[];
   const customers = users.filter((u) => u.role === 'customer') as Customer[];
   const openComplaints = complaints.filter((c) => c.status === 'open');
+  const pendingApprovals = tradies.filter((t) => t.approval === 'pending').length;
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 
   const approve = async (t: Tradie, approval: Tradie['approval']) => {
     await setApproval(t.id, approval);
@@ -125,49 +237,79 @@ export function BackOffice() {
     await load();
   };
 
+  const counts: Partial<Record<Tab, number>> = {
+    tags: pendingTags.length,
+    complaints: openComplaints.length,
+  };
+
   return (
-    <div className="shell">
-      <aside className="sidebar">
-        <div className="brand-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-          <img src="/logo.png" alt="QuickieFix" style={{ height: 56, width: '100%', objectFit: 'contain', background: '#fff', borderRadius: 10, padding: 6 }} />
-          <div className="brand-sub" style={{ textAlign: 'center' }}>Back Office</div>
+    <div className="bo-shell">
+      <aside className="bo-sidebar">
+        <div className="bo-brand">
+          <img
+            src="/logo-lockup-reversed.svg"
+            alt="QuickieFix"
+            style={{ height: 30, width: 'auto', display: 'block' }}
+          />
         </div>
-        {NAV.map((n) => (
-          <div
-            key={n.key}
-            className={`nav-item${tab === n.key ? ' active' : ''}`}
-            onClick={() => setTab(n.key)}
-          >
-            <span className="ico">{n.ico}</span>
-            {n.label}
-            {n.key === 'complaints' && openComplaints.length > 0 && (
-              <span className="badge badge-amber" style={{ marginLeft: 'auto' }}>
-                {openComplaints.length}
+
+        <nav>
+          {NAV_GROUPS.map((group) => (
+            <div className="bo-navgroup" key={group.heading}>
+              <div className="bo-navlabel">{group.heading}</div>
+              {group.items.map((n) => {
+                const count = counts[n.key] ?? 0;
+                return (
+                  <div
+                    key={n.key}
+                    className={`bo-navitem${tab === n.key ? ' active' : ''}`}
+                    onClick={() => setTab(n.key)}
+                  >
+                    <span className="bo-ico">
+                      <n.Icon size={18} />
+                    </span>
+                    <span className="bo-navtext">{n.label}</span>
+                    {count > 0 && <span className="bo-count">{count}</span>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+
+        <div className="bo-sidefoot">
+          <div className="bo-admincard">
+            <div className="bo-admin-id">
+              <span className="bo-admin-icon">
+                <IconShield size={16} />
               </span>
-            )}
-            {n.key === 'tags' && pendingTags.length > 0 && (
-              <span className="badge badge-blue" style={{ marginLeft: 'auto' }}>
-                {pendingTags.length}
-              </span>
-            )}
-          </div>
-        ))}
-        <div className="sidebar-foot">
-          <div className="company-chip">
-            <div className="cname">🛡️ Platform Admin</div>
-            <div className="cmail">{adminEmail}</div>
-          </div>
-          <div className="nav-item" onClick={logout}>
-            <span className="ico">↩︎</span>Log out
+              <div style={{ minWidth: 0 }}>
+                <div className="bo-admin-name">Platform Admin</div>
+                <div className="bo-admin-mail">{adminEmail}</div>
+              </div>
+            </div>
+            <button className="bo-logout" onClick={logout}>
+              <IconLogout size={16} />
+              Log out
+            </button>
           </div>
         </div>
       </aside>
 
-      <div className="main">
-        <div className="topbar">
-          <h1>{NAV.find((n) => n.key === tab)?.label}</h1>
-        </div>
-        <div className="content" style={{ maxWidth: 1200 }}>
+      <div className="bo-main">
+        <header className="bo-header">
+          <h1 className="bo-title">{TAB_TITLES[tab]}</h1>
+          <div className="bo-header-right">
+            <div className="bo-search">
+              <IconSearch size={15} />
+              <span>Search</span>
+              <span className="bo-kbd">⌘K</span>
+            </div>
+            <span className="bo-date">{today}</span>
+          </div>
+        </header>
+        <div className="bo-content">
+          <div className="bo-content-inner">
           {loading ? (
             <div style={{ display: 'grid', placeItems: 'center', padding: 80 }}>
               <div className="spinner" />
@@ -175,10 +317,11 @@ export function BackOffice() {
           ) : tab === 'overview' ? (
             <Overview
               tradies={tradies}
-              customers={customers}
               jobs={jobs}
-              companies={companies}
+              pendingApprovals={pendingApprovals}
+              pendingTags={pendingTags.length}
               openComplaints={openComplaints.length}
+              onNavigate={setTab}
             />
           ) : tab === 'tradies' ? (
             <Tradies
@@ -204,6 +347,7 @@ export function BackOffice() {
           ) : (
             <Metrics jobs={jobs} tradies={tradies} />
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -214,43 +358,149 @@ export function BackOffice() {
 
 function Overview({
   tradies,
-  customers,
   jobs,
-  companies,
+  pendingApprovals,
+  pendingTags,
   openComplaints,
+  onNavigate,
 }: {
   tradies: Tradie[];
-  customers: Customer[];
   jobs: Job[];
-  companies: Company[];
+  pendingApprovals: number;
+  pendingTags: number;
   openComplaints: number;
+  onNavigate: (tab: Tab) => void;
 }) {
   const completed = jobs.filter((j) => j.status === 'completed').length;
-  const active = jobs.filter((j) =>
-    ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
-  ).length;
-  const pending = tradies.filter((t) => t.approval === 'pending').length;
+  const active = jobs.filter((j) => ACTIVE_STATUSES.includes(j.status)).length;
 
-  const cards = [
-    { v: customers.length, l: 'Customers' },
-    { v: tradies.length, l: 'Tradies' },
-    { v: companies.length, l: 'Companies' },
-    { v: jobs.length, l: 'Total jobs' },
-    { v: completed, l: 'Completed' },
-    { v: active, l: 'Active now' },
-    { v: pending, l: 'Pending approval' },
-    { v: openComplaints, l: 'Open complaints' },
+  const kpis: { label: string; value: number; Icon: SvgIcon; tab: Tab; live?: boolean }[] = [
+    { label: 'Total jobs', value: jobs.length, Icon: IconJobs, tab: 'jobs' },
+    { label: 'Completed', value: completed, Icon: IconCheck, tab: 'jobs' },
+    { label: 'Active now', value: active, Icon: IconActivity, tab: 'jobs', live: true },
+    { label: 'Tradies', value: tradies.length, Icon: IconTradies, tab: 'tradies' },
   ];
 
+  const attn: { label: string; count: number; tab: Tab }[] = [
+    { label: 'Pending approvals', count: pendingApprovals, tab: 'tradies' },
+    { label: 'Tag queue', count: pendingTags, tab: 'tags' },
+    { label: 'Open complaints', count: openComplaints, tab: 'complaints' },
+  ];
+
+  const recentJobs = [...jobs]
+    .sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt)
+    .slice(0, 10);
+
   return (
-    <div className="grid stat-grid">
-      {cards.map((c) => (
-        <div className="stat" key={c.l}>
-          <div className="v">{c.v}</div>
-          <div className="l">{c.l}</div>
+    <>
+      {/* Band 1 — KPI row */}
+      <section className="bo-band">
+        <div className="bo-kpi-grid">
+          {kpis.map((k) => (
+            <button className="bo-kpi" key={k.label} onClick={() => onNavigate(k.tab)}>
+              <span className="bo-kpi-chip">
+                <k.Icon size={16} />
+              </span>
+              <div className="bo-kpi-label">{k.label}</div>
+              <div className="bo-kpi-value">
+                {k.value.toLocaleString()}
+                {k.live && k.value > 0 && <span className="bo-dot" />}
+              </div>
+            </button>
+          ))}
         </div>
-      ))}
-    </div>
+      </section>
+
+      {/* Band 2 — Needs attention */}
+      <section className="bo-band">
+        <h2 className="bo-sectionhead">Needs attention</h2>
+        <div className="bo-attn-grid">
+          {attn.map((a) =>
+            a.count > 0 ? (
+              <div className="bo-attn alert" key={a.label}>
+                <div className="bo-attn-label">{a.label}</div>
+                <div className="bo-attn-count bo-num">{a.count.toLocaleString()}</div>
+                <button className="bo-attn-review" onClick={() => onNavigate(a.tab)}>
+                  Review <IconArrowRight size={14} />
+                </button>
+              </div>
+            ) : (
+              <div className="bo-attn calm" key={a.label}>
+                <div className="bo-attn-label">{a.label}</div>
+                <span className="bo-attn-calmtext">
+                  <span className="bo-check">
+                    <IconCheck size={15} />
+                  </span>
+                  Nothing waiting
+                </span>
+              </div>
+            ),
+          )}
+        </div>
+      </section>
+
+      {/* Band 3 — Activity */}
+      <section className="bo-band">
+        <div className="bo-activity-grid">
+          <div className="bo-card bo-panel">
+            <div className="bo-panel-head">Recent jobs</div>
+            {recentJobs.length === 0 ? (
+              <div className="bo-empty">
+                <span className="bo-empty-ico">
+                  <IconJobs size={26} />
+                </span>
+                <div className="bo-empty-title">No jobs yet</div>
+                <div className="bo-empty-sub">Jobs will appear here as customers request them.</div>
+              </div>
+            ) : (
+              <table className="bo-table">
+                <thead>
+                  <tr>
+                    <th>Trade</th>
+                    <th>Location</th>
+                    <th>Tradie</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentJobs.map((j) => (
+                    <tr key={j.id}>
+                      <td style={{ fontWeight: 600 }}>{tradeLabel(j.trade)}</td>
+                      <td className="faint">{j.location?.address ?? '—'}</td>
+                      <td className="faint">{j.tradieName ?? '—'}</td>
+                      <td>
+                        <StatusChip status={j.status} />
+                      </td>
+                      <td className="bo-num-cell faint">{relativeTime(j.timestamps.createdAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="bo-card bo-panel">
+            <div className="bo-panel-head">Activity feed</div>
+            <div className="bo-feed">
+              {[0, 1, 2, 3].map((i) => (
+                <div className="bo-feed-row" key={i}>
+                  <div className="bo-skel-dot" />
+                  <div className="bo-skel-lines">
+                    <div className="bo-skel-line" />
+                    <div className="bo-skel-line short" />
+                  </div>
+                </div>
+              ))}
+              <div className="bo-feed-note">
+                <IconActivity size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} />
+                Activity feed coming soon
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -662,18 +912,6 @@ function Billing({ fees }: { fees: FeeLineItem[] }) {
 
 /* ------------------------------------------------------------------ Jobs -- */
 
-const STATUS_BADGE: Record<string, string> = {
-  completed: 'badge-green',
-  searching: 'badge-amber',
-  no_tradie_found: 'badge-gray',
-  accepted: 'badge-blue',
-  confirmed: 'badge-blue',
-  travelling: 'badge-blue',
-  on_site: 'badge-blue',
-  cancelled: 'badge-gray',
-  disputed: 'badge-gray',
-};
-
 function Jobs({ jobs }: { jobs: Job[] }) {
   const [filter, setFilter] = useState<string>('all');
   const statuses = ['all', 'completed', 'searching', 'cancelled'];
@@ -725,9 +963,7 @@ function Jobs({ jobs }: { jobs: Job[] }) {
                     )}
                   </td>
                   <td>
-                    <span className={`badge ${STATUS_BADGE[j.status] ?? 'badge-gray'}`}>
-                      {j.status.replace('_', ' ')}
-                    </span>
+                    <StatusChip status={j.status} />
                   </td>
                 </tr>
               ))}

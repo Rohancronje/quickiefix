@@ -2,6 +2,13 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { computeStats, getTradieJobs, listCompanyTradies } from '../api';
 import { useAuth } from '../auth';
+import {
+  IconArrowRight,
+  IconCheck,
+  IconClock,
+  IconMetrics,
+  IconTradies,
+} from '../backoffice/icons';
 import { formatDuration, initials, stars } from '../lib';
 import { Tradie, TradieStats, tradeLabel } from '../types';
 
@@ -48,96 +55,109 @@ export function Dashboard() {
     );
   }
 
-  return (
-    <div className="grid" style={{ gap: 24 }}>
-      <div className="grid stat-grid">
-        <div className="stat">
-          <div className="v">{rows.length}</div>
-          <div className="l">Tradies</div>
-        </div>
-        <div className="stat">
-          <div className="v">{totalJobs}</div>
-          <div className="l">Completed jobs</div>
-        </div>
-        <div className="stat">
-          <div className="v">{avgRating || '—'}</div>
-          <div className="l">Avg rating</div>
-        </div>
-        <div className="stat">
-          <div className="v">{formatDuration(totalOnSite)}</div>
-          <div className="l">Time on site</div>
-        </div>
-      </div>
+  const kpis = [
+    { label: 'Tradies', value: String(rows.length), Icon: IconTradies },
+    { label: 'Completed jobs', value: String(totalJobs), Icon: IconCheck },
+    { label: 'Avg rating', value: avgRating ? String(avgRating) : '—', Icon: IconMetrics },
+    { label: 'Time on site', value: formatDuration(totalOnSite), Icon: IconClock },
+  ];
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div className="between" style={{ padding: '18px 22px' }}>
-          <div className="section-title" style={{ margin: 0 }}>
-            Team performance
-          </div>
-          <button className="btn btn-primary btn-sm" onClick={() => nav('/team')}>
-            + Add tradies
-          </button>
+  return (
+    <>
+      <section className="co-band">
+        <div className="co-kpi-grid">
+          {kpis.map((k) => (
+            <div className="co-kpi" key={k.label}>
+              <span className="co-kpi-chip">
+                <k.Icon size={16} />
+              </span>
+              <div className="co-kpi-label">{k.label}</div>
+              <div className="co-kpi-value">{k.value}</div>
+            </div>
+          ))}
         </div>
-        {rows.length === 0 ? (
-          <div className="empty">
-            <div className="e-ico">🧰</div>
-            <p style={{ fontWeight: 700, color: 'var(--text)' }}>No tradies yet</p>
-            <p>Invite your tradies from the “My Tradies” page to see their performance here.</p>
+      </section>
+
+      <section className="co-band">
+        <div className="co-card flush">
+          <div className="co-card-head">
+            <span className="co-card-title">Team performance</span>
+            <button className="co-btn co-btn-primary co-btn-sm" onClick={() => nav('/team')}>
+              Add tradies
+            </button>
           </div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Tradie</th>
-                <th>Trade</th>
-                <th>Jobs</th>
-                <th>Rating</th>
-                <th>Time on site</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ tradie, stats }) => (
-                <tr key={tradie.id} className="row-link" onClick={() => nav(`/tradie/${tradie.id}`)}>
-                  <td>
-                    <div className="flex">
-                      <div className="avatar">{initials(tradie.firstName, tradie.lastName)}</div>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>
-                          {tradie.firstName} {tradie.lastName}
-                        </div>
-                        <div className="faint" style={{ fontSize: 12 }}>
-                          {tradie.businessName}
+          {rows.length === 0 ? (
+            <div className="co-empty">
+              <span className="co-empty-ico">
+                <IconTradies size={28} />
+              </span>
+              <div className="co-empty-title">No tradies yet</div>
+              <div className="co-empty-sub">
+                Invite your tradies from the My Tradies page to see their performance here.
+              </div>
+              <button className="co-empty-action" onClick={() => nav('/team')}>
+                Add tradies <IconArrowRight size={14} />
+              </button>
+            </div>
+          ) : (
+            <table className="co-table">
+              <thead>
+                <tr>
+                  <th>Tradie</th>
+                  <th>Trade</th>
+                  <th>Jobs</th>
+                  <th>Rating</th>
+                  <th>Time on site</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(({ tradie, stats }) => (
+                  <tr
+                    key={tradie.id}
+                    className="co-rowlink"
+                    onClick={() => nav(`/tradie/${tradie.id}`)}
+                  >
+                    <td>
+                      <div className="co-idcell">
+                        <div className="co-avatar">{initials(tradie.firstName, tradie.lastName)}</div>
+                        <div>
+                          <div className="co-idcell-name">
+                            {tradie.firstName} {tradie.lastName}
+                          </div>
+                          <div className="co-idcell-sub">{tradie.businessName}</div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>{tradeLabel(tradie.primaryTrade)}</td>
-                  <td style={{ fontWeight: 700 }}>{stats.completedJobs}</td>
-                  <td>
-                    {stats.ratingCount ? (
-                      <span>
-                        <span className="stars">{stars(stats.ratingAvg)}</span>{' '}
-                        <span className="faint">{stats.ratingAvg}</span>
-                      </span>
-                    ) : (
-                      <span className="faint">—</span>
-                    )}
-                  </td>
-                  <td>{formatDuration(stats.totalOnSiteMs)}</td>
-                  <td>
-                    {tradie.approval === 'approved' ? (
-                      <span className="badge badge-green">Approved</span>
-                    ) : (
-                      <span className="badge badge-amber">{tradie.approval}</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </div>
+                    </td>
+                    <td>{tradeLabel(tradie.primaryTrade)}</td>
+                    <td className="co-num-cell" style={{ fontWeight: 600 }}>
+                      {stats.completedJobs}
+                    </td>
+                    <td>
+                      {stats.ratingCount ? (
+                        <span>
+                          <span className="co-stars">{stars(stats.ratingAvg)}</span>{' '}
+                          <span className="co-sub co-num">{stats.ratingAvg}</span>
+                        </span>
+                      ) : (
+                        <span className="co-sub">—</span>
+                      )}
+                    </td>
+                    <td className="co-num-cell">{formatDuration(stats.totalOnSiteMs)}</td>
+                    <td>
+                      {tradie.approval === 'approved' ? (
+                        <span className="co-chip co-chip-green">Approved</span>
+                      ) : (
+                        <span className="co-chip co-chip-amber">{tradie.approval}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+    </>
   );
 }
