@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Field, Txt } from '../../src/components/ui';
 import { useAuth } from '../../src/context/AuthContext';
+import { backend } from '../../src/services';
 import { colors, font, spacing } from '../../src/theme';
 
 export default function Login() {
@@ -19,10 +20,12 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     setError(null);
+    setInfo(null);
     if (!email.trim() || !password) {
       setError('Enter your email and password.');
       return;
@@ -33,6 +36,21 @@ export default function Login() {
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    setError(null);
+    setInfo(null);
+    if (!email.trim()) {
+      setError('Enter your email above first, then tap “Forgot password”.');
+      return;
+    }
+    try {
+      await backend.resetPassword(email);
+      setInfo('If an account exists for that email, we’ve sent a reset link. Check your inbox (and spam).');
+    } catch (e) {
+      setError((e as Error).message);
     }
   };
 
@@ -69,7 +87,11 @@ export default function Login() {
               onChangeText={setPassword}
             />
             {error && <Txt style={styles.error}>{error}</Txt>}
+            {info && <Txt style={styles.info}>{info}</Txt>}
             <Button title="Log in" loading={busy} onPress={submit} />
+            <Pressable onPress={forgotPassword} hitSlop={8} style={{ alignSelf: 'center' }}>
+              <Txt style={styles.forgot}>Forgot password?</Txt>
+            </Pressable>
           </View>
 
           <Pressable
@@ -100,6 +122,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: font.weight.medium },
+  info: { color: colors.success, fontSize: font.size.sm, fontWeight: font.weight.medium },
+  forgot: { color: colors.amberDark, fontSize: font.size.sm, fontWeight: font.weight.semibold },
   link: { color: colors.onNavyMuted, fontSize: font.size.sm },
   linkBold: { color: colors.amber, fontWeight: font.weight.bold, fontSize: font.size.sm },
 });

@@ -14,6 +14,7 @@ import {
   createUserWithEmailAndPassword,
   deleteUser,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
@@ -55,6 +56,7 @@ import {
 import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { friendlyAuthError } from '../lib/authError';
 import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import {
@@ -90,18 +92,24 @@ export class FirestoreBackend implements Backend {
   /* ---------------------------------------------------------------- auth -- */
 
   async login(email: string, password: string): Promise<AppUser> {
-    const cred = await signInWithEmailAndPassword(this.auth, email.trim(), password);
+    let cred;
+    try {
+      cred = await signInWithEmailAndPassword(this.auth, email.trim(), password);
+    } catch (e) {
+      throw new Error(friendlyAuthError(e));
+    }
     const snap = await getDoc(this.userRef(cred.user.uid));
     if (!snap.exists()) throw new Error('Account record not found.');
     return snap.data() as AppUser;
   }
 
   async registerCustomer(input: CustomerRegistration): Promise<Customer> {
-    const cred = await createUserWithEmailAndPassword(
-      this.auth,
-      input.email.trim(),
-      input.password,
-    );
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(this.auth, input.email.trim(), input.password);
+    } catch (e) {
+      throw new Error(friendlyAuthError(e));
+    }
     const customer: Customer = {
       id: cred.user.uid,
       role: 'customer',
@@ -121,11 +129,12 @@ export class FirestoreBackend implements Backend {
   }
 
   async registerTradie(input: TradieRegistration): Promise<Tradie> {
-    const cred = await createUserWithEmailAndPassword(
-      this.auth,
-      input.email.trim(),
-      input.password,
-    );
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(this.auth, input.email.trim(), input.password);
+    } catch (e) {
+      throw new Error(friendlyAuthError(e));
+    }
     const tradie: Tradie = {
       id: cred.user.uid,
       role: 'tradie',
@@ -200,6 +209,17 @@ export class FirestoreBackend implements Backend {
 
   async logout(): Promise<void> {
     await signOut(this.auth);
+  }
+
+  async resetPassword(email: string): Promise<void> {
+    try {
+      await sendPasswordResetEmail(this.auth, email.trim());
+    } catch (e) {
+      // Don't reveal whether an account exists; only surface real failures.
+      const code = (e as { code?: string })?.code;
+      if (code === 'auth/user-not-found') return;
+      throw new Error(friendlyAuthError(e));
+    }
   }
 
   /* ------------------------------------------------------------- tradie -- */

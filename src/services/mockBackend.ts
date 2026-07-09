@@ -234,6 +234,11 @@ class MockBackend implements Backend {
     await AsyncStorage.removeItem(SESSION_KEY);
   }
 
+  async resetPassword(_email: string): Promise<void> {
+    // Mock backend has no email delivery; resolve so the UI shows its confirmation.
+    await this.ensureLoaded();
+  }
+
   async getSessionUser(): Promise<AppUser | null> {
     await this.ensureLoaded();
     const id = await AsyncStorage.getItem(SESSION_KEY);

@@ -91,6 +91,8 @@ export interface Backend {
   /** Restore the currently signed-in user (persisted session), or null. */
   getSessionUser(): Promise<AppUser | null>;
   logout(): Promise<void>;
+  /** Send a password-reset email (no-op-safe if the account doesn't exist). */
+  resetPassword(email: string): Promise<void>;
 
   // ---- Tradie profile / availability ----
   getTradie(id: string): Promise<Tradie | null>;
