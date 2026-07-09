@@ -62,7 +62,12 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
       pointerEvents="box-none"
       style={[styles.wrap, { paddingTop: insets.top + 6, transform: [{ translateY: drop }] }]}
     >
-      <Pressable onPress={() => router.push({ pathname: '/job/[id]', params: { id: top.job.id } })}>
+      <Pressable
+        onPress={() => router.push({ pathname: '/job/[id]', params: { id: top.job.id } })}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="View and accept the new job request"
+      >
         <Animated.View style={[styles.banner, { transform: [{ scale }] }]}>
           <View style={styles.bell}>
             <Txt style={{ fontSize: 22 }}>🔔</Txt>
@@ -72,7 +77,7 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
               {count > 1 ? `${count} new job requests!` : 'New job request!'}
             </Txt>
             <Txt variant="caption" color={colors.navy} numberOfLines={1} style={{ opacity: 0.8 }}>
-              {top.job.customerName} needs a {meta.label.toLowerCase()} · tap to respond
+              {top.job.customerName} needs a {meta.label.toLowerCase()} · tap to accept
             </Txt>
           </View>
           <Txt style={styles.chev}>›</Txt>
@@ -99,6 +104,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     ...shadow.floating,
+    // Android: elevation keeps the banner above sibling views for touch too.
+    elevation: 12,
   },
   bell: {
     width: 42,

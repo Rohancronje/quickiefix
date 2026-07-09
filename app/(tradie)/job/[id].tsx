@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobTimeline } from '../../../src/components/JobTimeline';
@@ -12,7 +12,7 @@ import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import { useJob } from '../../../src/hooks/useData';
 import { formatDuration } from '../../../src/lib/format';
-import { distanceKm, formatDistance } from '../../../src/lib/geo';
+import { distanceKm } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
 import { openInMaps } from '../../../src/lib/maps';
 import { backend } from '../../../src/services';
@@ -24,7 +24,6 @@ export default function TradieJob() {
   const router = useRouter();
   const tradie = useTradie();
   const job = useJob(id);
-  const [liveDistance, setLiveDistance] = useState<number | null>(null);
   const stopRef = useRef<(() => void) | null>(null);
 
   const jobCoords = job && hasCoords(job.location) ? job.location : null;
@@ -36,9 +35,10 @@ export default function TradieJob() {
     let cancelled = false;
     if (!job || !trackingActive || !jobCoords) return;
 
+    // Silent geofence: auto check-in when the tradie arrives on site. The
+    // actual turn-by-turn navigation happens in the phone's own maps app.
     watchPosition((point) => {
       const d = distanceKm(point, { latitude: jobCoords.latitude, longitude: jobCoords.longitude });
-      setLiveDistance(d);
       if (d <= ON_SITE_RADIUS_KM) {
         backend.arriveOnSite(job.id, 'gps');
       }
@@ -140,25 +140,6 @@ export default function TradieJob() {
             </ScrollView>
           )}
         </Card>
-
-        {/* Live GPS proximity while travelling */}
-        {trackingActive && jobCoords && (
-          <Card style={styles.gpsCard}>
-            <Txt variant="label" color={colors.blue}>
-              🛰️ Live navigation
-            </Txt>
-            {liveDistance != null ? (
-              <Txt variant="caption" color={colors.textMuted}>
-                {formatDistance(liveDistance)} from site. You'll be checked in automatically when you
-                arrive (within {Math.round(ON_SITE_RADIUS_KM * 1000)} m).
-              </Txt>
-            ) : (
-              <Txt variant="caption" color={colors.textMuted}>
-                Acquiring GPS… you can also start the job manually below.
-              </Txt>
-            )}
-          </Card>
-        )}
 
         {/* Pre-accept: open offer — ask questions below, or take the job */}
         {isOpenOffer && (
