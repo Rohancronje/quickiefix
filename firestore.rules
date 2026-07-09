@@ -159,8 +159,11 @@ service cloud.firestore {
       //  - the customer who created it,
       //  - the assigned tradie,
       //  - any candidate in the dispatch pool WHILE the job is still searching
-      //    (this is how the first-to-accept wins — and how a candidate records a
-      //    decline), and
+      //    (first-to-accept in auto mode; records a decline; opts into a
+      //    browse-and-choose job by adding to interestedTradies), and
+      //  - the tradie the customer picked in browse-and-choose (selectedTradieId)
+      //    WHILE still searching — so they can accept/decline the selection even
+      //    if they weren't in the original candidate pool, and
       //  - platform admins.
       allow update: if signedIn() && (
         resource.data.customerId == request.auth.uid ||
@@ -168,6 +171,10 @@ service cloud.firestore {
         (
           resource.data.status == 'searching' &&
           request.auth.uid in resource.data.dispatch.candidateIds
+        ) ||
+        (
+          resource.data.status == 'searching' &&
+          resource.data.selectedTradieId == request.auth.uid
         ) ||
         isPlatformAdmin()
       );

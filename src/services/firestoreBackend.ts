@@ -62,6 +62,7 @@ import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import {
   Backend,
+  ChooseFeed,
   CustomerRegistration,
   JobOffer,
   NewJobInput,
@@ -259,9 +260,16 @@ export class FirestoreBackend implements Backend {
     const photos = await this.uploadPhotos(jobRef.id, input.photos);
     const now = Date.now();
 
-    // Snapshot the ranked candidate pool now — this is the wave dispatch order.
-    // Exclude the requester (a tradie booking help must not dispatch to himself).
-    const candidates = await this.getAvailableTradies(input.trade, input.location);
+    // Emergencies can't wait to browse — always auto-dispatch.
+    const mode: 'auto' | 'choose' = input.isEmergency ? 'auto' : input.assignmentMode ?? 'auto';
+
+    // Snapshot the ranked candidate pool now. For `auto` this is the wave
+    // dispatch order (available only). For `choose` we also include busy/in-area
+    // tradies so they can receive the opt-in request. Exclude the requester.
+    const candidates =
+      mode === 'choose'
+        ? await this.getInAreaTradies(input.trade, input.location)
+        : await this.getAvailableTradies(input.trade, input.location);
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
     // Stamp the property + landlord (payer-of-record) if this job is at one.
@@ -285,9 +293,11 @@ export class FirestoreBackend implements Backend {
       urgency: input.urgency,
       scheduledFor: input.scheduledFor,
       isEmergency: input.isEmergency ?? false,
+      assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
       dispatch: { candidateIds, startedAt: now },
+      interestedTradies: [],
       declinedBy: [],
       ...propertyStamp,
     };
@@ -338,6 +348,62 @@ export class FirestoreBackend implements Backend {
       candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  /** Approved, matching-trade tradies in the area REGARDLESS of availability
+   *  (excluding offline / payment-hold). Used to build the `choose`-mode pool so
+   *  busy tradies still receive the opt-in request. */
+  private async getInAreaTradies(
+    trade: TradeCategory,
+    location: Location,
+  ): Promise<TradieCandidate[]> {
+    const snap = await getDocs(query(collection(this.db, 'users'), where('role', '==', 'tradie')));
+    const candidates: TradieCandidate[] = [];
+    for (const d of snap.docs) {
+      const u = d.data() as AppUser;
+      if (u.role !== 'tradie' || u.approval !== 'approved') continue;
+      if (u.paymentHold || u.status === 'offline') continue;
+      const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+      if (!trades.has(trade)) continue;
+      let km = 0;
+      if (u.baseLocation && location.latitude != null && location.longitude != null) {
+        km = distanceKm(u.baseLocation, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      }
+      candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+    }
+    return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  subscribeAvailableTradies(
+    trade: TradeCategory,
+    location: Location,
+    cb: (tradies: TradieCandidate[]) => void,
+  ): Unsubscribe {
+    return onSnapshot(
+      query(collection(this.db, 'users'), where('status', '==', 'available')),
+      (snap) => {
+        const out: TradieCandidate[] = [];
+        for (const d of snap.docs) {
+          const u = d.data() as AppUser;
+          if (u.role !== 'tradie' || u.approval !== 'approved' || u.paymentHold) continue;
+          const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+          if (!trades.has(trade)) continue;
+          let km = 0;
+          if (u.baseLocation && location.latitude != null && location.longitude != null) {
+            km = distanceKm(u.baseLocation, {
+              latitude: location.latitude,
+              longitude: location.longitude,
+            });
+          }
+          out.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+        }
+        out.sort((a, b) => a.distanceKm - b.distanceKm);
+        cb(out);
+      },
+    );
   }
 
   async confirmJob(jobId: string): Promise<void> {
@@ -451,6 +517,126 @@ export class FirestoreBackend implements Backend {
     await updateDoc(this.jobRef(jobId), { declinedBy: arrayUnion(tradieId) });
   }
 
+  /* ----------------------------------------------- browse & choose (§) -- */
+
+  async selectTradie(jobId: string, tradieId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) throw new Error('Job no longer exists.');
+      const job = snap.data() as Job;
+      if (job.status !== 'searching') throw new Error('This job is no longer open.');
+      tx.update(this.jobRef(jobId), {
+        selectedTradieId: tradieId,
+        'timestamps.selectedAt': Date.now(),
+      });
+    });
+  }
+
+  async expressInterest(jobId: string, tradieId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const jobSnap = await tx.get(this.jobRef(jobId));
+      if (!jobSnap.exists()) throw new Error('Job no longer exists.');
+      const job = jobSnap.data() as Job;
+      if (job.status !== 'searching') throw new Error('This job is no longer open.');
+      if ((job.interestedTradies ?? []).some((t) => t.tradieId === tradieId)) return; // already in
+      const tSnap = await tx.get(this.userRef(tradieId));
+      if (!tSnap.exists()) throw new Error('Tradie not found.');
+      const tradie = tSnap.data() as Tradie;
+      if (tradie.paymentHold) throw new Error('Your account is paused.');
+      const company =
+        tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
+      const rateCard = (company as Company | undefined)?.rateCard ?? tradie.rateCard;
+      const entry = {
+        tradieId,
+        businessName: tradie.businessName,
+        firstName: tradie.firstName,
+        lastName: tradie.lastName,
+        ratingAvg: tradie.ratingAvg,
+        ratingCount: tradie.ratingCount,
+        completedJobs: tradie.completedJobs,
+        baseLocation: tradie.baseLocation,
+        rateCard,
+        companyName: (company as Company | undefined)?.name,
+        wasBusy: tradie.status !== 'available',
+        expressedAt: Date.now(),
+      };
+      tx.update(this.jobRef(jobId), { interestedTradies: arrayUnion(entry) });
+    });
+  }
+
+  async acceptSelection(jobId: string, tradieId: string): Promise<Job> {
+    return runTransaction(this.db, async (tx) => {
+      const jobSnap = await tx.get(this.jobRef(jobId));
+      if (!jobSnap.exists()) throw new Error('Job no longer exists.');
+      const job = jobSnap.data() as Job;
+      if (job.status !== 'searching') throw new Error('Sorry, this job has already been taken.');
+      if (job.selectedTradieId !== tradieId) {
+        throw new Error('This job is no longer being offered to you.');
+      }
+      const tradieSnap = await tx.get(this.userRef(tradieId));
+      if (!tradieSnap.exists()) throw new Error('Tradie not found.');
+      const tradie = tradieSnap.data() as Tradie;
+      if (tradie.paymentHold) {
+        throw new Error('Your account is paused. Clear your balance to accept jobs.');
+      }
+
+      const company =
+        tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
+      const rateCard = (company as Company | undefined)?.rateCard ?? tradie.rateCard;
+      const now = Date.now();
+
+      const stamp: Partial<Job> = {};
+      if (company) {
+        stamp.companyId = tradie.companyId;
+        stamp.companyName = (company as Company).name;
+      }
+      if (rateCard) {
+        stamp.rateSnapshot = {
+          rateCard,
+          source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
+          ...(company ? { companyName: (company as Company).name } : {}),
+          capturedAt: now,
+        };
+      }
+
+      // The customer already chose them, so accepting lands straight at confirmed.
+      const updated: Job = {
+        ...job,
+        status: 'confirmed',
+        tradieId: tradie.id,
+        tradieName: tradie.businessName,
+        timestamps: { ...job.timestamps, acceptedAt: now, confirmedAt: now },
+        ...stamp,
+      };
+      tx.update(this.jobRef(jobId), {
+        status: 'confirmed',
+        tradieId: tradie.id,
+        tradieName: tradie.businessName,
+        'timestamps.acceptedAt': now,
+        'timestamps.confirmedAt': now,
+        ...stamp,
+      });
+      tx.update(this.userRef(tradieId), {
+        status: 'job_accepted',
+        jobsAccepted: increment(1),
+      });
+      return updated;
+    });
+  }
+
+  async declineSelection(jobId: string, tradieId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) return;
+      const job = snap.data() as Job;
+      if (job.selectedTradieId !== tradieId) return;
+      tx.update(this.jobRef(jobId), {
+        selectedTradieId: deleteField(),
+        declinedBy: arrayUnion(tradieId),
+      });
+    });
+  }
+
   async startTravelling(jobId: string): Promise<void> {
     await runTransaction(this.db, async (tx) => {
       const snap = await tx.get(this.jobRef(jobId));
@@ -497,21 +683,17 @@ export class FirestoreBackend implements Backend {
 
   async cancelJob(jobId: string, _by: 'customer' | 'tradie'): Promise<void> {
     await runTransaction(this.db, async (tx) => {
-      // All reads first (Firestore requires reads before writes).
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
       const job = snap.data() as Job;
       if (job.status === 'completed' || job.status === 'cancelled') return;
-      const tSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
-
-      // Then writes.
+      // Only the job doc is written here — releasing the assigned tradie back to
+      // `available` is done server-side by the onJobLifecycle function, since a
+      // cancelling customer has no permission to write the tradie's user doc.
       tx.update(this.jobRef(jobId), {
         status: 'cancelled',
         'timestamps.cancelledAt': Date.now(),
       });
-      if (tSnap?.exists() && (tSnap.data() as Tradie).status !== 'offline') {
-        tx.update(this.userRef(job.tradieId!), { status: 'available' });
-      }
     });
   }
 
@@ -664,6 +846,79 @@ export class FirestoreBackend implements Backend {
     return () => {
       unsubTradie();
       unsubJobs();
+    };
+  }
+
+  subscribeChooseFeed(tradieId: string, cb: (feed: ChooseFeed) => void): Unsubscribe {
+    let tradie: Tradie | null = null;
+    let candidateJobs: Job[] = [];
+    let selectedJobs: Job[] = [];
+
+    const km = (job: Job) =>
+      tradie?.baseLocation && job.location.latitude != null && job.location.longitude != null
+        ? distanceKm(tradie.baseLocation, {
+            latitude: job.location.latitude,
+            longitude: job.location.longitude,
+          })
+        : 0;
+    const toOffer = (job: Job): JobOffer => {
+      const d = km(job);
+      return { job, distanceKm: d, etaMinutes: estimateEtaMinutes(d) };
+    };
+
+    const emit = () => {
+      if (!tradie || tradie.approval !== 'approved' || tradie.paymentHold) {
+        return cb({ selected: [], requests: [] });
+      }
+      // De-dupe the two queries by job id.
+      const byId = new Map<string, Job>();
+      for (const j of [...candidateJobs, ...selectedJobs]) byId.set(j.id, j);
+      const jobs = [...byId.values()].filter(
+        (j) => j.status === 'searching' && j.assignmentMode === 'choose',
+      );
+      const selected: JobOffer[] = [];
+      const requests: JobOffer[] = [];
+      for (const job of jobs) {
+        if (job.selectedTradieId === tradieId) {
+          selected.push(toOffer(job));
+          continue;
+        }
+        // Opt-in requests go only to BUSY tradies (available ones already show
+        // in the customer's browse list). Hide once declined or already opted in.
+        if (tradie.status === 'available') continue;
+        if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
+        if (job.declinedBy.includes(tradieId)) continue;
+        if ((job.interestedTradies ?? []).some((t) => t.tradieId === tradieId)) continue;
+        requests.push(toOffer(job));
+      }
+      selected.sort((a, b) => a.distanceKm - b.distanceKm);
+      requests.sort((a, b) => a.distanceKm - b.distanceKm);
+      cb({ selected, requests });
+    };
+
+    const unsubTradie = onSnapshot(this.userRef(tradieId), (snap) => {
+      tradie = snap.exists() ? (snap.data() as Tradie) : null;
+      emit();
+    });
+    const unsubCand = onSnapshot(
+      query(collection(this.db, 'jobs'), where('dispatch.candidateIds', 'array-contains', tradieId)),
+      (snap) => {
+        candidateJobs = snap.docs.map((d) => d.data() as Job);
+        emit();
+      },
+    );
+    const unsubSel = onSnapshot(
+      query(collection(this.db, 'jobs'), where('selectedTradieId', '==', tradieId)),
+      (snap) => {
+        selectedJobs = snap.docs.map((d) => d.data() as Job);
+        emit();
+      },
+    );
+
+    return () => {
+      unsubTradie();
+      unsubCand();
+      unsubSel();
     };
   }
 

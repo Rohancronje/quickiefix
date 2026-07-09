@@ -205,9 +205,40 @@ export interface Property {
 
 export type UrgencyType = 'now' | 'scheduled';
 
+/**
+ * How a job is matched to a tradie:
+ *  - `auto`   → wave dispatch, first available pro to accept wins (fastest).
+ *  - `choose` → the customer browses available (and opted-in) tradies and picks
+ *               one; that tradie gets a final accept prompt before lock-in.
+ * Emergencies are always forced to `auto` (no time to browse).
+ */
+export type AssignmentMode = 'auto' | 'choose';
+
+/**
+ * A tradie surfaced to the customer in a `choose`-mode job, snapshotted so the
+ * customer can browse rate/rating/distance without extra reads. Available
+ * tradies come from a live query; busy tradies who opted in are stored here.
+ */
+export interface InterestedTradie {
+  tradieId: string;
+  businessName: string;
+  firstName: string;
+  lastName: string;
+  ratingAvg: number;
+  ratingCount: number;
+  completedJobs: number;
+  baseLocation?: GeoPoint;
+  rateCard?: RateCard;
+  companyName?: string;
+  /** true when they opted in while unavailable (busy) rather than being live-available. */
+  wasBusy?: boolean;
+  expressedAt: number;
+}
+
 export interface JobTimestamps {
   createdAt: number;
   searchingAt?: number;
+  selectedAt?: number;
   acceptedAt?: number;
   confirmedAt?: number;
   noTradieFoundAt?: number;
@@ -263,8 +294,16 @@ export interface Job {
    *  after a short window; standard jobs need an explicit customer confirm. */
   isEmergency?: boolean;
 
+  /** Matching model. Absent ⇒ 'auto' (legacy jobs predate browse-and-choose). */
+  assignmentMode?: AssignmentMode;
+
   /** Wave-dispatch candidate snapshot (ranked pool + wave clock origin). */
   dispatch?: JobDispatch;
+
+  /** `choose` mode: busy tradies who opted in, snapshotted for the browse list. */
+  interestedTradies?: InterestedTradie[];
+  /** `choose` mode: the tradie the customer picked, pending their final accept. */
+  selectedTradieId?: string;
 
   // Assigned tradie (set on acceptance — the first candidate to accept wins)
   tradieId?: string;

@@ -274,6 +274,9 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
   await Promise.all(
     searching.docs.map(async (d) => {
       const job = d.data();
+      // Browse-and-choose has no wave clock — the customer drives it, so never
+      // auto-expire it here.
+      if (job.assignmentMode === 'choose') return;
       const startedAt = job.dispatch?.startedAt ?? job.timestamps?.searchingAt ?? job.timestamps?.createdAt;
       const noCandidates = !(job.dispatch?.candidateIds && job.dispatch.candidateIds.length);
       const threshold = noCandidates ? NO_CANDIDATES_AFTER_MS : NO_TRADIE_AFTER_MS;
@@ -364,6 +367,33 @@ exports.onJobCompleted = onDocumentUpdated('jobs/{jobId}', async (event) => {
       monthKey: monthKeyOf(completedAt),
       createdAt: Date.now(),
     });
+  });
+});
+
+/**
+ * Release the assigned tradie back to `available` when their job ends
+ * (completed or cancelled). This runs server-side because a cancelling CUSTOMER
+ * has no permission to write the tradie's user doc — so the client no longer
+ * touches it. Idempotent, and never overrides an `offline` tradie.
+ */
+exports.onJobReleased = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after) return;
+  const ended = after.status === 'completed' || after.status === 'cancelled';
+  const wasEnded = before?.status === 'completed' || before?.status === 'cancelled';
+  if (!ended || wasEnded) return;
+  const tradieId = after.tradieId;
+  if (!tradieId) return;
+
+  const db = admin.firestore();
+  const tradieRef = db.collection('users').doc(tradieId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(tradieRef);
+    if (!snap.exists) return;
+    const t = snap.data();
+    if (t.status === 'offline' || t.status === 'available') return;
+    tx.update(tradieRef, { status: 'available' });
   });
 });
 

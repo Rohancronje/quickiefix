@@ -31,6 +31,7 @@ import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import { uid } from '../lib/id';
 import {
   Backend,
+  ChooseFeed,
   CustomerRegistration,
   JobOffer,
   NewJobInput,
@@ -286,8 +287,15 @@ class MockBackend implements Backend {
     await this.ensureLoaded();
     const now = Date.now();
 
-    // Snapshot the ranked candidate pool now — this is the wave dispatch order.
-    const candidates = await this.getAvailableTradies(input.trade, input.location);
+    // Emergencies can't wait to browse — always auto-dispatch.
+    const mode: 'auto' | 'choose' = input.isEmergency ? 'auto' : input.assignmentMode ?? 'auto';
+
+    // Snapshot the ranked candidate pool now. `choose` also includes busy/in-area
+    // tradies so they can receive the opt-in request.
+    const candidates =
+      mode === 'choose'
+        ? this.inAreaTradies(input.trade, input.location)
+        : await this.getAvailableTradies(input.trade, input.location);
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
     const job: Job = {
@@ -301,9 +309,11 @@ class MockBackend implements Backend {
       urgency: input.urgency,
       scheduledFor: input.scheduledFor,
       isEmergency: input.isEmergency ?? false,
+      assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
       dispatch: { candidateIds, startedAt: now },
+      interestedTradies: [],
       declinedBy: [],
     };
     // Stamp the property + landlord (payer-of-record) if this job is at one.
@@ -359,6 +369,55 @@ class MockBackend implements Backend {
       candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  /** In-area matching tradies REGARDLESS of availability (excluding offline /
+   *  payment-hold) — the `choose`-mode pool (so busy tradies get the request). */
+  private inAreaTradies(
+    trade: NewJobInput['trade'],
+    location: Job['location'],
+  ): TradieCandidate[] {
+    const candidates: TradieCandidate[] = [];
+    for (const u of Object.values(this.db.users)) {
+      if (u.role !== 'tradie' || u.approval !== 'approved') continue;
+      if (u.paymentHold || u.status === 'offline') continue;
+      const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+      if (!trades.has(trade)) continue;
+      let km = 0;
+      if (u.baseLocation && location.latitude != null && location.longitude != null) {
+        km = distanceKm(u.baseLocation, {
+          latitude: location.latitude,
+          longitude: location.longitude,
+        });
+      }
+      candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+    }
+    return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  subscribeAvailableTradies(
+    trade: NewJobInput['trade'],
+    location: Job['location'],
+    cb: (tradies: TradieCandidate[]) => void,
+  ): Unsubscribe {
+    return this.subscribe(() => {
+      const out: TradieCandidate[] = [];
+      for (const u of Object.values(this.db.users)) {
+        if (u.role !== 'tradie' || u.approval !== 'approved' || u.status !== 'available') continue;
+        if (u.paymentHold) continue;
+        const trades = new Set([u.primaryTrade, ...u.secondaryTrades]);
+        if (!trades.has(trade)) continue;
+        let km = 0;
+        if (u.baseLocation && location.latitude != null && location.longitude != null) {
+          km = distanceKm(u.baseLocation, {
+            latitude: location.latitude,
+            longitude: location.longitude,
+          });
+        }
+        out.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
+      }
+      return out.sort((a, b) => a.distanceKm - b.distanceKm);
+    }, cb);
   }
 
   async confirmJob(jobId: string): Promise<void> {
@@ -428,6 +487,98 @@ class MockBackend implements Backend {
       job.declinedBy.push(tradieId);
       this.commit();
     }
+  }
+
+  /* ----------------------------------------------- browse & choose (§) -- */
+
+  async selectTradie(jobId: string, tradieId: string): Promise<void> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (!job) throw new Error('Job no longer exists.');
+    if (job.status !== 'searching') throw new Error('This job is no longer open.');
+    job.selectedTradieId = tradieId;
+    job.timestamps.selectedAt = Date.now();
+    this.commit();
+  }
+
+  async expressInterest(jobId: string, tradieId: string): Promise<void> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (!job) throw new Error('Job no longer exists.');
+    if (job.status !== 'searching') throw new Error('This job is no longer open.');
+    const tradie = this.db.users[tradieId];
+    if (!tradie || tradie.role !== 'tradie') throw new Error('Tradie not found.');
+    if (tradie.paymentHold) throw new Error('Your account is paused.');
+    job.interestedTradies = job.interestedTradies ?? [];
+    if (job.interestedTradies.some((t) => t.tradieId === tradieId)) return;
+    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
+    job.interestedTradies.push({
+      tradieId,
+      businessName: tradie.businessName,
+      firstName: tradie.firstName,
+      lastName: tradie.lastName,
+      ratingAvg: tradie.ratingAvg,
+      ratingCount: tradie.ratingCount,
+      completedJobs: tradie.completedJobs,
+      baseLocation: tradie.baseLocation,
+      rateCard: company?.rateCard ?? tradie.rateCard,
+      companyName: company?.name,
+      wasBusy: tradie.status !== 'available',
+      expressedAt: Date.now(),
+    });
+    this.commit();
+  }
+
+  async acceptSelection(jobId: string, tradieId: string): Promise<Job> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (!job) throw new Error('Job no longer exists.');
+    if (job.status !== 'searching') throw new Error('Sorry, this job has already been taken.');
+    if (job.selectedTradieId !== tradieId) {
+      throw new Error('This job is no longer being offered to you.');
+    }
+    const tradie = this.db.users[tradieId];
+    if (!tradie || tradie.role !== 'tradie') throw new Error('Tradie not found.');
+    if (tradie.paymentHold) {
+      throw new Error('Your account is paused. Clear your balance to accept jobs.');
+    }
+
+    const now = Date.now();
+    // The customer already chose them, so accepting lands straight at confirmed.
+    job.status = 'confirmed';
+    job.tradieId = tradie.id;
+    job.tradieName = tradie.businessName;
+    job.timestamps.acceptedAt = now;
+    job.timestamps.confirmedAt = now;
+
+    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
+    if (company) {
+      job.companyId = company.id;
+      job.companyName = company.name;
+    }
+    const rateCard = company?.rateCard ?? tradie.rateCard;
+    if (rateCard) {
+      job.rateSnapshot = {
+        rateCard,
+        source: company?.rateCard ? 'company' : 'personal',
+        companyName: company?.name,
+        capturedAt: now,
+      };
+    }
+
+    tradie.status = 'job_accepted';
+    tradie.jobsAccepted += 1;
+    this.commit();
+    return job;
+  }
+
+  async declineSelection(jobId: string, tradieId: string): Promise<void> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (!job || job.selectedTradieId !== tradieId) return;
+    delete job.selectedTradieId;
+    if (!job.declinedBy.includes(tradieId)) job.declinedBy.push(tradieId);
+    this.commit();
   }
 
   async startTravelling(jobId: string): Promise<void> {
@@ -587,6 +738,42 @@ class MockBackend implements Backend {
 
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe {
     return this.subscribe(() => this.matchOffers(tradieId), cb);
+  }
+
+  subscribeChooseFeed(tradieId: string, cb: (feed: ChooseFeed) => void): Unsubscribe {
+    return this.subscribe(() => {
+      const tradie = this.db.users[tradieId];
+      if (!tradie || tradie.role !== 'tradie' || tradie.approval !== 'approved' || tradie.paymentHold) {
+        return { selected: [], requests: [] };
+      }
+      const toOffer = (job: Job): JobOffer => {
+        let km = 0;
+        if (tradie.baseLocation && job.location.latitude != null && job.location.longitude != null) {
+          km = distanceKm(tradie.baseLocation, {
+            latitude: job.location.latitude,
+            longitude: job.location.longitude,
+          });
+        }
+        return { job, distanceKm: km, etaMinutes: estimateEtaMinutes(km) };
+      };
+      const selected: JobOffer[] = [];
+      const requests: JobOffer[] = [];
+      for (const job of Object.values(this.db.jobs)) {
+        if (job.status !== 'searching' || job.assignmentMode !== 'choose') continue;
+        if (job.selectedTradieId === tradieId) {
+          selected.push(toOffer(job));
+          continue;
+        }
+        if (tradie.status === 'available') continue; // available ones already listed
+        if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
+        if (job.declinedBy.includes(tradieId)) continue;
+        if ((job.interestedTradies ?? []).some((t) => t.tradieId === tradieId)) continue;
+        requests.push(toOffer(job));
+      }
+      selected.sort((a, b) => a.distanceKm - b.distanceKm);
+      requests.sort((a, b) => a.distanceKm - b.distanceKm);
+      return { selected, requests };
+    }, cb);
   }
 
   async sendMessage(

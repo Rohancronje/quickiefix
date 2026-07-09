@@ -39,6 +39,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# secrets / credentials inventory - NEVER commit
+QuickieFix-Credentials.csv
+*credentials*.csv
+*credentials*.xlsx
+brevo.key
+
 # typescript
 *.tsbuildinfo
 

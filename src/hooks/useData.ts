@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { backend, JobOffer } from '../services';
-import { FeeLineItem, Job, Message, Property } from '../types';
+import { backend, ChooseFeed, JobOffer, TradieCandidate } from '../services';
+import { FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
 
 /** Live message thread for a job (oldest first). */
 export function useMessages(jobId: string | undefined): Message[] {
@@ -70,6 +70,33 @@ export function useJobOffers(tradieId: string | undefined): JobOffer[] {
     return backend.subscribeJobOffers(tradieId, setOffers);
   }, [tradieId]);
   return offers;
+}
+
+/** A tradie's `choose`-mode feed: jobs they've been picked for + opt-in requests. */
+export function useChooseFeed(tradieId: string | undefined): ChooseFeed {
+  const [feed, setFeed] = useState<ChooseFeed>({ selected: [], requests: [] });
+  useEffect(() => {
+    if (!tradieId) return;
+    return backend.subscribeChooseFeed(tradieId, setFeed);
+  }, [tradieId]);
+  return feed;
+}
+
+/** Live list of available tradies for a trade near a location (browse list). */
+export function useAvailableTradies(
+  trade: TradeCategory | undefined,
+  location: Location | undefined,
+): TradieCandidate[] {
+  const [tradies, setTradies] = useState<TradieCandidate[]>([]);
+  const lat = location?.latitude;
+  const lng = location?.longitude;
+  useEffect(() => {
+    if (!trade || !location) return;
+    return backend.subscribeAvailableTradies(trade, location, setTradies);
+    // Re-subscribe only when the trade or coordinates change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trade, lat, lng]);
+  return tradies;
 }
 
 /** A tradie's current active job (accepted/travelling/on-site), or null. */

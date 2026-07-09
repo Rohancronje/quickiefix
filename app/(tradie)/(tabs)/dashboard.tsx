@@ -7,6 +7,7 @@ import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
 import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
+  useChooseFeed,
   useCustomerJobs,
   useJobOffers,
   useTradieActiveJob,
@@ -25,6 +26,7 @@ export default function TradieDashboard() {
   const tradie = useTradie();
   const router = useRouter();
   const allOffers = useJobOffers(tradie.id);
+  const chooseFeed = useChooseFeed(tradie.id);
   const activeJob = useTradieActiveJob(tradie.id);
   const myRequests = useCustomerJobs(tradie.id); // jobs this tradie booked as a customer
   const now = useNow(5000); // fast tick so offers surface as each wave widens
@@ -72,6 +74,25 @@ export default function TradieDashboard() {
   };
 
   const decline = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);
+
+  // ---- Browse & choose ----
+  const acceptSelection = async (offer: JobOffer) => {
+    try {
+      await backend.acceptSelection(offer.job.id, tradie.id);
+      router.push({ pathname: '/job/[id]', params: { id: offer.job.id } });
+    } catch (e) {
+      Alert.alert('Could not accept', (e as Error).message);
+    }
+  };
+  const declineSelection = (offer: JobOffer) => backend.declineSelection(offer.job.id, tradie.id);
+  const expressInterest = async (offer: JobOffer) => {
+    try {
+      await backend.expressInterest(offer.job.id, tradie.id);
+    } catch (e) {
+      Alert.alert('Could not respond', (e as Error).message);
+    }
+  };
+  const dismissRequest = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);
 
   return (
     <Screen>
@@ -189,6 +210,36 @@ export default function TradieDashboard() {
             </Txt>
           </Card>
         </Pressable>
+      )}
+
+      {/* Browse & choose: the customer picked YOU — accept to lock it in. */}
+      {isApproved && !onActiveJob && chooseFeed.selected.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="label">You’ve been selected</Txt>
+          {chooseFeed.selected.map((offer) => (
+            <SelectionCard
+              key={offer.job.id}
+              offer={offer}
+              onAccept={() => acceptSelection(offer)}
+              onDecline={() => declineSelection(offer)}
+            />
+          ))}
+        </View>
+      )}
+
+      {/* Browse & choose: opt-in requests for busy tradies. */}
+      {isApproved && !onActiveJob && chooseFeed.requests.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="label">Customers looking for you</Txt>
+          {chooseFeed.requests.map((offer) => (
+            <RequestCard
+              key={offer.job.id}
+              offer={offer}
+              onInterested={() => expressInterest(offer)}
+              onDismiss={() => dismissRequest(offer)}
+            />
+          ))}
+        </View>
       )}
 
       {/* Offers */}
@@ -320,6 +371,100 @@ function OfferCard({
         </View>
         <View style={{ flex: 2 }}>
           <Button title="Accept job" kind="success" small onPress={onAccept} />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+/** Browse & choose: the customer picked this tradie — final accept/decline. */
+function SelectionCard({
+  offer,
+  onAccept,
+  onDecline,
+}: {
+  offer: JobOffer;
+  onAccept: () => void;
+  onDecline: () => void;
+}) {
+  const meta = tradeMeta(offer.job.trade);
+  return (
+    <Card style={[styles.offer, { borderColor: colors.success, borderWidth: 1.5 }]}>
+      <View style={[styles.requestedBanner, { backgroundColor: colors.successSoft }]}>
+        <Txt variant="caption" color={colors.success} style={{ fontWeight: '700' }}>
+          ⭐ {offer.job.customerName} chose you for this job
+        </Txt>
+      </View>
+      <View style={styles.offerTop}>
+        <View style={styles.offerIcon}>
+          <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label">{meta.label}</Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            {formatDistance(offer.distanceKm)} away · ~{offer.etaMinutes} min
+          </Txt>
+        </View>
+      </View>
+      <Txt variant="body" color={colors.text} numberOfLines={2}>
+        {offer.job.description}
+      </Txt>
+      <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
+        📍 {offer.job.location.address}
+      </Txt>
+      <View style={styles.offerActions}>
+        <View style={{ flex: 1 }}>
+          <Button title="Decline" kind="ghost" small onPress={onDecline} />
+        </View>
+        <View style={{ flex: 2 }}>
+          <Button title="Accept this job" kind="success" small onPress={onAccept} />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
+/** Browse & choose: a busy tradie is asked whether they want a nearby job. */
+function RequestCard({
+  offer,
+  onInterested,
+  onDismiss,
+}: {
+  offer: JobOffer;
+  onInterested: () => void;
+  onDismiss: () => void;
+}) {
+  const meta = tradeMeta(offer.job.trade);
+  return (
+    <Card style={styles.offer}>
+      <View style={[styles.requestedBanner, { backgroundColor: colors.infoSoft }]}>
+        <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+          👀 A customer nearby is choosing a tradie
+        </Txt>
+      </View>
+      <View style={styles.offerTop}>
+        <View style={styles.offerIcon}>
+          <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label">{meta.label}</Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            {formatDistance(offer.distanceKm)} away · ~{offer.etaMinutes} min
+          </Txt>
+        </View>
+      </View>
+      <Txt variant="body" color={colors.text} numberOfLines={2}>
+        {offer.job.description}
+      </Txt>
+      <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
+        📍 {offer.job.location.address}
+      </Txt>
+      <View style={styles.offerActions}>
+        <View style={{ flex: 1 }}>
+          <Button title="Not now" kind="ghost" small onPress={onDismiss} />
+        </View>
+        <View style={{ flex: 2 }}>
+          <Button title="I’m interested" kind="primary" small onPress={onInterested} />
         </View>
       </View>
     </Card>

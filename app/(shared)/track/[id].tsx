@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ChooseTradieList } from '../../../src/components/ChooseTradieList';
 import { JobTimeline } from '../../../src/components/JobTimeline';
 import { MessageThread } from '../../../src/components/MessageThread';
 import { StatusPill } from '../../../src/components/JobCard';
@@ -33,7 +34,14 @@ export default function TrackJob() {
   const firedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!job) return;
-    if (job.status === 'searching' && isSearchExhausted(job, now) && firedRef.current !== job.id + ':nt') {
+    // Auto-dispatch only: browse-and-choose has no wave clock — the customer
+    // drives it, so we never auto-flip it to no_tradie_found.
+    if (
+      job.status === 'searching' &&
+      job.assignmentMode !== 'choose' &&
+      isSearchExhausted(job, now) &&
+      firedRef.current !== job.id + ':nt'
+    ) {
       firedRef.current = job.id + ':nt';
       backend.markNoTradieFound(job.id);
     }
@@ -104,8 +112,25 @@ export default function TrackJob() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
-        {/* Wave search in progress */}
-        {searching && (
+        {/* Browse & choose: the customer picks their own tradie */}
+        {searching && job.assignmentMode === 'choose' && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.searchHero}>
+              <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
+                👀 Choose your tradie
+              </Txt>
+              <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
+                {job.selectedTradieId
+                  ? 'Waiting for your pick to accept. You can choose someone else below if you like.'
+                  : 'Pick from available pros nearby — compare rate, rating and distance. Busy tradies have been asked too, and will appear if they say yes.'}
+              </Txt>
+            </Card>
+            <ChooseTradieList job={job} />
+          </View>
+        )}
+
+        {/* Auto-dispatch search in progress */}
+        {searching && job.assignmentMode !== 'choose' && (
           <Card style={styles.searchHero}>
             <ActivityIndicator color={colors.amber} size="large" />
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>

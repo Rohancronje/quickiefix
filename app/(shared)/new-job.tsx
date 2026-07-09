@@ -17,7 +17,7 @@ import { useLandlordProperties, useTenantProperties } from '../../src/hooks/useD
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
-import { Location, TradeCategory, UrgencyType } from '../../src/types';
+import { AssignmentMode, Location, TradeCategory, UrgencyType } from '../../src/types';
 
 // Photo attachments are a planned future release (needs Firebase Storage).
 // Wave dispatch means the customer no longer picks a tradie — we auto-alert the
@@ -37,7 +37,10 @@ export default function NewJob() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyType>('now');
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
   const [isEmergency, setIsEmergency] = useState(false);
+  // Emergencies can't wait to browse — force auto-assign.
+  const effectiveMode: AssignmentMode = isEmergency ? 'auto' : assignmentMode;
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export default function NewJob() {
           location: jobLocation,
           urgency,
           isEmergency,
+          assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
         },
       );
@@ -262,6 +266,45 @@ export default function NewJob() {
                 </View>
               </Pressable>
 
+              {/* How to match — auto-dispatch vs browse & choose. */}
+              <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+                <Txt variant="label">How do you want to match?</Txt>
+                <Pressable
+                  style={[styles.option, effectiveMode === 'auto' && styles.optionActive]}
+                  onPress={() => setAssignmentMode('auto')}
+                >
+                  <Txt style={{ fontSize: 26 }}>⚡</Txt>
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="label">Auto-assign</Txt>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      We alert nearby pros and the first to accept takes it. Fastest.
+                    </Txt>
+                  </View>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.option,
+                    effectiveMode === 'choose' && styles.optionActive,
+                    isEmergency && { opacity: 0.5 },
+                  ]}
+                  disabled={isEmergency}
+                  onPress={() => setAssignmentMode('choose')}
+                >
+                  <Txt style={{ fontSize: 26 }}>👀</Txt>
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="label">Browse &amp; choose</Txt>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      See available pros — compare rate, rating &amp; distance — and pick your own.
+                    </Txt>
+                  </View>
+                </Pressable>
+                {isEmergency && (
+                  <Txt variant="caption" color={colors.textFaint}>
+                    Emergencies are auto-assigned for speed.
+                  </Txt>
+                )}
+              </View>
+
               {/* Emergency flag — auto-confirms fast and jumps the search queue. */}
               <Pressable
                 style={[styles.emergency, isEmergency && styles.emergencyActive]}
@@ -308,8 +351,14 @@ export default function NewJob() {
 
         <View style={styles.footer}>
           <Button
-            title={step === STEPS.length - 1 ? 'Find me a tradie' : 'Continue'}
-            icon={step === STEPS.length - 1 ? '⚡' : undefined}
+            title={
+              step === STEPS.length - 1
+                ? effectiveMode === 'choose'
+                  ? 'Browse tradies'
+                  : 'Find me a tradie'
+                : 'Continue'
+            }
+            icon={step === STEPS.length - 1 ? (effectiveMode === 'choose' ? '👀' : '⚡') : undefined}
             disabled={!canNext()}
             loading={submitting}
             onPress={next}

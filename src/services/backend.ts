@@ -10,6 +10,7 @@
  */
 import {
   AppUser,
+  AssignmentMode,
   Company,
   CompanyTag,
   Customer,
@@ -62,6 +63,8 @@ export interface NewJobInput {
   scheduledFor?: number;
   /** Emergency-category job — auto-confirms faster and jumps the search queue. */
   isEmergency?: boolean;
+  /** How to match a tradie. Defaults to 'auto'. Emergencies are forced to 'auto'. */
+  assignmentMode?: AssignmentMode;
   /** Property this job is at (stamps landlord as payer-of-record). */
   propertyId?: string;
 }
@@ -78,6 +81,14 @@ export interface TradieCandidate {
   tradie: Tradie;
   distanceKm: number;
   etaMinutes: number;
+}
+
+/** A tradie's involvement in `choose`-mode jobs, split for the dashboard. */
+export interface ChooseFeed {
+  /** Jobs where the customer picked THIS tradie — awaiting their accept/decline. */
+  selected: JobOffer[];
+  /** `choose` jobs this (busy) tradie can opt into so the customer can see them. */
+  requests: JobOffer[];
 }
 
 export interface Backend {
@@ -104,6 +115,13 @@ export interface Backend {
   /** Available, approved tradies matching a trade, nearest first. Used to build
    *  the wave-dispatch candidate snapshot at job creation. */
   getAvailableTradies(trade: TradeCategory, location: Location): Promise<TradieCandidate[]>;
+  /** Live list of available, approved, matching tradies near a location — the
+   *  customer's browse list for a `choose`-mode job. Nearest first. */
+  subscribeAvailableTradies(
+    trade: TradeCategory,
+    location: Location,
+    cb: (tradies: TradieCandidate[]) => void,
+  ): Unsubscribe;
   /** Create a job and open wave dispatch. The requester can be a customer OR a
    *  tradie booking help; the ranked candidate pool is snapshotted here. */
   createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;
@@ -111,6 +129,9 @@ export interface Backend {
   fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
   /** Customer confirms the tradie who accepted (accepted → confirmed). */
   confirmJob(jobId: string): Promise<void>;
+  /** `choose` mode: the customer picks a tradie, who then gets a final accept
+   *  prompt. Sets `selectedTradieId`; the job stays `searching` until accepted. */
+  selectTradie(jobId: string, tradieId: string): Promise<void>;
   /** Flip a still-searching job to no_tradie_found once every wave is exhausted. */
   markNoTradieFound(jobId: string): Promise<void>;
   cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void>;
@@ -119,6 +140,14 @@ export interface Backend {
   // ---- Jobs (tradie) ----
   acceptJob(jobId: string, tradieId: string): Promise<Job>;
   declineJob(jobId: string, tradieId: string): Promise<void>;
+  /** `choose` mode: a busy (unavailable) tradie opts into a job so the customer
+   *  can see them in the browse list. */
+  expressInterest(jobId: string, tradieId: string): Promise<void>;
+  /** `choose` mode: the tradie the customer selected accepts → job confirmed. */
+  acceptSelection(jobId: string, tradieId: string): Promise<Job>;
+  /** `choose` mode: the selected tradie declines → selection cleared, customer
+   *  can pick someone else. */
+  declineSelection(jobId: string, tradieId: string): Promise<void>;
   startTravelling(jobId: string): Promise<void>;
   arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
   completeJob(jobId: string): Promise<void>;
@@ -131,6 +160,9 @@ export interface Backend {
   subscribeTradieActiveJob(tradieId: string, cb: (job: Job | null) => void): Unsubscribe;
   /** Live feed of matching, still-searching job offers for a tradie. */
   subscribeJobOffers(tradieId: string, cb: (offers: JobOffer[]) => void): Unsubscribe;
+  /** Live feed of a tradie's `choose`-mode involvement: jobs they've been picked
+   *  for (selected) and browse jobs they can opt into (requests). */
+  subscribeChooseFeed(tradieId: string, cb: (feed: ChooseFeed) => void): Unsubscribe;
   subscribeTradieHistory(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
   /** Live platform-fee ledger for a tradie (drives the in-app money tally). */
   subscribeTradieFees(tradieId: string, cb: (fees: FeeLineItem[]) => void): Unsubscribe;
