@@ -1,11 +1,20 @@
 import React from 'react';
-import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing } from '../theme';
 
 /**
- * Standard screen container. Handles safe-area insets and optional scrolling.
- * `dark` switches to the navy brand background (used on auth / hero screens).
+ * Standard screen container. Handles safe-area insets, optional scrolling, and
+ * keyboard avoidance so inputs are never hidden behind the keyboard.
+ *
+ * Keyboard strategy (best-effort without a native lib):
+ *  - iOS: `automaticallyAdjustKeyboardInsets` insets the scroll content by the
+ *    keyboard height, so a focused field can be scrolled to.
+ *  - Android: relies on `adjustResize` (set in app.json) — the window resizes
+ *    and the ScrollView shrinks. `KeyboardAvoidingView` (padding on iOS) is a
+ *    belt-and-braces layer for non-scrolling content.
+ * For pixel-perfect auto-scroll-to-field, migrate to react-native-keyboard-
+ * controller on the next native build.
  */
 export function Screen({
   children,
@@ -25,19 +34,29 @@ export function Screen({
   const bg = dark ? colors.navy : colors.bg;
   const pad = padded ? { padding: spacing.lg } : null;
 
+  // Scroll case: iOS `automaticallyAdjustKeyboardInsets` handles it (no KAV, to
+  // avoid double-adjust); Android relies on adjustResize. Non-scroll case: a
+  // KeyboardAvoidingView pushes the content up on iOS.
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: bg }]} edges={edges}>
       {scroll ? (
         <ScrollView
-          style={{ flex: 1 }}
+          style={styles.flex}
           contentContainerStyle={[pad, { gap: spacing.lg, paddingBottom: spacing.xxxl }, contentStyle]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
           {children}
         </ScrollView>
       ) : (
-        <View style={[{ flex: 1 }, pad, contentStyle]}>{children}</View>
+        <KeyboardAvoidingView
+          style={[styles.flex, pad, contentStyle]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {children}
+        </KeyboardAvoidingView>
       )}
     </SafeAreaView>
   );
@@ -45,4 +64,5 @@ export function Screen({
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+  flex: { flex: 1 },
 });

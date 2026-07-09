@@ -97,7 +97,13 @@ export default function TrackJob() {
         <StatusPill status={job.status} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        automaticallyAdjustKeyboardInsets
+      >
         {/* Wave search in progress */}
         {searching && (
           <Card style={styles.searchHero}>
