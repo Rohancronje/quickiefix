@@ -12,7 +12,13 @@
     {
       "site": "quickiefix-2ea2a",
       "public": "landing",
-      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [
+        {
+          "source": "/download",
+          "function": { "functionId": "download", "region": "us-central1" }
+        }
+      ]
     },
     {
       "site": "quickiefix-portal",

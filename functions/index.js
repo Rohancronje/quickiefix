@@ -6,7 +6,7 @@
  * - onJobRated: recomputes a tradie's rating aggregate when a customer rates a
  *   completed job — server-side so clients can't fake reputation.
  */
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
@@ -15,6 +15,10 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
+// Expo access token (read-only use) so the /download redirect can resolve the
+// latest EAS build at request time.
+const EXPO_TOKEN = defineSecret('EXPO_TOKEN');
+const EAS_PROJECT_ID = 'af87594c-64e6-4ab1-8796-04cf077c722b';
 
 // Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
 const PLATFORM_ADMINS = ['admin@quickiefix.store'];
@@ -93,9 +97,9 @@ function monthKeyOf(ts) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-// Latest installable Android build. Update when you cut a new APK.
-const APP_DOWNLOAD_URL =
-  'https://expo.dev/artifacts/eas/RGbVFq0Gmwj009TudPfhxYxyV7lk-m7AF08FBtvowCI.apk';
+// Stable download link. Resolves to the latest Android build at request time via
+// the `download` function below — so emails never point at an expired artifact.
+const APP_DOWNLOAD_URL = 'https://quickiefix.store/download';
 
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
@@ -396,6 +400,45 @@ exports.onJobReleased = onDocumentUpdated('jobs/{jobId}', async (event) => {
     tx.update(tradieRef, { status: 'available' });
   });
 });
+
+/**
+ * Stable app-download redirect. Served at quickiefix.store/download (Hosting
+ * rewrite) — resolves the newest FINISHED internal Android build from EAS at
+ * request time and 302-redirects to its APK. Emails/links never go stale: as
+ * long as a recent build exists, this always points at the latest one.
+ */
+exports.download = onRequest(
+  { secrets: [EXPO_TOKEN], region: 'us-central1', cors: true },
+  async (req, res) => {
+    try {
+      const resp = await fetch('https://api.expo.dev/graphql', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${EXPO_TOKEN.value()}`,
+        },
+        body: JSON.stringify({
+          query:
+            'query($id:String!){ app { byId(appId:$id){ builds(limit:1, offset:0, filter:{platform:ANDROID, status:FINISHED, distribution:INTERNAL}){ artifacts { applicationArchiveUrl } } } } }',
+          variables: { id: EAS_PROJECT_ID },
+        }),
+      });
+      const data = await resp.json();
+      const url = data?.data?.app?.byId?.builds?.[0]?.artifacts?.applicationArchiveUrl;
+      if (!url) {
+        res.status(503).send('No installable build is available yet. Please check back shortly.');
+        return;
+      }
+      // Short cache so bursts of clicks don't hammer the EAS API, but new builds
+      // still surface quickly.
+      res.set('Cache-Control', 'public, max-age=300');
+      res.redirect(302, url);
+    } catch (e) {
+      console.error('download redirect failed:', e);
+      res.status(500).send('Download temporarily unavailable. Please try again shortly.');
+    }
+  },
+);
 
 /** Send a branded transactional email via Brevo. */
 async function brevoSend({ to, toName, subject, html }) {
