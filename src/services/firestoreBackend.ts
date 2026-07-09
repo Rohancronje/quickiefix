@@ -399,6 +399,9 @@ export class FirestoreBackend implements Backend {
       const tradieSnap = await tx.get(this.userRef(tradieId));
       if (!tradieSnap.exists()) throw new Error('Tradie not found.');
       const tradie = tradieSnap.data() as Tradie;
+      if (tradie.paymentHold) {
+        throw new Error('Your account is paused. Clear your balance to accept jobs.');
+      }
 
       // Read the company (if any) before any writes, to stamp + snapshot rates.
       const company =
@@ -611,7 +614,16 @@ export class FirestoreBackend implements Backend {
     let candidateJobs: Job[] = [];
 
     const emit = () => {
-      if (!tradie || tradie.approval !== 'approved') return cb([]);
+      // Only an approved, available tradie who isn't on payment hold receives
+      // offers (§5.4). Going offline or onto hold clears the feed reactively.
+      if (
+        !tradie ||
+        tradie.approval !== 'approved' ||
+        tradie.status !== 'available' ||
+        tradie.paymentHold
+      ) {
+        return cb([]);
+      }
       const offers: JobOffer[] = [];
       for (const job of candidateJobs) {
         if (job.status !== 'searching') continue;

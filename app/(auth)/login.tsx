@@ -22,6 +22,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const submit = async () => {
     setError(null);
@@ -40,6 +41,7 @@ export default function Login() {
   };
 
   const forgotPassword = async () => {
+    if (resetting) return;
     setError(null);
     setInfo(null);
     if (!email.trim()) {
@@ -47,10 +49,13 @@ export default function Login() {
       return;
     }
     try {
+      setResetting(true);
       await backend.resetPassword(email);
       setInfo('If an account exists for that email, we’ve sent a reset link. Check your inbox (and spam).');
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -89,8 +94,8 @@ export default function Login() {
             {error && <Txt style={styles.error}>{error}</Txt>}
             {info && <Txt style={styles.info}>{info}</Txt>}
             <Button title="Log in" loading={busy} onPress={submit} />
-            <Pressable onPress={forgotPassword} hitSlop={8} style={{ alignSelf: 'center' }}>
-              <Txt style={styles.forgot}>Forgot password?</Txt>
+            <Pressable onPress={forgotPassword} disabled={resetting} hitSlop={8} style={{ alignSelf: 'center' }}>
+              <Txt style={styles.forgot}>{resetting ? 'Sending…' : 'Forgot password?'}</Txt>
             </Pressable>
           </View>
 

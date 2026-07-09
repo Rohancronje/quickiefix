@@ -390,6 +390,9 @@ class MockBackend implements Backend {
     }
     const tradie = this.db.users[tradieId];
     if (!tradie || tradie.role !== 'tradie') throw new Error('Tradie not found.');
+    if (tradie.paymentHold) {
+      throw new Error('Your account is paused. Clear your balance to accept jobs.');
+    }
 
     job.status = 'accepted';
     job.tradieId = tradie.id;
@@ -625,7 +628,10 @@ class MockBackend implements Backend {
   private matchOffers(tradieId: string): JobOffer[] {
     const tradie = this.db.users[tradieId];
     if (!tradie || tradie.role !== 'tradie') return [];
-    if (tradie.approval !== 'approved') return [];
+    // Only an approved, available tradie not on payment hold receives offers (§5.4).
+    if (tradie.approval !== 'approved' || tradie.status !== 'available' || tradie.paymentHold) {
+      return [];
+    }
 
     const offers: JobOffer[] = [];
     for (const job of Object.values(this.db.jobs)) {
