@@ -557,8 +557,8 @@ const styles = StyleSheet.create({
   avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
   summary: { backgroundColor: colors.navy, gap: spacing.md },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  summaryCell: { width: '25%', gap: 2 },
-  summaryValue: { color: colors.white, fontSize: 22, fontWeight: '800' },
+  summaryCell: { width: '25%', gap: 2, alignItems: 'center' },
+  summaryValue: { color: colors.white, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   summaryFoot: { borderTopWidth: 1, borderTopColor: colors.navyLine, paddingTop: spacing.sm },
   perf: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   statusChip: {
