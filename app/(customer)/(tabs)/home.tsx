@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
@@ -56,15 +56,20 @@ export default function CustomerHome() {
 
   return (
     <Screen>
+      {/* Brand — centred lockup at the very top (matches the tradie home) */}
+      <Image
+        source={require('../../../assets/logo.png')}
+        style={styles.brand}
+        resizeMode="contain"
+        accessibilityLabel="QuickieFix"
+      />
+
       <View style={styles.header}>
         <View>
           <Txt variant="caption" color={colors.textMuted}>
             Kia ora,
           </Txt>
           <Txt variant="title">{customer.firstName} 👋</Txt>
-        </View>
-        <View style={styles.logoMark}>
-          <Txt style={{ fontSize: 20 }}>⚡</Txt>
         </View>
       </View>
 
@@ -162,18 +167,12 @@ export default function CustomerHome() {
 }
 
 const styles = StyleSheet.create({
+  // Generous whitespace in the source PNG → render larger, pull margins in.
+  brand: { alignSelf: 'center', height: 64, width: 190, marginVertical: -14 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  logoMark: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.amber,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   cta: { backgroundColor: colors.navy, gap: spacing.xs },
   resume: { backgroundColor: colors.navy, gap: spacing.xs, borderWidth: 1, borderColor: colors.amber },

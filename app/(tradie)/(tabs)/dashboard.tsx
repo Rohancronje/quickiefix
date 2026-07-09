@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { Fab } from '../../../src/components/Fab';
@@ -104,6 +104,14 @@ export default function TradieDashboard() {
   return (
     <View style={{ flex: 1 }}>
       <Screen>
+      {/* Brand — centred lockup at the very top (per the design reference) */}
+      <Image
+        source={require('../../../assets/logo.png')}
+        style={styles.brand}
+        resizeMode="contain"
+        accessibilityLabel="QuickieFix"
+      />
+
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
           <Txt variant="caption" color={colors.textMuted} numberOfLines={1}>
@@ -678,6 +686,9 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  // The source PNG has generous whitespace padding, so render a touch larger
+  // and pull the margins in for a visually ~32px lockup.
+  brand: { alignSelf: 'center', height: 64, width: 190, marginVertical: -14 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconBtn: {
