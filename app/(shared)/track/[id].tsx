@@ -253,8 +253,10 @@ export default function TrackJob() {
           </Card>
         )}
 
-        {/* Messaging (contact-masked) — once a tradie is engaged */}
-        {['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
+        {/* Messaging (contact-masked). While searching, nearby tradies may ask
+            questions about the job before accepting; afterwards it's the thread
+            with your assigned tradie. */}
+        {['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
           <MessageThread
             jobId={job.id}
             from={{ role: 'customer', id: job.customerId, name: job.customerName }}

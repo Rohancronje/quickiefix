@@ -3,9 +3,8 @@ import React, { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
-import { Fab } from '../../../src/components/Fab';
 import { JobCard } from '../../../src/components/JobCard';
-import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
+import { Button, Card, Txt } from '../../../src/components/ui';
 import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { relativeTime } from '../../../src/lib/format';
 import { greeting } from '../../../src/lib/greeting';
@@ -45,7 +44,6 @@ export default function TradieDashboard() {
 
   const [locating, setLocating] = useState(false);
   const isApproved = tradie.approval === 'approved';
-  const isAvailable = tradie.status === 'available';
   const onActiveJob = tradie.status === 'job_accepted' || tradie.status === 'on_site';
   // Independent tradies need a rate card so customers see pricing on acceptance;
   // company-tagged tradies inherit the company's rates. Prompt until it's set.
@@ -98,12 +96,8 @@ export default function TradieDashboard() {
   };
   const dismissRequest = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);
 
-  const expandRadius = () =>
-    backend.setServiceRadius(tradie.id, Math.min(tradie.serviceRadiusKm + 5, 50));
-
   return (
-    <View style={{ flex: 1 }}>
-      <Screen>
+    <Screen>
       {/* Brand — centred lockup at the very top (per the design reference) */}
       <Image
         source={require('../../../assets/logo.png')}
@@ -264,53 +258,28 @@ export default function TradieDashboard() {
         </View>
       )}
 
-      {/* Offers */}
-      {isApproved && !onActiveJob && (
+      {/* New job offers — only surfaces when there's something to act on; the
+          RequestAlert + notifications cover discovery, so no empty block. */}
+      {isApproved && !onActiveJob && offers.length > 0 && (
         <View style={{ gap: spacing.sm }}>
           <View style={styles.offersHeader}>
-            <Txt variant="label">Nearby jobs</Txt>
-            {offers.length > 0 && (
-              <View style={styles.countPill}>
-                <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
-                  {offers.length}
-                </Txt>
-              </View>
-            )}
+            <Txt variant="label">New job offers</Txt>
+            <View style={styles.countPill}>
+              <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
+                {offers.length}
+              </Txt>
+            </View>
           </View>
-
-          {offers.length > 0 ? (
-            offers.map((offer) => (
-              <OfferCard
-                key={offer.job.id}
-                offer={offer}
-                now={now}
-                onAccept={() => accept(offer)}
-                onDecline={() => decline(offer)}
-              />
-            ))
-          ) : !isAvailable ? (
-            <Card>
-              <EmptyState
-                emoji="🌙"
-                title="You’re not accepting jobs"
-                subtitle="Turn on availability to start receiving nearby job alerts."
-              />
-            </Card>
-          ) : (
-            <Card style={{ gap: spacing.md }}>
-              <EmptyState
-                emoji="📭"
-                title="No nearby jobs"
-                subtitle="Stay available — we’ll notify you the instant a customer nearby needs your trade."
-              />
-              <Button
-                title={`Expand search radius (${tradie.serviceRadiusKm}km)`}
-                kind="secondary"
-                small
-                onPress={expandRadius}
-              />
-            </Card>
-          )}
+          {offers.map((offer) => (
+            <OfferCard
+              key={offer.job.id}
+              offer={offer}
+              now={now}
+              onAccept={() => accept(offer)}
+              onDecline={() => decline(offer)}
+              onAsk={() => router.push({ pathname: '/job/[id]', params: { id: offer.job.id } })}
+            />
+          ))}
         </View>
       )}
 
@@ -318,14 +287,14 @@ export default function TradieDashboard() {
       <Card style={styles.needHelp}>
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="label" color={colors.white}>
-            Need another trade?
+            Need help?
           </Txt>
           <Txt variant="caption" color={colors.onNavyMuted}>
             Request trusted help in minutes — you're the customer this time.
           </Txt>
         </View>
         <Button
-          title="Request"
+          title="Request help"
           small
           fullWidth={false}
           onPress={() => router.push('/new-job')}
@@ -348,27 +317,7 @@ export default function TradieDashboard() {
 
       {/* This month — fee tally (informational; billing happens off-app) */}
       {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
-      </Screen>
-
-      {/* Quick actions */}
-      <Fab
-        actions={[
-          {
-            icon: isAvailable ? '🌙' : '🟢',
-            label: isAvailable ? 'Go offline' : 'Go available',
-            onPress: () => toggleAvailability(!isAvailable),
-          },
-          { icon: '🔍', label: 'View nearby jobs', onPress: () => router.push('/dashboard') },
-          { icon: '🧰', label: 'Request a tradie', onPress: () => router.push('/new-job') },
-          {
-            icon: '🚨',
-            label: 'Emergency job',
-            tone: 'danger',
-            onPress: () => router.push({ pathname: '/new-job', params: { emergency: '1' } }),
-          },
-        ]}
-      />
-    </View>
+    </Screen>
   );
 }
 
@@ -393,11 +342,13 @@ function OfferCard({
   now,
   onAccept,
   onDecline,
+  onAsk,
 }: {
   offer: JobOffer;
   now: number;
   onAccept: () => void;
   onDecline: () => void;
+  onAsk: () => void;
 }) {
   const meta = tradeMeta(offer.job.trade);
   const emergency = offer.job.isEmergency;
@@ -448,6 +399,7 @@ function OfferCard({
           <Button title="Accept job" kind="success" onPress={onAccept} />
         </View>
       </View>
+      <Button title="💬 Ask a question first" kind="secondary" small onPress={onAsk} />
     </Card>
   );
 }

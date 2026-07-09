@@ -144,16 +144,26 @@ service cloud.firestore {
       function jobData(jid) {
         return get(/databases/$(database)/documents/jobs/$(jid)).data;
       }
+      // While a job is still searching, dispatch candidates may read/post too —
+      // that's the pre-accept Q&A ("ask a question before you take the job").
       allow read: if signedIn() && (
         isPlatformAdmin() ||
         jobData(resource.data.jobId).customerId == request.auth.uid ||
-        jobData(resource.data.jobId).tradieId == request.auth.uid
+        jobData(resource.data.jobId).tradieId == request.auth.uid ||
+        (
+          jobData(resource.data.jobId).status == 'searching' &&
+          request.auth.uid in jobData(resource.data.jobId).dispatch.candidateIds
+        )
       );
       allow create: if signedIn()
         && request.resource.data.senderId == request.auth.uid
         && (
           jobData(request.resource.data.jobId).customerId == request.auth.uid ||
-          jobData(request.resource.data.jobId).tradieId == request.auth.uid
+          jobData(request.resource.data.jobId).tradieId == request.auth.uid ||
+          (
+            jobData(request.resource.data.jobId).status == 'searching' &&
+            request.auth.uid in jobData(request.resource.data.jobId).dispatch.candidateIds
+          )
         );
       allow update, delete: if false;
     }

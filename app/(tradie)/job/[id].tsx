@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobTimeline } from '../../../src/components/JobTimeline';
 import { MessageThread } from '../../../src/components/MessageThread';
@@ -14,6 +14,7 @@ import { useJob } from '../../../src/hooks/useData';
 import { formatDuration } from '../../../src/lib/format';
 import { distanceKm, formatDistance } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
+import { openInMaps } from '../../../src/lib/maps';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
 import { Rating } from '../../../src/types';
@@ -78,6 +79,21 @@ export default function TradieJob() {
     await backend.rateAsTradie(job.id, rating);
   };
 
+  // Pre-accept: this screen doubles as the offer detail (via "Ask a question").
+  const isOpenOffer = job.status === 'searching';
+  const isMine = job.tradieId === tradie.id;
+  const acceptJob = async () => {
+    try {
+      await backend.acceptJob(job.id, tradie.id);
+    } catch (e) {
+      Alert.alert('Could not accept', (e as Error).message);
+    }
+  };
+  const declineJob = () => {
+    backend.declineJob(job.id, tradie.id);
+    router.replace('/dashboard');
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       <View style={styles.header}>
@@ -100,11 +116,20 @@ export default function TradieJob() {
           <Txt variant="body" color={colors.textMuted}>
             {job.description}
           </Txt>
-          <View style={styles.addressRow}>
-            <Txt variant="caption" color={colors.textFaint} style={{ flex: 1 }}>
-              📍 {job.location.address}
+          {/* Job location — tap to navigate (Google Maps / Apple Maps / Waze). */}
+          <Pressable style={styles.mapsRow} onPress={() => openInMaps(job.location)}>
+            <View style={{ flex: 1 }}>
+              <Txt variant="caption" color={colors.textMuted}>
+                Job location
+              </Txt>
+              <Txt variant="label" color={colors.blue}>
+                📍 {job.location.address}
+              </Txt>
+            </View>
+            <Txt variant="caption" color={colors.blue} style={{ fontWeight: '800' }}>
+              Open in maps ↗
             </Txt>
-          </View>
+          </Pressable>
           {job.photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>
@@ -135,8 +160,39 @@ export default function TradieJob() {
           </Card>
         )}
 
+        {/* Pre-accept: open offer — ask questions below, or take the job */}
+        {isOpenOffer && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.gpsCard}>
+              <Txt variant="label" color={colors.blue}>
+                ⚡ This job is still open
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                Ask the customer a question below, or accept it — first to accept wins.
+              </Txt>
+            </Card>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Decline" kind="ghost" small onPress={declineJob} />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Button title="Accept job" kind="success" onPress={acceptJob} />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Taken by someone else while you were reading */}
+        {!isOpenOffer && !isMine && job.status !== 'completed' && job.status !== 'cancelled' && (
+          <Card style={styles.gpsCard}>
+            <Txt variant="label" color={colors.textMuted}>
+              This job has been taken by another tradie.
+            </Txt>
+          </Card>
+        )}
+
         {/* Status-driven actions */}
-        {job.status === 'accepted' && (
+        {job.status === 'accepted' && isMine && (
           <Card style={styles.gpsCard}>
             <Txt variant="label" color={colors.blue}>
               ⏳ Waiting for {job.customerName} to confirm
@@ -147,16 +203,16 @@ export default function TradieJob() {
             </Txt>
           </Card>
         )}
-        {job.status === 'confirmed' && (
+        {job.status === 'confirmed' && isMine && (
           <View style={{ gap: spacing.md }}>
             <Button title="Start travelling" icon="🚗" kind="secondary" onPress={() => backend.startTravelling(job.id)} />
             <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
           </View>
         )}
-        {job.status === 'travelling' && (
+        {job.status === 'travelling' && isMine && (
           <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
         )}
-        {job.status === 'on_site' && (
+        {job.status === 'on_site' && isMine && (
           <Button title="Complete job" icon="✅" kind="success" onPress={() => backend.completeJob(job.id)} />
         )}
 
@@ -203,8 +259,11 @@ export default function TradieJob() {
           </>
         )}
 
-        {/* Messaging (contact-masked) */}
-        {['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
+        {/* Messaging (contact-masked). Pre-accept, any candidate can ask the
+            customer questions about the job; post-accept it's the assigned
+            tradie's thread. */}
+        {(isOpenOffer ||
+          (isMine && ['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status))) && (
           <MessageThread
             jobId={job.id}
             from={{ role: 'tradie', id: tradie.id, name: tradie.businessName }}
@@ -245,7 +304,14 @@ const styles = StyleSheet.create({
   },
   back: { fontSize: 34, color: colors.text, lineHeight: 34 },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
-  addressRow: { flexDirection: 'row', alignItems: 'center' },
+  mapsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.infoSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
   gpsCard: { backgroundColor: colors.infoSoft, gap: spacing.xs, borderWidth: 0 },
   photo: { width: 100, height: 100, borderRadius: radius.md },
 });
