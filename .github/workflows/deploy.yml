@@ -41,6 +41,9 @@ jobs:
       - name: Typecheck gate
         run: npm run typecheck
 
+      - name: Test gate
+        run: npm run test:ci
+
       - name: Build web app
         run: npm run build:web
 
