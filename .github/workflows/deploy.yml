@@ -46,7 +46,9 @@ jobs:
 
       - name: Build back-office portal
         working-directory: portal
-        run: npm ci && npm run build
+        # npm install (not ci): portal has platform-specific wasm optional deps
+        # that a Windows-generated lockfile can't satisfy under strict npm ci.
+        run: npm install --no-audit --no-fund && npm run build
 
       - name: Deploy Hosting + Firestore rules
         env:

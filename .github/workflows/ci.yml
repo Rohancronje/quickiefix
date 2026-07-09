@@ -48,7 +48,10 @@ jobs:
 
       - name: Install portal deps
         working-directory: portal
-        run: npm ci
+        # npm install (not ci): the portal pulls platform-specific wasm optional
+        # deps (@emnapi/* via oxlint/Vite) that a Windows-generated lockfile
+        # can't satisfy under strict `npm ci` on Linux.
+        run: npm install --no-audit --no-fund
 
       - name: Build portal
         working-directory: portal
