@@ -1,0 +1,67 @@
+name: Deploy (web + rules + OTA)
+
+# Ships on every push to main. Runs entirely on GitHub's Ubuntu runners, so the
+# local Windows shell glitch can never touch a release. One `git push` to main:
+#   1. typecheck gate (fails the deploy if the app doesn't compile)
+#   2. build the web app + back-office portal
+#   3. deploy all 3 Firebase Hosting sites + Firestore rules
+#   4. publish an EAS Update (OTA) to the `preview` channel
+#
+# Native binary rebuilds are intentionally NOT here — only run `eas build` when
+# native code / SDK versions change (see the deploy-functions/manual note below).
+#
+# Required repo secrets (Settings -> Secrets and variables -> Actions), on the
+# personal Rohancronje/quickiefix repo:
+#   FIREBASE_TOKEN  ->  output of `firebase login:ci`
+#   EXPO_TOKEN      ->  an Expo access token for the @rohan87 account
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install app deps
+        run: npm ci
+
+      - name: Typecheck gate
+        run: npm run typecheck
+
+      - name: Build web app
+        run: npm run build:web
+
+      - name: Build back-office portal
+        working-directory: portal
+        run: npm ci && npm run build
+
+      - name: Deploy Hosting + Firestore rules
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only hosting,firestore:rules
+          --token "$FIREBASE_TOKEN"
+          --non-interactive
+
+      - name: Publish OTA update (EAS Update)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: >
+          npx --yes eas-cli update
+          --branch preview
+          --message "CI deploy ${{ github.sha }}"
+          --non-interactive
