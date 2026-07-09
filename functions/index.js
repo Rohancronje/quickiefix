@@ -22,6 +22,12 @@ const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 // Must be a VERIFIED sender in your Brevo account.
 const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
 
+// Where the reset flow sends the user after they set a new password. Uses the
+// branded domain; if it isn't an authorised auth domain yet, the reset link is
+// generated without it (see sendPasswordReset). Add quickiefix.store under
+// Firebase Auth → Settings → Authorized domains to activate.
+const RESET_CONTINUE_URL = 'https://quickiefix.store/reset-complete.html';
+
 // Wave-dispatch timing — must mirror WAVE in src/constants.ts.
 const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found (pool had candidates)
 const NO_CANDIDATES_AFTER_MS = 30_000; // empty pool → fail fast
@@ -216,16 +222,36 @@ exports.sendPasswordReset = onCall(
       return { ok: true };
     }
 
+    const isMissing = (code) => code === 'auth/user-not-found' || code === 'auth/email-not-found';
+    const isBadContinue = (code) =>
+      code === 'auth/unauthorized-continue-uri' || code === 'auth/invalid-continue-uri';
+    const makeLink = (withContinue) =>
+      admin
+        .auth()
+        .generatePasswordResetLink(
+          email,
+          withContinue ? { url: RESET_CONTINUE_URL, handleCodeInApp: false } : undefined,
+        );
+
     let link;
     try {
-      link = await admin.auth().generatePasswordResetLink(email);
+      link = await makeLink(true);
     } catch (e) {
       // Never reveal whether an account exists.
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/email-not-found') {
-        return { ok: true };
+      if (isMissing(e.code)) return { ok: true };
+      if (isBadContinue(e.code)) {
+        // Custom domain not an authorised auth domain yet — send a plain link.
+        try {
+          link = await makeLink(false);
+        } catch (e2) {
+          if (isMissing(e2.code)) return { ok: true };
+          console.error('generatePasswordResetLink failed', e2);
+          throw new HttpsError('internal', 'Could not start the reset. Please try again.');
+        }
+      } else {
+        console.error('generatePasswordResetLink failed', e);
+        throw new HttpsError('internal', 'Could not start the reset. Please try again.');
       }
-      console.error('generatePasswordResetLink failed', e);
-      throw new HttpsError('internal', 'Could not start the reset. Please try again.');
     }
     await brevoSend({
       to: email,
