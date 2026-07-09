@@ -1,11 +1,13 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
+import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { Fab } from '../../../src/components/Fab';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
 import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
+import { relativeTime } from '../../../src/lib/format';
 import { greeting } from '../../../src/lib/greeting';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
@@ -45,7 +47,6 @@ export default function TradieDashboard() {
   const isApproved = tradie.approval === 'approved';
   const isAvailable = tradie.status === 'available';
   const onActiveJob = tradie.status === 'job_accepted' || tradie.status === 'on_site';
-  const statusMeta = tradieStatusMeta[tradie.status];
   // Independent tradies need a rate card so customers see pricing on acceptance;
   // company-tagged tradies inherit the company's rates. Prompt until it's set.
   const profileIncomplete = !tradie.companyId && !tradie.rateCard;
@@ -176,6 +177,11 @@ export default function TradieDashboard() {
         </Card>
       )}
 
+      {/* Availability — the most important control in the app, right under the greeting */}
+      {isApproved && (
+        <AvailabilityCard status={tradie.status} locating={locating} onToggle={toggleAvailability} />
+      )}
+
       {/* Operational summary — the numbers a working tradie actually cares about */}
       {isApproved && (
         <>
@@ -193,30 +199,6 @@ export default function TradieDashboard() {
             completed={tradie.completedJobs}
           />
         </>
-      )}
-
-      {/* Availability toggle */}
-      {isApproved && !onActiveJob && (
-        <Card style={styles.availCard}>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Txt variant="heading">
-              {isAvailable ? 'You are available to accept jobs' : 'You are not accepting jobs'}
-            </Txt>
-            <Txt variant="caption" color={colors.textMuted}>
-              {locating
-                ? 'Getting your location…'
-                : isAvailable
-                ? 'You’ll be alerted to nearby jobs in real time.'
-                : 'Turn on availability to start receiving jobs.'}
-            </Txt>
-          </View>
-          <Switch
-            value={isAvailable}
-            onValueChange={toggleAvailability}
-            trackColor={{ true: colors.success, false: colors.line }}
-            thumbColor={colors.white}
-          />
-        </Card>
       )}
 
       {/* Active job */}
@@ -290,7 +272,13 @@ export default function TradieDashboard() {
 
           {offers.length > 0 ? (
             offers.map((offer) => (
-              <OfferCard key={offer.job.id} offer={offer} onAccept={() => accept(offer)} onDecline={() => decline(offer)} />
+              <OfferCard
+                key={offer.job.id}
+                offer={offer}
+                now={now}
+                onAccept={() => accept(offer)}
+                onDecline={() => decline(offer)}
+              />
             ))
           ) : !isAvailable ? (
             <Card>
@@ -376,22 +364,42 @@ export default function TradieDashboard() {
   );
 }
 
+/** Suburb-ish part of an address ("30 Davey Cres, Orewa, Auckland" → "Orewa"). */
+function suburbOf(address: string): string {
+  const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[1] : parts[0] ?? address;
+}
+
+/** Typical on-site duration by trade — display-only guidance for the tradie. */
+const TYPICAL_DURATION: Partial<Record<string, string>> = {
+  electrician: '45–90 min',
+  plumber: '60–120 min',
+  locksmith: '30–60 min',
+  handyman: '60–120 min',
+  gasfitter: '60–120 min',
+  appliance_repair: '45–90 min',
+};
+
 function OfferCard({
   offer,
+  now,
   onAccept,
   onDecline,
 }: {
   offer: JobOffer;
+  now: number;
   onAccept: () => void;
   onDecline: () => void;
 }) {
   const meta = tradeMeta(offer.job.trade);
   const emergency = offer.job.isEmergency;
+  const duration = TYPICAL_DURATION[offer.job.trade];
   return (
     <Card style={styles.offer}>
       <View style={[styles.requestedBanner, emergency && { backgroundColor: colors.dangerSoft }]}>
         <Txt variant="caption" color={emergency ? colors.danger : colors.blue} style={{ fontWeight: '700' }}>
-          {emergency ? '🚨 Emergency job nearby' : '⚡ New job nearby'}
+          {emergency ? '🚨 Emergency job' : '⚡ New job'} · requested{' '}
+          {relativeTime(offer.job.timestamps.createdAt, now)}
         </Txt>
       </View>
       <View style={styles.offerTop}>
@@ -401,23 +409,35 @@ function OfferCard({
         <View style={{ flex: 1 }}>
           <Txt variant="label">{meta.label}</Txt>
           <Txt variant="caption" color={colors.textMuted}>
-            {offer.job.urgency === 'now' ? '⚡ Needed now' : '🗓️ Scheduled'} ·{' '}
-            {formatDistance(offer.distanceKm)} away · ~{offer.etaMinutes} min
+            {suburbOf(offer.job.location.address)} · {formatDistance(offer.distanceKm)} away
+          </Txt>
+        </View>
+        <View style={styles.offerEta}>
+          <Txt style={styles.offerEtaValue}>~{offer.etaMinutes}</Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            min away
           </Txt>
         </View>
       </View>
       <Txt variant="body" color={colors.text} numberOfLines={2}>
         {offer.job.description}
       </Txt>
-      <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
-        📍 {offer.job.location.address}
-      </Txt>
+      <View style={styles.offerMetaRow}>
+        <Txt variant="caption" color={colors.textFaint} numberOfLines={1} style={{ flex: 1 }}>
+          📍 {offer.job.location.address}
+        </Txt>
+        {duration && (
+          <Txt variant="caption" color={colors.textMuted} style={{ fontWeight: '700' }}>
+            ⏱ {duration}
+          </Txt>
+        )}
+      </View>
       <View style={styles.offerActions}>
         <View style={{ flex: 1 }}>
           <Button title="Decline" kind="ghost" small onPress={onDecline} />
         </View>
         <View style={{ flex: 2 }}>
-          <Button title="Accept job" kind="success" small onPress={onAccept} />
+          <Button title="Accept job" kind="success" onPress={onAccept} />
         </View>
       </View>
     </Card>
@@ -708,7 +728,6 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   pending: { backgroundColor: colors.warningSoft, gap: spacing.sm, alignItems: 'flex-start' },
-  availCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   activeCard: { backgroundColor: colors.navy, gap: 4 },
   activeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   offersHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -730,6 +749,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   offerTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  offerEta: { alignItems: 'center' },
+  offerEtaValue: { fontSize: 20, fontWeight: '800', color: colors.navy },
+  offerMetaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   offerIcon: {
     width: 44,
     height: 44,

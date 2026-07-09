@@ -41,6 +41,12 @@ export function JobCard({
         <Txt variant="caption" color={colors.textMuted} numberOfLines={2}>
           {job.description}
         </Txt>
+        {/* Once a tradie is engaged, show who — the answer to "who's coming?" */}
+        {!showCustomer && job.tradieName && !['completed', 'cancelled'].includes(job.status) && (
+          <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+            🧰 {job.tradieName}
+          </Txt>
+        )}
         <View style={styles.metaRow}>
           <Txt variant="caption" color={colors.textFaint}>
             {showCustomer ? job.customerName : job.location.address}
