@@ -2,7 +2,7 @@
   "expo": {
     "name": "QuickieFix",
     "slug": "QuickieFix",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "scheme": "quickiefix",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -57,12 +57,12 @@
         "expo-build-properties",
         {
           "android": {
-            "newArchEnabled": false,
             "enableProguardInReleaseBuilds": false,
             "enableShrinkResourcesInReleaseBuilds": false
           }
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "extra": {
       "router": {},
