@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
+import { BiometricToggle } from '../../../src/components/BiometricToggle';
 import { Avatar, Button, Card, Divider, Field, Txt } from '../../../src/components/ui';
 import { tradeMeta } from '../../../src/constants';
 import { useAuth, useCustomer } from '../../../src/context/AuthContext';
@@ -68,6 +69,9 @@ export default function CustomerAccount() {
       </Card>
 
       <PropertiesSection customerId={customer.id} customerName={`${customer.firstName} ${customer.lastName}`} />
+
+      {/* Sign-in & security */}
+      <BiometricToggle />
 
       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
         <Button title="Log out" kind="ghost" onPress={logout} />

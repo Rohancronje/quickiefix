@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { LockScreen } from '../src/components/LockScreen';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { colors } from '../src/theme';
 
@@ -61,12 +62,23 @@ function useAuthRouting() {
 
 function RootNavigator() {
   const loading = useAuthRouting();
+  const { user, locked } = useAuth();
 
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.amber} size="large" />
       </View>
+    );
+  }
+
+  // Biometric app lock: a restored session stays sealed behind the OS
+  // fingerprint/face prompt after the app was fully closed.
+  if (user && locked) {
+    return (
+      <AppFrame>
+        <LockScreen />
+      </AppFrame>
     );
   }
 

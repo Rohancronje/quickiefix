@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
+import { BiometricToggle } from '../../../src/components/BiometricToggle';
 import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Chip, Divider, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, tradeMeta } from '../../../src/constants';
@@ -179,6 +180,9 @@ export default function TradieProfile() {
           ))}
         </View>
       </Card>
+
+      {/* Sign-in & security */}
+      <BiometricToggle />
 
       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
         <Button title="Log out" kind="ghost" onPress={logout} />

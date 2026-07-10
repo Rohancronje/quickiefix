@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { AppUser, Customer, Tradie } from '../types';
+import { biometricUnlock, isBiolockEnabled } from '../lib/biometrics';
 import {
   backend,
   CustomerRegistration,
@@ -18,6 +19,11 @@ import {
 interface AuthState {
   user: AppUser | null;
   loading: boolean;
+  /** True when a restored session must pass biometrics before the app opens.
+   *  Set only on cold start (i.e. after the app was fully closed). */
+  locked: boolean;
+  /** Prompt the OS biometric sheet; unlocks the session on success. */
+  unlock: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<AppUser>;
   registerCustomer: (input: CustomerRegistration) => Promise<Customer>;
   registerTradie: (input: TradieRegistration) => Promise<Tradie>;
@@ -29,6 +35,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [locked, setLocked] = useState(false);
   const unsubRef = useRef<(() => void) | null>(null);
 
   /** Keep the in-memory user live against backend changes (status, rating). */
@@ -43,15 +50,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Restore any persisted session on cold start.
+  // Restore any persisted session on cold start. If the user opted into
+  // biometric lock, a restored session starts LOCKED — fully closing the app
+  // therefore always demands fingerprint/face (or password re-login) to enter.
   useEffect(() => {
     (async () => {
       const u = await getSessionUser();
+      if (u && (await isBiolockEnabled())) setLocked(true);
       bind(u);
       setLoading(false);
     })();
     return () => unsubRef.current?.();
   }, [bind]);
+
+  const unlock = useCallback(async () => {
+    const ok = await biometricUnlock('Unlock QuickieFix');
+    if (ok) setLocked(false);
+    return ok;
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -82,12 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await backend.logout();
+    setLocked(false);
     bind(null);
   }, [bind]);
 
   const value = useMemo(
-    () => ({ user, loading, login, registerCustomer, registerTradie, logout }),
-    [user, loading, login, registerCustomer, registerTradie, logout],
+    () => ({ user, loading, locked, unlock, login, registerCustomer, registerTradie, logout }),
+    [user, loading, locked, unlock, login, registerCustomer, registerTradie, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
