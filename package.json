@@ -2,13 +2,6 @@
   "name": "quickiefix",
   "version": "1.0.0",
   "main": "expo-router/entry",
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "expo-local-authentication"
-      ]
-    }
-  },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.3",
     "@expo/vector-icons": "~15.0.3",

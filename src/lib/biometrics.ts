@@ -7,6 +7,7 @@
  * feature simply reports "unavailable" instead of crashing.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requireOptionalNativeModule } from 'expo';
 
 const FLAG_KEY = 'quickiefix.biolock.v1'; // '1' = require biometric unlock on cold start
 
@@ -14,6 +15,10 @@ type LocalAuth = typeof import('expo-local-authentication');
 
 function mod(): LocalAuth | null {
   try {
+    // Probe for the NATIVE module first — requireOptionalNativeModule returns
+    // null (never throws) when this binary wasn't built with it. Only then do
+    // we require the JS package, whose import would otherwise crash.
+    if (!requireOptionalNativeModule('ExpoLocalAuthentication')) return null;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('expo-local-authentication') as LocalAuth;
   } catch {
