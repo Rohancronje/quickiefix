@@ -226,6 +226,7 @@ export default function TradieDashboard() {
               offer={offer}
               onAccept={() => acceptSelection(offer)}
               onDecline={() => declineSelection(offer)}
+              onView={() => router.push({ pathname: '/job/[id]', params: { id: offer.job.id } })}
             />
           ))}
         </View>
@@ -241,6 +242,7 @@ export default function TradieDashboard() {
               offer={offer}
               onInterested={() => expressInterest(offer)}
               onDismiss={() => dismissRequest(offer)}
+              onView={() => router.push({ pathname: '/job/[id]', params: { id: offer.job.id } })}
             />
           ))}
         </View>
@@ -289,10 +291,12 @@ function SelectionCard({
   offer,
   onAccept,
   onDecline,
+  onView,
 }: {
   offer: JobOffer;
   onAccept: () => void;
   onDecline: () => void;
+  onView: () => void;
 }) {
   const meta = tradeMeta(offer.job.trade);
   return (
@@ -319,6 +323,7 @@ function SelectionCard({
       <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
         📍 {offer.job.location.address}
       </Txt>
+      <Button title="View details & photos" kind="secondary" small onPress={onView} />
       <View style={styles.offerActions}>
         <View style={{ flex: 1 }}>
           <Button title="Decline" kind="ghost" small onPress={onDecline} />
@@ -336,10 +341,12 @@ function RequestCard({
   offer,
   onInterested,
   onDismiss,
+  onView,
 }: {
   offer: JobOffer;
   onInterested: () => void;
   onDismiss: () => void;
+  onView: () => void;
 }) {
   const meta = tradeMeta(offer.job.trade);
   return (
@@ -366,6 +373,7 @@ function RequestCard({
       <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
         📍 {offer.job.location.address}
       </Txt>
+      <Button title="View details & photos" kind="secondary" small onPress={onView} />
       <View style={styles.offerActions}>
         <View style={{ flex: 1 }}>
           <Button title="Not now" kind="ghost" small onPress={onDismiss} />
