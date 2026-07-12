@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Txt } from '../../src/components/ui';
 import { useAuth } from '../../src/context/AuthContext';
@@ -10,6 +10,10 @@ export default function Welcome() {
   const router = useRouter();
   const { login } = useAuth();
   const [busy, setBusy] = useState<string | null>(null);
+  // Scale the hero to the device: small phones get a smaller lockup + headline.
+  const { width, height } = useWindowDimensions();
+  const compact = width < 370 || height < 700;
+  const logoW = Math.min(280, width * 0.72);
 
   const demoLogin = async (email: string) => {
     try {
@@ -28,13 +32,15 @@ export default function Welcome() {
         <View style={styles.logoRow}>
           <Image
             source={require('../../assets/logo-light.png')}
-            style={styles.logoImg}
+            style={{ width: logoW, height: logoW * 0.47 }}
             resizeMode="contain"
           />
         </View>
 
-        <View style={{ gap: spacing.sm, marginTop: spacing.xxxl }}>
-          <Txt style={styles.headline}>Get trusted help{'\n'}fast.</Txt>
+        <View style={{ gap: spacing.sm, marginTop: compact ? spacing.xl : spacing.xxxl }}>
+          <Txt style={[styles.headline, compact && { fontSize: 34, lineHeight: 38 }]}>
+            Get trusted help{'\n'}fast.
+          </Txt>
           <Txt style={styles.sub}>
             On-demand, verified tradies dispatched to your door. No quotes, no
             waiting, no phone tag.
@@ -116,7 +122,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.navy, padding: spacing.xl, justifyContent: 'space-between' },
   hero: { flex: 1, justifyContent: 'center' },
   logoRow: { alignItems: 'flex-start' },
-  logoImg: { height: 132, width: 280 },
   logoMark: {
     width: 48,
     height: 48,

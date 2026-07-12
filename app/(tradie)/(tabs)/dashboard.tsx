@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { JobCard } from '../../../src/components/JobCard';
@@ -404,6 +404,9 @@ function OperationalSummary({
   radiusKm: number;
   lastCompletedAt?: number;
 }) {
+  // Narrow phones: 2×2 grid so labels never crush; wider: all four across.
+  const { width } = useWindowDimensions();
+  const cellWidth = width < 370 ? '50%' : '25%';
   const cells = [
     { label: 'Completed', value: `${completed}` },
     { label: 'In progress', value: `${inProgress}` },
@@ -414,7 +417,7 @@ function OperationalSummary({
     <Card style={styles.summary}>
       <View style={styles.summaryGrid}>
         {cells.map((c) => (
-          <View key={c.label} style={styles.summaryCell}>
+          <View key={c.label} style={[styles.summaryCell, { width: cellWidth }]}>
             <Txt style={styles.summaryValue}>{c.value}</Txt>
             <Txt variant="caption" color={colors.onNavyMuted}>
               {c.label}
@@ -556,8 +559,8 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
   summary: { backgroundColor: colors.navy, gap: spacing.md },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  summaryCell: { width: '25%', gap: 2, alignItems: 'center' },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.md },
+  summaryCell: { gap: 2, alignItems: 'center' },
   summaryValue: { color: colors.white, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   summaryFoot: { borderTopWidth: 1, borderTopColor: colors.navyLine, paddingTop: spacing.sm },
   perf: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },

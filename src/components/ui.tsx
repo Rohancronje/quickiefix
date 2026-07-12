@@ -34,6 +34,9 @@ export function Txt({
 }: TextProps & { variant?: Variant; color?: string }) {
   return (
     <Text
+      // Respect the user's system font size, but cap the multiplier so large
+      // accessibility fonts scale gracefully instead of exploding fixed layouts.
+      maxFontSizeMultiplier={1.3}
       {...rest}
       style={[textStyles[variant], color ? { color } : null, style]}
     />

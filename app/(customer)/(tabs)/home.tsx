@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
@@ -28,6 +28,9 @@ export default function CustomerHome() {
   const router = useRouter();
   const now = useNow();
   const jobs = useCustomerJobs(customer.id);
+  // Narrow phones: 3 trade tiles per row so labels stay readable; else 4.
+  const { width } = useWindowDimensions();
+  const tileWidth = width < 370 ? '31%' : '23%';
 
   const active = jobs.filter((j) => ACTIVE.includes(j.status));
   const primary = active[0]; // jobs are newest-first
@@ -146,7 +149,7 @@ export default function CustomerHome() {
         <Txt variant="label">What do you need?</Txt>
         <View style={styles.grid}>
           {TRADES.slice(0, 8).map((t) => (
-            <Pressable key={t.key} style={styles.tile} onPress={() => startJob(t.key)}>
+            <Pressable key={t.key} style={[styles.tile, { width: tileWidth }]} onPress={() => startJob(t.key)}>
               <Txt style={{ fontSize: 26 }}>{t.emoji}</Txt>
               <Txt variant="caption" color={colors.text} style={{ textAlign: 'center' }}>
                 {t.label}
@@ -230,7 +233,6 @@ const styles = StyleSheet.create({
   resumeGhost: { backgroundColor: colors.navyCard, borderColor: colors.navyLine },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   tile: {
-    width: '23%',
     aspectRatio: 1,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
