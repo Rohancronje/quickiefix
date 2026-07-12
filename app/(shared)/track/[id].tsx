@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChooseTradieList } from '../../../src/components/ChooseTradieList';
+import { JobMap } from '../../../src/components/JobMap';
 import { JobTimeline } from '../../../src/components/JobTimeline';
 import { MessageThread } from '../../../src/components/MessageThread';
 import { StatusPill } from '../../../src/components/JobCard';
@@ -271,6 +272,11 @@ export default function TrackJob() {
             </Txt>
             <JobTimeline job={job} />
           </Card>
+        )}
+
+        {/* Job location preview (renders only on builds that include maps) */}
+        {['confirmed', 'travelling', 'on_site'].includes(job.status) && (
+          <JobMap location={job.location} />
         )}
 
         {/* Request details */}

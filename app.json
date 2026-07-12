@@ -60,6 +60,12 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "color": "#FFB020"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
@@ -68,7 +74,8 @@
           }
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-audio"
     ],
     "extra": {
       "router": {},

@@ -213,6 +213,14 @@ export class FirestoreBackend implements Backend {
     await signOut(this.auth);
   }
 
+  async setPushToken(userId: string, token: string | null): Promise<void> {
+    try {
+      await updateDoc(this.userRef(userId), { pushToken: token ?? deleteField() });
+    } catch {
+      // Non-fatal: push registration must never break login.
+    }
+  }
+
   async resetPassword(email: string): Promise<void> {
     // Preferred path: our branded email via Brevo (Cloud Function). Falls back to
     // Firebase's default sender if the Functions client isn't available.

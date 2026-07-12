@@ -73,6 +73,8 @@ export interface BaseUser {
   lastName: string;
   photoUrl?: string;
   createdAt: number;
+  /** Expo push token for this user's current device (set on login). */
+  pushToken?: string;
 }
 
 export interface Customer extends BaseUser {

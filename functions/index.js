@@ -470,6 +470,109 @@ exports.onUserAudit = onDocumentUpdated('users/{uid}', async (event) => {
   }
 });
 
+/* ------------------------------------------------------------- push ------ */
+
+/** Send messages via the Expo push service (chunked; best-effort). */
+async function expoPush(messages) {
+  const valid = messages.filter((m) => m.to && String(m.to).startsWith('ExponentPushToken'));
+  for (let i = 0; i < valid.length; i += 100) {
+    const chunk = valid.slice(i, i + 100);
+    try {
+      const res = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(chunk),
+      });
+      if (!res.ok) console.error('expo push failed:', res.status, await res.text());
+    } catch (e) {
+      console.error('expo push error:', e);
+    }
+  }
+}
+
+/** Look up push tokens for a list of user ids. */
+async function pushTokensFor(userIds) {
+  const db = admin.firestore();
+  const snaps = await Promise.all(userIds.map((id) => db.collection('users').doc(id).get()));
+  return snaps
+    .map((s) => (s.exists ? s.data().pushToken : null))
+    .filter(Boolean);
+}
+
+/** New job created → push the offer to every candidate in the dispatch pool. */
+exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
+  const job = event.data?.data();
+  if (!job || job.status !== 'searching') return;
+  const candidates = job.dispatch?.candidateIds ?? [];
+  if (!candidates.length) return;
+  const tokens = await pushTokensFor(candidates);
+  const trade = String(job.trade || 'job').replace(/_/g, ' ');
+  await expoPush(
+    tokens.map((to) => ({
+      to,
+      title: job.isEmergency ? '🚨 Emergency job near you' : '⚡ New job near you',
+      body: `${job.customerName || 'A customer'} needs a ${trade} — first to accept wins.`,
+      sound: 'default',
+      channelId: 'offers',
+      priority: 'high',
+      data: { jobId: event.params.jobId, role: 'tradie' },
+    })),
+  );
+});
+
+/** Job transitions → push the people who need to act. */
+exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+  const jobId = event.params.jobId;
+
+  // Browse-and-choose: the customer picked a tradie → prompt them to accept.
+  if (after.selectedTradieId && after.selectedTradieId !== before.selectedTradieId) {
+    const tokens = await pushTokensFor([after.selectedTradieId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '⭐ A customer chose you',
+        body: `${after.customerName || 'A customer'} picked you — accept to lock it in.`,
+        sound: 'default',
+        channelId: 'offers',
+        priority: 'high',
+        data: { jobId, role: 'tradie' },
+      })),
+    );
+  }
+
+  // A tradie took the job → tell the customer.
+  const engaged = ['accepted', 'confirmed'];
+  if (engaged.includes(after.status) && !engaged.includes(before.status) && after.customerId) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '✅ Tradie found!',
+        body: `${after.tradieName || 'A tradie'} accepted your ${String(after.trade || 'job').replace(/_/g, ' ')} job.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Tradie is on the way / arrived → keep the customer in the loop.
+  if (after.status === 'travelling' && before.status !== 'travelling' && after.customerId) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '🚗 On the way',
+        body: `${after.tradieName || 'Your tradie'} is heading to you now.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+});
+
 /**
  * Stable app-download redirect. Served at quickiefix.store/download (Hosting
  * rewrite) — resolves the newest FINISHED internal Android build from EAS at

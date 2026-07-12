@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { JobMap } from '../../../src/components/JobMap';
 import { JobTimeline } from '../../../src/components/JobTimeline';
 import { MessageThread } from '../../../src/components/MessageThread';
 import { StatusPill } from '../../../src/components/JobCard';
@@ -116,6 +117,9 @@ export default function TradieJob() {
           <Txt variant="body" color={colors.textMuted}>
             {job.description}
           </Txt>
+          {/* Embedded map preview (renders only on builds that include maps). */}
+          <JobMap location={job.location} />
+
           {/* Job location — tap to navigate (Google Maps / Apple Maps / Waze). */}
           <Pressable style={styles.mapsRow} onPress={() => openInMaps(job.location)}>
             <View style={{ flex: 1 }}>

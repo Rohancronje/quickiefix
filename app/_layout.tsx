@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { LockScreen } from '../src/components/LockScreen';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import { configureNotificationHandling, onNotificationTap } from '../src/lib/push';
 import { colors } from '../src/theme';
 
 /**
@@ -63,6 +64,23 @@ function useAuthRouting() {
 function RootNavigator() {
   const loading = useAuthRouting();
   const { user, locked } = useAuth();
+  const router = useRouter();
+
+  // Push notifications: show banners in the foreground; tapping a job push
+  // jumps straight to that job (tradie → offer screen, customer → tracking).
+  useEffect(() => {
+    configureNotificationHandling();
+    return onNotificationTap((data) => {
+      const jobId = typeof data.jobId === 'string' ? data.jobId : null;
+      if (!jobId) return;
+      const role = typeof data.role === 'string' ? data.role : 'tradie';
+      router.push(
+        role === 'customer'
+          ? { pathname: '/track/[id]', params: { id: jobId } }
+          : { pathname: '/job/[id]', params: { id: jobId } },
+      );
+    });
+  }, [router]);
 
   if (loading) {
     return (

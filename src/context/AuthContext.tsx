@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { AppUser, Customer, Tradie } from '../types';
 import { biometricUnlock, isBiolockEnabled } from '../lib/biometrics';
+import { getPushToken } from '../lib/push';
 import {
   backend,
   CustomerRegistration,
@@ -46,6 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (u) {
       unsubRef.current = backend.subscribeUser(u.id, (fresh) => {
         if (fresh) setUser(fresh);
+      });
+      // Register this device for push (guarded no-op on binaries without the
+      // native module; never blocks login).
+      void getPushToken().then((token) => {
+        if (token) return backend.setPushToken(u.id, token);
       });
     }
   }, []);
@@ -97,10 +103,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    // Stop pushes reaching a signed-out device (best-effort, before auth ends).
+    if (user) await backend.setPushToken(user.id, null).catch(() => {});
     await backend.logout();
     setLocked(false);
     bind(null);
-  }, [bind]);
+  }, [bind, user]);
 
   const value = useMemo(
     () => ({ user, loading, locked, unlock, login, registerCustomer, registerTradie, logout }),

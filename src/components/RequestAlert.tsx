@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tradeMeta } from '../constants';
+import { offerAlert } from '../lib/alerts';
 import { JobOffer } from '../services';
 import { colors, font, radius, shadow, spacing } from '../theme';
 import { Txt } from './ui';
@@ -23,9 +24,10 @@ export function RequestAlert({ offers }: { offers: JobOffer[] }) {
   const count = offers.length;
   const top = offers[0];
 
-  // Track the count for the slide/pulse animations. (Sound + haptic alerting is
-  // temporarily removed — will return via a native-build-safe module.)
+  // Buzz + chime when a NEW offer arrives (guarded: silent on binaries built
+  // without the haptics/audio native modules).
   useEffect(() => {
+    if (count > prevCount.current) offerAlert();
     prevCount.current = count;
   }, [count]);
 

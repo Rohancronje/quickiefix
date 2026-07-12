@@ -235,6 +235,16 @@ class MockBackend implements Backend {
     await AsyncStorage.removeItem(SESSION_KEY);
   }
 
+  async setPushToken(userId: string, token: string | null): Promise<void> {
+    await this.ensureLoaded();
+    const u = this.db.users[userId];
+    if (u) {
+      if (token) u.pushToken = token;
+      else delete u.pushToken;
+      this.commit();
+    }
+  }
+
   async resetPassword(_email: string): Promise<void> {
     // Mock backend has no email delivery; resolve so the UI shows its confirmation.
     await this.ensureLoaded();

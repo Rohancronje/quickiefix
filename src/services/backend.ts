@@ -104,6 +104,8 @@ export interface Backend {
   logout(): Promise<void>;
   /** Send a password-reset email (no-op-safe if the account doesn't exist). */
   resetPassword(email: string): Promise<void>;
+  /** Store this device's Expo push token on the user (null clears it). */
+  setPushToken(userId: string, token: string | null): Promise<void>;
 
   // ---- Tradie profile / availability ----
   getTradie(id: string): Promise<Tradie | null>;
