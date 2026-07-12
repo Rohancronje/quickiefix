@@ -81,6 +81,22 @@ export async function getPushToken(): Promise<string | null> {
 }
 
 /**
+ * Clear the app-icon badge and sweep delivered notifications. Called whenever
+ * the app comes to the foreground — the app itself always shows live state, so
+ * once it's open the tray items are stale.
+ */
+export function clearNotificationBadge(): void {
+  try {
+    const n = mod();
+    if (!n) return;
+    void n.setBadgeCountAsync(0).catch(() => {});
+    void n.dismissAllNotificationsAsync().catch(() => {});
+  } catch {
+    /* no-op */
+  }
+}
+
+/**
  * Subscribe to notification taps. The payload carries { jobId, role } so the
  * app can jump straight to the job. Returns an unsubscribe (no-op when
  * unavailable).

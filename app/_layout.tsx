@@ -1,12 +1,12 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { ActivityIndicator, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, AppState, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { LockScreen } from '../src/components/LockScreen';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
-import { configureNotificationHandling, onNotificationTap } from '../src/lib/push';
+import { clearNotificationBadge, configureNotificationHandling, onNotificationTap } from '../src/lib/push';
 import { colors } from '../src/theme';
 
 /**
@@ -70,9 +70,15 @@ function RootNavigator() {
 
   // Push notifications: show banners in the foreground; tapping a job push
   // jumps straight to that job (tradie → offer screen, customer → tracking).
+  // Opening/foregrounding the app clears the icon badge + stale tray items —
+  // the app itself always shows live state, so once open they're redundant.
   useEffect(() => {
     configureNotificationHandling();
-    return onNotificationTap((data) => {
+    clearNotificationBadge();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') clearNotificationBadge();
+    });
+    const unsubTap = onNotificationTap((data) => {
       const jobId = typeof data.jobId === 'string' ? data.jobId : null;
       if (!jobId) return;
       const role = typeof data.role === 'string' ? data.role : 'tradie';
@@ -82,6 +88,10 @@ function RootNavigator() {
           : { pathname: '/job/[id]', params: { id: jobId } },
       );
     });
+    return () => {
+      sub.remove();
+      unsubTap();
+    };
   }, [router]);
 
   if (loading) {

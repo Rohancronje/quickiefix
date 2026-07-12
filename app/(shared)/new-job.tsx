@@ -1,8 +1,10 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -21,9 +23,6 @@ import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
 import { AssignmentMode, Location, TradeCategory, UrgencyType } from '../../src/types';
 
-// Photo attachments are a planned future release (needs Firebase Storage).
-// Wave dispatch means the customer no longer picks a tradie — we auto-alert the
-// nearest available pros and the first to accept wins.
 const STEPS = ['Service', 'Details', 'Location', 'When'];
 
 export default function NewJob() {
@@ -35,6 +34,7 @@ export default function NewJob() {
   const [step, setStep] = useState(preTrade ? 1 : 0);
   const [trade, setTrade] = useState<TradeCategory | null>(preTrade);
   const [description, setDescription] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
@@ -73,6 +73,39 @@ export default function NewJob() {
     }
   };
 
+  const MAX_PHOTOS = 4;
+
+  const pickPhotos = async () => {
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+        allowsMultipleSelection: true,
+        selectionLimit: MAX_PHOTOS - photos.length,
+      });
+      if (!res.canceled) {
+        setPhotos((p) => [...p, ...res.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return;
+      const res = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+      if (!res.canceled && res.assets[0]) {
+        setPhotos((p) => [...p, res.assets[0].uri].slice(0, MAX_PHOTOS));
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const removePhoto = (uri: string) => setPhotos((p) => p.filter((u) => u !== uri));
+
   const useMyLocation = async () => {
     setError(null);
     try {
@@ -98,7 +131,7 @@ export default function NewJob() {
         {
           trade: trade!,
           description: description.trim(),
-          photos: [],
+          photos,
           location: jobLocation,
           urgency,
           isEmergency,
@@ -120,7 +153,8 @@ export default function NewJob() {
 
   // Warn before abandoning a partly-filled request. "Dirty" = the user has made
   // a real choice worth protecting (not just landed on the screen).
-  const dirty = !!trade || description.trim().length > 0 || address.trim().length > 0;
+  const dirty =
+    !!trade || description.trim().length > 0 || address.trim().length > 0 || photos.length > 0;
   const confirmLeave = () => {
     Alert.alert(
       'Discard this request?',
@@ -204,6 +238,35 @@ export default function NewJob() {
                 numberOfLines={5}
                 style={{ height: 130, textAlignVertical: 'top' }}
               />
+
+              {/* Photos — a picture of the problem beats a paragraph. */}
+              <View style={{ gap: spacing.sm }}>
+                <Txt variant="caption" color={colors.textMuted}>
+                  Add photos of the problem (optional, up to {MAX_PHOTOS})
+                </Txt>
+                {photos.length > 0 && (
+                  <View style={styles.photoRow}>
+                    {photos.map((uri) => (
+                      <View key={uri} style={styles.photoWrap}>
+                        <Image source={{ uri }} style={styles.photoThumb} />
+                        <Pressable style={styles.photoRemove} onPress={() => removePhoto(uri)} hitSlop={8}>
+                          <Txt style={{ color: colors.white, fontWeight: '800', fontSize: 12 }}>✕</Txt>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {photos.length < MAX_PHOTOS && (
+                  <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                    <View style={{ flex: 1 }}>
+                      <Button title="📷 Camera" kind="secondary" small onPress={takePhoto} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button title="🖼️ Gallery" kind="secondary" small onPress={pickPhotos} />
+                    </View>
+                  </View>
+                )}
+              </View>
             </Step>
           )}
 
@@ -488,6 +551,20 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   error: { color: colors.danger, fontSize: font.size.sm, fontWeight: '600' },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  photoWrap: { position: 'relative' },
+  photoThumb: { width: 76, height: 76, borderRadius: radius.md },
+  photoRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   footer: {
     flexDirection: 'row',
     gap: spacing.md,
