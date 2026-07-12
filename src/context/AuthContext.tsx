@@ -8,6 +8,11 @@ import React, {
   useState,
 } from 'react';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+/** Local marker: this device has logged in before → cold starts route straight
+ *  to LOGIN (no network wait) instead of the first-run welcome pitch. */
+const HAD_SESSION_KEY = 'quickiefix.hadSession.v1';
 import { AppUser, Customer, Tradie } from '../types';
 import { biometricUnlock, isBiolockEnabled } from '../lib/biometrics';
 import { getPushToken } from '../lib/push';
@@ -50,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     unsubRef.current = null;
     setUser(u);
     if (u) {
+      void AsyncStorage.setItem(HAD_SESSION_KEY, '1').catch(() => {});
       unsubRef.current = backend.subscribeUser(u.id, (fresh) => {
         if (fresh) setUser(fresh);
       });
@@ -62,22 +68,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Cold-start policy (banking pattern): fully closing the app ends the
-  // session. On reopen, a user with biometric unlock enabled gets the
-  // fingerprint lock screen; everyone else is signed out and lands on the
-  // login screen.
+  // session. Biometric users get the fingerprint lock; everyone else goes
+  // straight to login. FAST PATH: when biometrics is off we already know the
+  // destination, so route instantly from local flags and do the Firebase
+  // sign-out in the background — no network wait on the splash screen.
   useEffect(() => {
     (async () => {
+      const [bioEnabled, hadSession] = await Promise.all([
+        isBiolockEnabled(),
+        AsyncStorage.getItem(HAD_SESSION_KEY).catch(() => null),
+      ]);
+
+      if (!bioEnabled) {
+        if (hadSession === '1') setSessionEnded(true); // returning user → login
+        bind(null);
+        setLoading(false);
+        // Background housekeeping: clear any persisted Firebase session.
+        void getSessionUser()
+          .then((u) => (u ? backend.logout() : undefined))
+          .catch(() => {});
+        return;
+      }
+
+      // Biometric path needs the restored session to lock behind the prompt.
       const u = await getSessionUser();
       if (u) {
-        if (await isBiolockEnabled()) {
-          setLocked(true);
-          bind(u);
-        } else {
-          await backend.logout().catch(() => {});
-          setSessionEnded(true);
-          bind(null);
-        }
+        setLocked(true);
+        bind(u);
       } else {
+        if (hadSession === '1') setSessionEnded(true);
         bind(null);
       }
       setLoading(false);
