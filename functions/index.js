@@ -792,7 +792,25 @@ exports.download = onRequest(
 );
 
 /** Send a branded transactional email via Brevo. */
+// Hosted PNG (SVG is blocked by most email clients). 360px source → 180px
+// display = crisp on retina. Served from the landing site.
+const EMAIL_LOGO_URL = 'https://quickiefix.store/email-logo.png';
+
 async function brevoSend({ to, toName, subject, html }) {
+  // Every email gets the branded header + a consistent footer, in one place.
+  const branded = `
+  <div style="background:#F4F6FB;padding:24px 12px">
+    <div style="max-width:560px;margin:auto;background:#FFFFFF;border-radius:16px;padding:8px 24px 24px">
+      <div style="text-align:center;padding:14px 0 2px">
+        <img src="${EMAIL_LOGO_URL}" width="180" alt="QuickieFix" style="max-width:180px;height:auto" />
+      </div>
+      ${html}
+    </div>
+    <div style="max-width:560px;margin:auto;text-align:center;padding-top:14px;color:#8A93A6;font-family:Inter,Arial,sans-serif;font-size:12px">
+      QuickieFix · On-demand, verified tradies · <a href="https://quickiefix.store" style="color:#8A93A6">quickiefix.store</a>
+    </div>
+  </div>`;
+
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -804,7 +822,7 @@ async function brevoSend({ to, toName, subject, html }) {
       sender: SENDER,
       to: [{ email: to, name: toName || to }],
       subject,
-      htmlContent: html,
+      htmlContent: branded,
     }),
   });
   if (!res.ok) {
