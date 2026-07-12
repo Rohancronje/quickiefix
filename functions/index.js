@@ -273,7 +273,7 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
   const db = admin.firestore();
   const now = Date.now();
 
-  // searching → no_tradie_found
+  // searching → no_tradie_found (+ widen the push wave as the clock runs)
   const searching = await db.collection('jobs').where('status', '==', 'searching').get();
   await Promise.all(
     searching.docs.map(async (d) => {
@@ -289,6 +289,17 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
           status: 'no_tradie_found',
           'timestamps.noTradieFoundAt': now,
         });
+        return;
+      }
+      // Wave widening: push newly-eligible candidates (skip declines + already-
+      // notified). Nearest-first order is the candidateIds ranking.
+      if (!noCandidates && startedAt) {
+        const allowed = pushWaveSize(now - startedAt);
+        const declined = job.declinedBy ?? [];
+        const eligible = job.dispatch.candidateIds
+          .filter((id) => !declined.includes(id))
+          .slice(0, allowed === Infinity ? undefined : allowed);
+        await notifyOfferCandidates(d.ref, job, d.id, eligible);
       }
     }),
   );
@@ -625,13 +636,18 @@ async function pushTokensFor(userIds) {
     .filter(Boolean);
 }
 
-/** New job created → push the offer to every candidate in the dispatch pool. */
-exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
-  const job = event.data?.data();
-  if (!job || job.status !== 'searching') return;
-  const candidates = job.dispatch?.candidateIds ?? [];
-  if (!candidates.length) return;
-  const tokens = await pushTokensFor(candidates);
+// Push-wave pacing (mirrors src/constants WAVE): nearest 3 first, widen to 8
+// at 90s, everyone at 180s. Declines advance the line immediately.
+const PUSH_WAVE = { first: 3, second: 8, widenAt1Ms: 90_000, widenAt2Ms: 180_000 };
+const pushWaveSize = (elapsedMs) =>
+  elapsedMs >= PUSH_WAVE.widenAt2Ms ? Infinity : elapsedMs >= PUSH_WAVE.widenAt1Ms ? PUSH_WAVE.second : PUSH_WAVE.first;
+
+/** Send the offer push to `ids` that haven't been notified yet; record them. */
+async function notifyOfferCandidates(jobRef, job, jobId, ids) {
+  const notified = job.dispatch?.notifiedIds ?? [];
+  const fresh = ids.filter((id) => !notified.includes(id));
+  if (!fresh.length) return;
+  const tokens = await pushTokensFor(fresh);
   const trade = String(job.trade || 'job').replace(/_/g, ' ');
   await expoPush(
     tokens.map((to) => ({
@@ -641,8 +657,30 @@ exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
       sound: 'default',
       channelId: 'offers',
       priority: 'high',
-      data: { jobId: event.params.jobId, role: 'tradie' },
+      data: { jobId, role: 'tradie' },
     })),
+  );
+  await jobRef.update({
+    'dispatch.notifiedIds': admin.firestore.FieldValue.arrayUnion(...fresh),
+  });
+}
+
+/**
+ * New job created → AUTO mode only: push the nearest wave (ranked order).
+ * Browse-and-choose sends nothing at creation — only the tradie the customer
+ * picks is notified (see onJobPushUpdates).
+ */
+exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
+  const job = event.data?.data();
+  if (!job || job.status !== 'searching') return;
+  if (job.assignmentMode === 'choose') return;
+  const candidates = job.dispatch?.candidateIds ?? [];
+  if (!candidates.length) return;
+  await notifyOfferCandidates(
+    event.data.ref,
+    job,
+    event.params.jobId,
+    candidates.slice(0, PUSH_WAVE.first),
   );
 });
 
@@ -652,6 +690,21 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
   const after = event.data?.after?.data();
   if (!before || !after) return;
   const jobId = event.params.jobId;
+
+  // AUTO mode: a decline advances the line — push the next unnotified
+  // candidate immediately (nearest-first order is baked into candidateIds).
+  if (
+    after.status === 'searching' &&
+    after.assignmentMode !== 'choose' &&
+    (after.declinedBy?.length ?? 0) > (before.declinedBy?.length ?? 0)
+  ) {
+    const declined = after.declinedBy ?? [];
+    const notified = after.dispatch?.notifiedIds ?? [];
+    const next = (after.dispatch?.candidateIds ?? []).find(
+      (id) => !declined.includes(id) && !notified.includes(id),
+    );
+    if (next) await notifyOfferCandidates(event.data.after.ref, after, jobId, [next]);
+  }
 
   // Browse-and-choose: the customer picked a tradie → prompt them to accept.
   if (after.selectedTradieId && after.selectedTradieId !== before.selectedTradieId) {

@@ -251,12 +251,27 @@ export default function TradieJob() {
         )}
         {job.status === 'confirmed' && isMine && (
           <View style={{ gap: spacing.md }}>
-            <Button title="Start travelling" icon="🚗" kind="secondary" onPress={() => backend.startTravelling(job.id)} />
-            <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
+            <Button
+              title="Go now"
+              icon="🚗"
+              kind="success"
+              onPress={() => {
+                void backend.startTravelling(job.id);
+                // Hand the address straight to their preferred maps app.
+                Alert.alert('Open in maps?', job.location.address, [
+                  { text: 'Not now', style: 'cancel' },
+                  { text: 'Open maps', onPress: () => openInMaps(job.location) },
+                ]);
+              }}
+            />
+            <Button title="I've arrived — start job" icon="📍" kind="secondary" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
           </View>
         )}
         {job.status === 'travelling' && isMine && (
-          <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
+          <View style={{ gap: spacing.md }}>
+            <Button title="🧭 Open address in maps" kind="secondary" onPress={() => openInMaps(job.location)} />
+            <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
+          </View>
         )}
         {job.status === 'on_site' && isMine && <CompleteJobSheet job={job} />}
 
