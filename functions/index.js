@@ -541,6 +541,61 @@ exports.onJobCompletionRecord = onDocumentUpdated(
   },
 );
 
+/**
+ * Data retention. Two policies:
+ *  - In-app messages are working chatter, not records: the thread is deleted
+ *    the moment a job ends (completed or cancelled). The completion code +
+ *    audit trail remain the durable record.
+ *  - Job photos are deleted 24h AFTER the job ends (not after upload, so a
+ *    scheduled job never loses its photos while still active).
+ */
+exports.onJobThreadCleanup = onDocumentUpdated('jobs/{jobId}', async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!after) return;
+  const TERMINAL = ['completed', 'cancelled'];
+  if (!TERMINAL.includes(after.status) || TERMINAL.includes(before?.status)) return;
+
+  const db = admin.firestore();
+  const snap = await db.collection('messages').where('jobId', '==', event.params.jobId).get();
+  if (snap.empty) return;
+  // Batches cap at 500 ops; chunk defensively.
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += 450) {
+    const batch = db.batch();
+    docs.slice(i, i + 450).forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+  }
+  console.log(`thread cleanup: deleted ${docs.length} messages for job ${event.params.jobId}`);
+});
+
+/** Daily sweep: purge Storage photos for jobs that ended over 24h ago. */
+exports.mediaRetentionSweep = onSchedule('every 24 hours', async () => {
+  const db = admin.firestore();
+  const cutoff = Date.now() - 24 * 3600 * 1000;
+  const snap = await db
+    .collection('jobs')
+    .where('status', 'in', ['completed', 'cancelled', 'no_tradie_found'])
+    .get();
+  const bucket = admin.storage().bucket();
+  let purged = 0;
+  for (const d of snap.docs) {
+    const j = d.data();
+    if (!Array.isArray(j.photos) || j.photos.length === 0) continue;
+    const endedAt =
+      j.timestamps?.completedAt || j.timestamps?.cancelledAt || j.timestamps?.noTradieFoundAt;
+    if (!endedAt || endedAt > cutoff) continue;
+    try {
+      await bucket.deleteFiles({ prefix: `jobs/${d.id}/` });
+      await d.ref.update({ photos: [] });
+      purged++;
+    } catch (e) {
+      console.error('photo purge failed for job', d.id, e);
+    }
+  }
+  if (purged) console.log(`media retention: purged photos for ${purged} job(s)`);
+});
+
 /* ------------------------------------------------------------- push ------ */
 
 /** Send messages via the Expo push service (chunked; best-effort). */
