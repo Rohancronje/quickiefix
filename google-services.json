@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "468151741418",
+    "project_id": "quickiefix-2ea2a",
+    "storage_bucket": "quickiefix-2ea2a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:468151741418:android:4d90e5878d5f432c5f2093",
+        "android_client_info": {
+          "package_name": "app.quickiefix"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQlZVwZfi2vNQpSU5LO9gLL1gNt2vRrSQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
