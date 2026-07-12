@@ -12,7 +12,7 @@ import { Screen } from '../../../src/components/Screen';
 import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, tradeMeta } from '../../../src/constants';
-import { useJob, useUser } from '../../../src/hooks/useData';
+import { useJob, useMessages, useUser } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
 import { hadNoCandidates, isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
 import { formatDuration } from '../../../src/lib/format';
@@ -28,6 +28,15 @@ export default function TrackJob() {
   const now = useNow(5000); // fast tick so the wave stage + countdowns feel live
   const tradieUser = useUser(job?.tradieId ?? undefined);
   const tradie = tradieUser?.role === 'tradie' ? (tradieUser as Tradie) : null;
+
+  // Pre-accept Q&A: while searching, tradies can ask questions. The thread only
+  // surfaces (at the TOP, above the results) once a question actually arrives.
+  const messages = useMessages(job?.id);
+  const tradieMsgs = messages.filter((m) => m.from === 'tradie');
+  const lastAsk = tradieMsgs.length > 0 ? tradieMsgs[tradieMsgs.length - 1] : null;
+  const [viewTradieId, setViewTradieId] = useState<string | null>(null);
+  const viewedUser = useUser(viewTradieId ?? undefined);
+  const viewedTradie = viewedUser?.role === 'tradie' ? (viewedUser as Tradie) : null;
 
   // Client-side safety net for the wave clock (the scheduled function is the
   // authority, but this keeps the flow correct even before it runs): once every
@@ -113,6 +122,44 @@ export default function TrackJob() {
         keyboardDismissMode="interactive"
         automaticallyAdjustKeyboardInsets
       >
+        {/* Pre-accept Q&A — surfaces at the top ONLY once a tradie asks. */}
+        {searching && lastAsk && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.askBanner}>
+              <Txt variant="label" color={colors.navy}>
+                💬 {lastAsk.senderName} asked you a question
+              </Txt>
+              <Txt variant="caption" color={colors.navy} style={{ opacity: 0.75 }}>
+                Answer below — quick replies help you get the right tradie faster.
+              </Txt>
+              <View style={styles.askActions}>
+                <View style={{ flex: 1 }}>
+                  <Button
+                    title={viewTradieId ? '← Back to results' : 'View tradie'}
+                    kind="secondary"
+                    small
+                    onPress={() => setViewTradieId(viewTradieId ? null : lastAsk.senderId)}
+                  />
+                </View>
+                {viewTradieId != null && (
+                  <View style={{ flex: 1 }}>
+                    <Button title="Answer" small onPress={() => setViewTradieId(null)} />
+                  </View>
+                )}
+              </View>
+            </Card>
+
+            {viewedTradie ? (
+              <TradieProfileCard tradie={viewedTradie} />
+            ) : (
+              <MessageThread
+                jobId={job.id}
+                from={{ role: 'customer', id: job.customerId, name: job.customerName }}
+              />
+            )}
+          </View>
+        )}
+
         {/* Browse & choose: the customer picks their own tradie */}
         {searching && job.assignmentMode === 'choose' && (
           <View style={{ gap: spacing.md }}>
@@ -265,10 +312,9 @@ export default function TrackJob() {
           </Card>
         )}
 
-        {/* Messaging (contact-masked). While searching, nearby tradies may ask
-            questions about the job before accepting; afterwards it's the thread
-            with your assigned tradie. */}
-        {['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
+        {/* Messaging with the ASSIGNED tradie (pre-accept Q&A renders at the
+            top of the searching state instead). */}
+        {['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status) && (
           <MessageThread
             jobId={job.id}
             from={{ role: 'customer', id: job.customerId, name: job.customerName }}
@@ -466,4 +512,6 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: 2,
   },
+  askBanner: { backgroundColor: colors.amber, gap: spacing.xs },
+  askActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
 });
