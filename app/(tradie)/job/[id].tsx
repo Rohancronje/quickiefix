@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { JobMap } from '../../../src/components/JobMap';
@@ -8,17 +8,17 @@ import { MessageThread } from '../../../src/components/MessageThread';
 import { StatusPill } from '../../../src/components/JobCard';
 import { RatingForm } from '../../../src/components/RatingForm';
 import { Screen } from '../../../src/components/Screen';
-import { Button, Card, Txt } from '../../../src/components/ui';
+import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
-import { useJob } from '../../../src/hooks/useData';
+import { useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration } from '../../../src/lib/format';
 import { distanceKm } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
 import { openInMaps } from '../../../src/lib/maps';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
-import { Rating } from '../../../src/types';
+import { Job, Rating } from '../../../src/types';
 
 export default function TradieJob() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -197,15 +197,17 @@ export default function TradieJob() {
         {job.status === 'travelling' && isMine && (
           <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
         )}
-        {job.status === 'on_site' && isMine && (
-          <Button title="Complete job" icon="✅" kind="success" onPress={() => backend.completeJob(job.id)} />
-        )}
+        {job.status === 'on_site' && isMine && <CompleteJobSheet job={job} />}
 
         {/* Completed: durations + rate the customer */}
         {job.status === 'completed' && (
           <>
             <Card style={{ gap: spacing.sm }}>
               <Txt variant="label">Job summary</Txt>
+              {job.completionCode && <Row label="Confirmation code" value={job.completionCode} />}
+              {job.billing?.contactEmail && (
+                <Row label="Invoice contact" value={job.billing.contactEmail} />
+              )}
               <Row
                 label="Total duration"
                 value={formatDuration(
@@ -264,6 +266,71 @@ export default function TradieJob() {
         </Card>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * Completion flow: confirm the invoicing contact with the customer on-site
+ * (prefilled from their account), then complete. The server then generates the
+ * QF- confirmation code and emails the customer their completion record.
+ */
+function CompleteJobSheet({ job }: { job: Job }) {
+  const customer = useUser(job.customerId);
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  // Prefill from the job / customer account once available.
+  useEffect(() => {
+    if (!open) return;
+    setName((v) => v || job.billing?.contactName || job.customerName || '');
+    setEmail((v) => v || job.billing?.contactEmail || customer?.email || '');
+  }, [open, customer?.email, job.billing?.contactName, job.billing?.contactEmail, job.customerName]);
+
+  const valid = name.trim().length > 1 && /.+@.+\..+/.test(email.trim());
+
+  const complete = async () => {
+    try {
+      setBusy(true);
+      await backend.setJobBilling(job.id, { contactName: name, contactEmail: email });
+      await backend.completeJob(job.id);
+    } catch (e) {
+      Alert.alert('Could not complete', (e as Error).message);
+      setBusy(false);
+    }
+  };
+
+  if (!open) {
+    return <Button title="Complete job" icon="✅" kind="success" onPress={() => setOpen(true)} />;
+  }
+
+  return (
+    <Card style={{ gap: spacing.md }}>
+      <Txt variant="label">Confirm invoicing details</Txt>
+      <Txt variant="caption" color={colors.textMuted}>
+        Check these with the customer — their completion record and confirmation code are emailed
+        here, and your invoice references the same code.
+      </Txt>
+      <Field label="Invoice contact" placeholder="Who the invoice goes to" value={name} onChangeText={setName} />
+      <Field
+        label="Invoice email"
+        placeholder="name@email.com"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
+      <Button
+        title="Confirm & complete job"
+        icon="✅"
+        kind="success"
+        disabled={!valid}
+        loading={busy}
+        onPress={complete}
+      />
+      <Button title="Back" kind="ghost" small onPress={() => setOpen(false)} />
+    </Card>
   );
 }
 

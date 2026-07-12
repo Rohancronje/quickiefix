@@ -182,7 +182,11 @@ service cloud.firestore {
       //    WHILE still searching — so they can accept/decline the selection even
       //    if they weren't in the original candidate pool, and
       //  - platform admins.
-      allow update: if signedIn() && (
+      // completionCode is the server-generated completion record — no client
+      // (even the parties) may write it; the Cloud Function sets it (Admin SDK).
+      allow update: if signedIn()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['completionCode'])
+        && (
         resource.data.customerId == request.auth.uid ||
         resource.data.tradieId == request.auth.uid ||
         (

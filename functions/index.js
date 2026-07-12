@@ -470,6 +470,77 @@ exports.onUserAudit = onDocumentUpdated('users/{uid}', async (event) => {
   }
 });
 
+/**
+ * Completion record (billing handshake). When a job completes:
+ *  - generate the deterministic confirmation code (QF-XXXXXX) server-side so
+ *    neither party can forge it (clients are rule-blocked from writing it),
+ *  - email the customer their completion record at the invoicing address
+ *    confirmed on-site (falls back to their account email).
+ * The code is the invoice reference for the future Xero push.
+ */
+exports.onJobCompletionRecord = onDocumentUpdated(
+  { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after || after.status !== 'completed' || before?.status === 'completed') return;
+
+    const jobId = event.params.jobId;
+    const code = `QF-${jobId.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
+    if (!after.completionCode) {
+      await event.data.after.ref.update({ completionCode: code });
+    }
+
+    // Resolve the invoicing email: confirmed billing contact first, else the
+    // customer's account email.
+    let to = after.billing && after.billing.contactEmail;
+    let toName = (after.billing && after.billing.contactName) || after.customerName || 'there';
+    if (!to && after.customerId) {
+      const snap = await admin.firestore().collection('users').doc(after.customerId).get();
+      if (snap.exists) to = snap.data().email;
+    }
+    if (!to) return;
+
+    const trade = String(after.trade || 'job').replace(/_/g, ' ');
+    const when = new Date(after.timestamps?.completedAt || Date.now()).toLocaleString('en-NZ', {
+      timeZone: 'Pacific/Auckland',
+      dateStyle: 'long',
+      timeStyle: 'short',
+    });
+    const rc = after.rateSnapshot && after.rateSnapshot.rateCard;
+    const money = (c) => `$${(c / 100).toFixed(2)}`;
+    const rates = rc
+      ? `<tr><td style="padding:4px 0;color:#5A6478">Hourly rate</td><td align="right"><b>${money(rc.hourlyRateCents)}</b></td></tr>` +
+        (rc.calloutFeeCents != null
+          ? `<tr><td style="padding:4px 0;color:#5A6478">Call-out fee</td><td align="right"><b>${money(rc.calloutFeeCents)}</b></td></tr>`
+          : '')
+      : '';
+
+    try {
+      await brevoSend({
+        to,
+        toName,
+        subject: `Job complete — confirmation ${code}`,
+        html: `
+        <div style="font-family:Inter,Arial,sans-serif;max-width:520px;margin:auto;color:#0B1220">
+          <h2 style="color:#0B1220">Your ${trade} job is complete ✅</h2>
+          <p>${after.tradieName || 'Your tradie'} has marked this job complete (${when}).</p>
+          <div style="background:#F4F6FB;border-radius:12px;padding:16px;margin:16px 0;text-align:center">
+            <div style="color:#5A6478;font-size:13px">Completion confirmation code</div>
+            <div style="font-size:28px;font-weight:800;letter-spacing:2px">${code}</div>
+          </div>
+          <table width="100%" style="font-size:14px">${rates}</table>
+          <p style="color:#5A6478;font-size:13px">The tradie invoices you directly at the rates agreed
+          when you confirmed them. Quote the confirmation code on any invoice query — it's your
+          shared record of this job.</p>
+        </div>`,
+      });
+    } catch (e) {
+      console.error('completion email failed:', e);
+    }
+  },
+);
+
 /* ------------------------------------------------------------- push ------ */
 
 /** Send messages via the Expo push service (chunked; best-effort). */

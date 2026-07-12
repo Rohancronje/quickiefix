@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   AppUser,
+  BillingDetails,
   Company,
   CompanyTag,
   Complaint,
@@ -499,6 +500,19 @@ class MockBackend implements Backend {
     }
   }
 
+  async setJobBilling(jobId: string, billing: BillingDetails): Promise<void> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (job) {
+      job.billing = {
+        contactName: billing.contactName.trim(),
+        contactEmail: billing.contactEmail.trim(),
+      };
+      // The mock mirrors the Cloud Function: deterministic code on completion.
+      this.commit();
+    }
+  }
+
   /* ----------------------------------------------- browse & choose (§) -- */
 
   async selectTradie(jobId: string, tradieId: string): Promise<void> {
@@ -615,6 +629,9 @@ class MockBackend implements Backend {
       if (job.status !== 'on_site' && job.status !== 'travelling') return;
       job.status = 'completed';
       job.timestamps.completedAt = Date.now();
+      // Deterministic confirmation code (the live backend's Cloud Function does
+      // the same server-side): stable per job, unforgeable by construction.
+      job.completionCode = `QF-${job.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
       const t = job.tradieId ? this.db.users[job.tradieId] : null;
       if (t && t.role === 'tradie') {
         t.status = 'available';

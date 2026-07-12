@@ -11,6 +11,7 @@
 import {
   AppUser,
   AssignmentMode,
+  BillingDetails,
   Company,
   CompanyTag,
   Customer,
@@ -142,6 +143,8 @@ export interface Backend {
   // ---- Jobs (tradie) ----
   acceptJob(jobId: string, tradieId: string): Promise<Job>;
   declineJob(jobId: string, tradieId: string): Promise<void>;
+  /** Save the invoicing contact confirmed at completion time. */
+  setJobBilling(jobId: string, billing: BillingDetails): Promise<void>;
   /** `choose` mode: a busy (unavailable) tradie opts into a job so the customer
    *  can see them in the browse list. */
   expressInterest(jobId: string, tradieId: string): Promise<void>;

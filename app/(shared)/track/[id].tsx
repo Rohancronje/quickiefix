@@ -209,6 +209,17 @@ export default function TrackJob() {
             {tradie && <TradieProfileCard tradie={tradie} />}
             <Card style={{ gap: spacing.sm }}>
               <Txt variant="label">Job summary</Txt>
+              {job.completionCode && (
+                <View style={styles.codeBox}>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    Completion confirmation code
+                  </Txt>
+                  <Txt variant="heading">{job.completionCode}</Txt>
+                  <Txt variant="caption" color={colors.textFaint}>
+                    Emailed to you as your completion record — quote it on any invoice query.
+                  </Txt>
+                </View>
+              )}
               <SummaryRow
                 label="Total time"
                 value={formatDuration(
@@ -445,6 +456,12 @@ const styles = StyleSheet.create({
   photo: { width: 100, height: 100, borderRadius: radius.md },
   rateBox: {
     backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 2,
+  },
+  codeBox: {
+    backgroundColor: colors.successSoft,
     borderRadius: radius.md,
     padding: spacing.md,
     gap: 2,

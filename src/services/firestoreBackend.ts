@@ -38,6 +38,7 @@ import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   AppUser,
+  BillingDetails,
   Company,
   CompanyTag,
   Customer,
@@ -523,6 +524,12 @@ export class FirestoreBackend implements Backend {
   async declineJob(jobId: string, tradieId: string): Promise<void> {
     // arrayUnion keeps this idempotent without a read.
     await updateDoc(this.jobRef(jobId), { declinedBy: arrayUnion(tradieId) });
+  }
+
+  async setJobBilling(jobId: string, billing: BillingDetails): Promise<void> {
+    await updateDoc(this.jobRef(jobId), {
+      billing: { contactName: billing.contactName.trim(), contactEmail: billing.contactEmail.trim() },
+    });
   }
 
   /* ----------------------------------------------- browse & choose (§) -- */

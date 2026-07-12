@@ -279,6 +279,12 @@ export interface RateSnapshot {
   capturedAt: number;
 }
 
+/** Invoicing details confirmed at job completion (feeds the Xero push later). */
+export interface BillingDetails {
+  contactName: string;
+  contactEmail: string;
+}
+
 export interface Job {
   id: string;
   customerId: string;
@@ -327,6 +333,13 @@ export interface Job {
   // Ratings exchanged after completion
   customerRating?: Rating; // customer -> tradie
   tradieRating?: Rating; // tradie -> customer
+
+  /** Invoicing contact confirmed at completion (prefilled from the customer). */
+  billing?: BillingDetails;
+  /** Server-generated completion confirmation code (QF-XXXXXX) — emailed to the
+   *  customer, shown in the tradie's report, and the future Xero invoice ref.
+   *  Written ONLY by the Cloud Function; clients are rule-blocked. */
+  completionCode?: string;
 }
 
 /**
