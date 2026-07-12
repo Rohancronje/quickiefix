@@ -4,8 +4,9 @@
  * nothing, so it's OTA-safe everywhere. Tapping the map hands off to the
  * phone's real maps app for navigation.
  */
+import Constants from 'expo-constants';
 import React from 'react';
-import { Pressable, StyleSheet, TurboModuleRegistry, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TurboModuleRegistry, View } from 'react-native';
 import { openInMaps } from '../lib/maps';
 import { colors, radius, spacing } from '../theme';
 import { Location } from '../types';
@@ -15,6 +16,13 @@ type RNMaps = typeof import('react-native-maps');
 
 function maps(): RNMaps | null {
   try {
+    // Android HARD-CRASHES a Google MapView when the API key is missing from
+    // the manifest (an invalid key merely renders blank). Only render once a
+    // key is actually configured in the build.
+    if (Platform.OS === 'android') {
+      const key = Constants.expoConfig?.android?.config?.googleMaps?.apiKey;
+      if (!key) return null;
+    }
     // The native TurboModule is only present in binaries built with the lib.
     if (!TurboModuleRegistry?.get?.('RNMapsAirModule')) return null;
     // eslint-disable-next-line @typescript-eslint/no-require-imports
