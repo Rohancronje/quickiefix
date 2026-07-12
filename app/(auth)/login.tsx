@@ -104,7 +104,15 @@ export default function Login() {
             style={{ alignItems: 'center', paddingVertical: spacing.md }}
           >
             <Txt style={styles.link}>
-              New here? <Txt style={styles.linkBold}>Create an account</Txt>
+              Don't have an account? <Txt style={styles.linkBold}>Sign up</Txt>
+            </Txt>
+          </Pressable>
+          <Pressable
+            onPress={() => router.replace('/(auth)/register-tradie')}
+            style={{ alignItems: 'center' }}
+          >
+            <Txt style={styles.link}>
+              Are you a tradie? <Txt style={styles.linkBold}>Join as a tradie</Txt>
             </Txt>
           </Pressable>
         </ScrollView>

@@ -23,6 +23,9 @@ interface AuthState {
   /** True when a restored session must pass biometrics before the app opens.
    *  Set only on cold start (i.e. after the app was fully closed). */
   locked: boolean;
+  /** True when a previous session was ended on cold start (app fully closed
+   *  without biometric unlock enabled) — routes straight to the login screen. */
+  sessionEnded: boolean;
   /** Prompt the OS biometric sheet; unlocks the session on success. */
   unlock: () => Promise<boolean>;
   login: (email: string, password: string) => Promise<AppUser>;
@@ -37,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [locked, setLocked] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
   const unsubRef = useRef<(() => void) | null>(null);
 
   /** Keep the in-memory user live against backend changes (status, rating). */
@@ -56,14 +60,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Restore any persisted session on cold start. If the user opted into
-  // biometric lock, a restored session starts LOCKED — fully closing the app
-  // therefore always demands fingerprint/face (or password re-login) to enter.
+  // Cold-start policy (banking pattern): fully closing the app ends the
+  // session. On reopen, a user with biometric unlock enabled gets the
+  // fingerprint lock screen; everyone else is signed out and lands on the
+  // login screen.
   useEffect(() => {
     (async () => {
       const u = await getSessionUser();
-      if (u && (await isBiolockEnabled())) setLocked(true);
-      bind(u);
+      if (u) {
+        if (await isBiolockEnabled()) {
+          setLocked(true);
+          bind(u);
+        } else {
+          await backend.logout().catch(() => {});
+          setSessionEnded(true);
+          bind(null);
+        }
+      } else {
+        bind(null);
+      }
       setLoading(false);
     })();
     return () => unsubRef.current?.();
@@ -103,16 +118,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    // Stop pushes reaching a signed-out device (best-effort, before auth ends).
+    // Explicit sign-out: stop pushes reaching this device. (The cold-start
+    // session end deliberately KEEPS the token so an available tradie still
+    // receives job offers while the app is closed.)
     if (user) await backend.setPushToken(user.id, null).catch(() => {});
     await backend.logout();
     setLocked(false);
+    setSessionEnded(true); // returning users land on login, not the pitch page
     bind(null);
   }, [bind, user]);
 
   const value = useMemo(
-    () => ({ user, loading, locked, unlock, login, registerCustomer, registerTradie, logout }),
-    [user, loading, locked, unlock, login, registerCustomer, registerTradie, logout],
+    () => ({ user, loading, locked, sessionEnded, unlock, login, registerCustomer, registerTradie, logout }),
+    [user, loading, locked, sessionEnded, unlock, login, registerCustomer, registerTradie, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -64,3 +64,5 @@ eslint-report.txt
 *service-account*.json
 *firebase-adminsdk*.json
 *fcm*.json
+
+Secrets/

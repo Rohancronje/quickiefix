@@ -38,7 +38,7 @@ function AppFrame({ children }: { children: React.ReactNode }) {
 
 /** Redirect the user into the right route group based on session + role. */
 function useAuthRouting() {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionEnded } = useAuth();
   const segments = useSegments();
   const router = useRouter();
 
@@ -49,7 +49,9 @@ function useAuthRouting() {
     const inShared = group === '(shared)'; // job request/track — either role
 
     if (!user && !inAuth) {
-      router.replace('/welcome');
+      // Returning users (session ended on app close) go straight to login;
+      // first-time visitors get the welcome pitch.
+      router.replace(sessionEnded ? '/login' : '/welcome');
     } else if (user && !inShared) {
       const target = user.role === 'tradie' ? '(tradie)' : '(customer)';
       if (group !== target) {
