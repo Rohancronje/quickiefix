@@ -83,16 +83,33 @@ export default function TradieJob() {
   // Pre-accept: this screen doubles as the offer detail (via "Ask a question").
   const isOpenOffer = job.status === 'searching';
   const isMine = job.tradieId === tradie.id;
+  const isChoose = job.assignmentMode === 'choose';
+  const chosenMe = isChoose && job.selectedTradieId === tradie.id;
+  const alreadyInterested = (job.interestedTradies ?? []).some((t) => t.tradieId === tradie.id);
   const acceptJob = async () => {
     try {
-      await backend.acceptJob(job.id, tradie.id);
+      if (chosenMe) {
+        // The customer already picked this tradie — accepting locks the job in
+        // directly (no redundant customer-confirm step).
+        await backend.acceptSelection(job.id, tradie.id);
+      } else {
+        await backend.acceptJob(job.id, tradie.id);
+      }
     } catch (e) {
       Alert.alert('Could not accept', (e as Error).message);
     }
   };
   const declineJob = () => {
-    backend.declineJob(job.id, tradie.id);
+    if (chosenMe) backend.declineSelection(job.id, tradie.id);
+    else backend.declineJob(job.id, tradie.id);
     router.replace('/dashboard');
+  };
+  const expressInterest = async () => {
+    try {
+      await backend.expressInterest(job.id, tradie.id);
+    } catch (e) {
+      Alert.alert('Could not respond', (e as Error).message);
+    }
   };
 
   return (
@@ -145,8 +162,52 @@ export default function TradieJob() {
           )}
         </Card>
 
-        {/* Pre-accept: open offer — ask questions below, or take the job */}
-        {isOpenOffer && (
+        {/* Pre-accept: open offer — behaviour depends on the matching mode. */}
+        {isOpenOffer && chosenMe && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={[styles.gpsCard, { backgroundColor: colors.successSoft }]}>
+              <Txt variant="label" color={colors.success}>
+                ⭐ {job.customerName} chose you for this job
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                Accepting locks it in immediately — no further confirmation needed.
+              </Txt>
+            </Card>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Decline" kind="ghost" small onPress={declineJob} />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Button title="Accept — lock it in" kind="success" onPress={acceptJob} />
+              </View>
+            </View>
+          </View>
+        )}
+        {isOpenOffer && isChoose && !chosenMe && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.gpsCard}>
+              <Txt variant="label" color={colors.blue}>
+                👀 The customer is choosing a tradie
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {alreadyInterested
+                  ? "You're on their list — answer any questions below to stand out."
+                  : 'Put yourself on their list, and answer any questions below to stand out.'}
+              </Txt>
+            </Card>
+            {!alreadyInterested && (
+              <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                <View style={{ flex: 1 }}>
+                  <Button title="Not now" kind="ghost" small onPress={declineJob} />
+                </View>
+                <View style={{ flex: 2 }}>
+                  <Button title="I'm interested" onPress={expressInterest} />
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+        {isOpenOffer && !isChoose && (
           <View style={{ gap: spacing.md }}>
             <Card style={styles.gpsCard}>
               <Txt variant="label" color={colors.blue}>
