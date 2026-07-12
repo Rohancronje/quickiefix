@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import { AppUser, Customer, Tradie } from '../types';
 import { biometricUnlock, isBiolockEnabled } from '../lib/biometrics';
 import { getPushToken } from '../lib/push';
@@ -89,6 +90,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (ok) setLocked(false);
     return ok;
   }, []);
+
+  // Background policy: some devices keep the process alive after a swipe-away,
+  // so the cold-start rule alone isn't enough. If the app has been out of the
+  // foreground for over a minute (backgrounded, screen off, or a surviving
+  // "closed" process), end the session the same way: biometric users re-lock,
+  // everyone else is signed out to the login screen. The grace window means
+  // quickly hopping to Maps and back never logs a tradie out.
+  const backgroundedAt = useRef<number | null>(null);
+  useEffect(() => {
+    const BG_GRACE_MS = 60_000;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        if (backgroundedAt.current == null) backgroundedAt.current = Date.now();
+        return;
+      }
+      if (state !== 'active') return;
+      const away = backgroundedAt.current != null ? Date.now() - backgroundedAt.current : 0;
+      backgroundedAt.current = null;
+      if (!user || away < BG_GRACE_MS) return;
+      void (async () => {
+        if (await isBiolockEnabled()) {
+          setLocked(true);
+        } else {
+          // Session-end (not explicit logout): keep the push token so an
+          // available tradie keeps receiving job offers.
+          await backend.logout().catch(() => {});
+          setSessionEnded(true);
+          bind(null);
+        }
+      })();
+    });
+    return () => sub.remove();
+  }, [user, bind]);
 
   const login = useCallback(
     async (email: string, password: string) => {
