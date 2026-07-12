@@ -58,3 +58,9 @@ emu.log
 
 # lint/report artifacts
 eslint-report.txt
+
+# Firebase service-account keys - NEVER commit
+*serviceAccount*.json
+*service-account*.json
+*firebase-adminsdk*.json
+*fcm*.json
