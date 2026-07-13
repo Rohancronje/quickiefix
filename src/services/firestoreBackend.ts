@@ -35,7 +35,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
 import {
   AppUser,
   BillingDetails,
@@ -460,14 +460,35 @@ export class FirestoreBackend implements Backend {
     if (!storage || uris.length === 0) return uris;
     const urls: string[] = [];
     for (let i = 0; i < uris.length; i++) {
+      const uri = uris[i];
+      if (/^https?:/.test(uri)) {
+        urls.push(uri); // already remote (e.g. re-submit)
+        continue;
+      }
+      const r = ref(storage, `jobs/${jobId}/photo_${i}`);
       try {
-        const res = await fetch(uris[i]);
-        const blob = await res.blob();
-        const r = ref(storage, `jobs/${jobId}/photo_${i}`);
-        await uploadBytes(r, blob);
+        let uploaded = false;
+        try {
+          // Read the picked file from disk directly. fetch(file://) is broken
+          // on modern React Native and used to silently drop EVERY photo.
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
+          const b64 = await FileSystem.readAsStringAsync(uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          await uploadString(r, b64, 'base64', { contentType: 'image/jpeg' });
+          uploaded = true;
+        } catch {
+          /* fall through to the fetch/blob path (web) */
+        }
+        if (!uploaded) {
+          const res = await fetch(uri);
+          const blob = await res.blob();
+          await uploadBytes(r, blob, { contentType: blob.type || 'image/jpeg' });
+        }
         urls.push(await getDownloadURL(r));
-      } catch {
-        // Omit failed uploads — a local file:// URI is useless to other devices.
+      } catch (e) {
+        console.warn(`photo upload failed (${i}):`, (e as Error).message);
       }
     }
     return urls;

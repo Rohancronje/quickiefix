@@ -150,6 +150,16 @@ export default function TradieJob() {
             {meta.emoji} {meta.label}
           </Txt>
         </View>
+        {(isOpenOffer ||
+          (isMine && ['accepted', 'confirmed', 'travelling', 'on_site'].includes(job.status))) && (
+          <Pressable
+            onPress={() => router.push({ pathname: '/messages/[id]', params: { id: job.id } })}
+            hitSlop={10}
+            accessibilityLabel="Open job messages"
+          >
+            <Txt style={{ fontSize: 24 }}>💬</Txt>
+          </Pressable>
+        )}
         <StatusPill status={job.status} />
       </View>
 
