@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getTradieJobs, listCompanyTradies } from '../api';
+import { listCompanyJobs, listCompanyTradies } from '../api';
 import { useAuth } from '../auth';
 import { formatDate, formatDuration } from '../lib';
 import { Job, Tradie, tradeLabel } from '../types';
@@ -9,26 +9,34 @@ interface Row {
   job: Job;
 }
 
+// Session cache — instant render on revisit, background refresh.
+const sheetCache = new Map<string, Row[]>();
+
 /** Company-wide timesheets: every completed job across the roster, exportable
  *  as CSV for payroll / invoicing runs. */
 export function Timesheets() {
   const { company } = useAuth();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cached = company ? sheetCache.get(company.id) : undefined;
+  const [rows, setRows] = useState<Row[]>(cached ?? []);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     if (!company) return;
     (async () => {
-      setLoading(true);
-      const tradies = await listCompanyTradies(company.id);
+      // Two parallel queries: the roster + every company job in one shot.
+      const [tradies, jobs] = await Promise.all([
+        listCompanyTradies(company.id),
+        listCompanyJobs(company.id),
+      ]);
+      const byId = new Map(tradies.map((t) => [t.id, t]));
       const all: Row[] = [];
-      for (const tradie of tradies) {
-        const jobs = await getTradieJobs(tradie.id);
-        for (const job of jobs) {
-          if (job.status === 'completed') all.push({ tradie, job });
-        }
+      for (const job of jobs) {
+        if (job.status !== 'completed' || !job.tradieId) continue;
+        const tradie = byId.get(job.tradieId);
+        if (tradie) all.push({ tradie, job });
       }
       all.sort((a, b) => (b.job.timestamps.completedAt ?? 0) - (a.job.timestamps.completedAt ?? 0));
+      sheetCache.set(company.id, all);
       setRows(all);
       setLoading(false);
     })();

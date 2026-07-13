@@ -100,9 +100,14 @@ export function Team() {
   const remove = async (tag: CompanyTag) => {
     if (!company) return;
     if (!confirm(`Remove the seat for ${tag.issuedToName}?`)) return;
-    await removeTag(tag.id);
-    await refresh(company);
-    flash('Seat removed');
+    try {
+      await removeTag(tag.id);
+      await refresh(company);
+      flash('Seat removed');
+    } catch (e) {
+      // Never fail silently — a denied write must be visible.
+      flash(`Could not remove: ${(e as Error).message}`);
+    }
   };
 
   // You issued the seat, you know the tradie — confirming the claim is yours.
@@ -119,9 +124,13 @@ export function Team() {
       )
     )
       return;
-    await confirmClaimedTag(tag.id);
-    await refresh(company);
-    flash(`${tag.issuedToName} is now on your roster ✓`);
+    try {
+      await confirmClaimedTag(tag.id);
+      await refresh(company);
+      flash(`${tag.issuedToName} is now on your roster ✓`);
+    } catch (e) {
+      flash(`Could not confirm: ${(e as Error).message}`);
+    }
   };
 
   // Roster = validated members. Union users bound to the company with validated

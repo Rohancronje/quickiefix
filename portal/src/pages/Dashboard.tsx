@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { computeStats, getTradieJobs, listCompanyTags, listCompanyTradies } from '../api';
+import { computeStats, listCompanyJobs, listCompanyTags, listCompanyTradies } from '../api';
 import { useAuth } from '../auth';
 import {
   IconArrowRight,
@@ -17,32 +17,43 @@ interface Row {
   stats: TradieStats;
 }
 
+// Session cache: clicking back to the Dashboard renders the last data
+// INSTANTLY and refreshes quietly in the background (stale-while-revalidate).
+const dashCache = new Map<string, { rows: Row[]; seatsIssued: number }>();
+
 export function Dashboard() {
   const { company } = useAuth();
   const nav = useNavigate();
-  const [rows, setRows] = useState<Row[]>([]);
-  const [seatsIssued, setSeatsIssued] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cached = company ? dashCache.get(company.id) : undefined;
+  const [rows, setRows] = useState<Row[]>(cached?.rows ?? []);
+  const [seatsIssued, setSeatsIssued] = useState(cached?.seatsIssued ?? 0);
+  const [loading, setLoading] = useState(!cached);
 
   useEffect(() => {
     if (!company) return;
     (async () => {
-      setLoading(true);
-      const [tradies, tags] = await Promise.all([
+      // Three parallel queries — no per-tradie waterfall.
+      const [tradies, tags, jobs] = await Promise.all([
         listCompanyTradies(company.id),
         listCompanyTags(company.id),
+        listCompanyJobs(company.id),
       ]);
-      const rows = await Promise.all(
-        tradies.map(async (tradie) => ({
-          tradie,
-          stats: computeStats(await getTradieJobs(tradie.id)),
-        })),
-      );
-      rows.sort((a, b) => b.stats.completedJobs - a.stats.completedJobs);
-      setRows(rows);
+      const byTradie = new Map<string, typeof jobs>();
+      for (const j of jobs) {
+        if (!j.tradieId) continue;
+        byTradie.set(j.tradieId, [...(byTradie.get(j.tradieId) ?? []), j]);
+      }
+      const nextRows = tradies.map((tradie) => ({
+        tradie,
+        stats: computeStats(byTradie.get(tradie.id) ?? []),
+      }));
+      nextRows.sort((a, b) => b.stats.completedJobs - a.stats.completedJobs);
       // A seat you've issued counts as "tradie added" — validation is
       // QuickieFix's job, and the checklist shouldn't stall on our queue.
-      setSeatsIssued(tags.filter((t) => t.status !== 'removed').length);
+      const nextSeats = tags.filter((t) => t.status !== 'removed').length;
+      dashCache.set(company.id, { rows: nextRows, seatsIssued: nextSeats });
+      setRows(nextRows);
+      setSeatsIssued(nextSeats);
       setLoading(false);
     })();
   }, [company]);

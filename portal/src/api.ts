@@ -222,6 +222,17 @@ export async function getTradie(tradieId: string): Promise<Tradie | null> {
   return snap.exists() ? (snap.data() as Tradie) : null;
 }
 
+/** ALL of a company's jobs in one query (jobs are stamped with companyId at
+ *  acceptance) — one round trip instead of one per tradie. */
+export async function listCompanyJobs(companyId: string): Promise<Job[]> {
+  const snap = await getDocs(
+    query(collection(db, 'jobs'), where('companyId', '==', companyId)),
+  );
+  return snap.docs
+    .map((d) => d.data() as Job)
+    .sort((a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0));
+}
+
 export async function getTradieJobs(tradieId: string): Promise<Job[]> {
   const snap = await getDocs(
     query(collection(db, 'jobs'), where('tradieId', '==', tradieId)),
