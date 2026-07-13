@@ -33,17 +33,21 @@
   blockquote p { margin: 4px 0; }
   table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
   th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  /* The cover meta-table has an intentionally empty header row — hide it. */
+  th:empty { display: none; }
   td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
   tr:nth-child(even) td { background: #F7F9FD; }
   hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
   /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
   .page img {
-    display: block; margin: 18px auto 6px; max-width: 280px; width: 100%;
+    display: block; margin: 16px auto 4px; max-width: 230px; width: 100%;
     border: 1px solid var(--line); border-radius: 14px;
     box-shadow: 0 6px 24px rgba(11,18,32,.10);
   }
-  .page img[src*="portal"] { max-width: 640px; border-radius: 8px; }
-  .page img + em { display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .page img[src*="portal"] { max-width: 620px; border-radius: 8px; }
+  .page img + em, .page p:has(img) + p > em:only-child {
+    display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;
+  }
   li { margin: 3px 0; }
   .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
   @media print {
@@ -52,8 +56,23 @@
     th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    h2 { break-after: avoid; }
-    table, blockquote, .page img { break-inside: avoid; }
+    /* Cover page: title + meta table stand alone; contents starts page 2. */
+    .page > table:first-of-type { break-after: page; }
+    .page > table:first-of-type + hr { display: none; }
+    /* Never leave a heading stranded at the bottom of a page. */
+    h1, h2, h3 { break-after: avoid; break-inside: avoid; }
+    p { orphans: 3; widows: 3; }
+    li { break-inside: avoid; }
+    /* Keep the TOC list in one block. */
+    h2 + ol { break-inside: avoid; }
+    /* Tables flow across pages (header row repeats); rows never split. */
+    table { break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    /* Keep a screenshot and its caption together. */
+    blockquote, .page img { break-inside: avoid; }
+    p:has(> img) { break-inside: avoid; break-after: avoid; }
+    p:has(> img) + p { break-before: avoid; }
     a { color: inherit; }
   }
   @page { margin: 14mm 12mm; }
@@ -127,8 +146,8 @@
 <ol>
 <li>Open the <strong>Business Portal</strong>: <strong><a href="https://quickiefix-portal.web.app">https://quickiefix-portal.web.app</a></strong></li>
 </ol>
-<p><img src="images/portal-login.png" alt="The Business Portal sign-in page">
-<em>The Business Portal — create your company here.</em></p>
+<p><img src="images/portal-signin.png" alt="The Business Portal sign-in page">
+<em>The Business Portal — sign in or create your company here.</em></p>
 <ol start="2">
 <li>Click <strong>&quot;Create your company&quot;</strong>.</li>
 <li>Enter: <strong>Company name</strong>, <strong>Your name</strong>, <strong>Email</strong>, <strong>Password</strong> (min 6 characters).</li>
@@ -164,6 +183,8 @@
 </tr>
 </tbody></table>
 <p>Click <strong>Save &amp; go live</strong>. Your status badge flips from <strong>Setup</strong> (amber) to <strong>Active</strong> (green): <em>&quot;Rate card saved — you are live.&quot;</em></p>
+<p><img src="images/portal-settings.png" alt="Settings — rate card">
+<em>Settings — save your hourly rate to go live.</em></p>
 <p><strong>Why this matters:</strong> the company rate card <strong>overrides every tagged tradie&#39;s personal rates</strong>. When any of your tradies accepts a job, the customer sees <em>your</em> company name and <em>your</em> rates, and those rates are snapshotted into the job as the agreed invoice baseline. One price list, no rogue quoting.</p>
 <hr>
 <h2>4. Adding tradies one at a time — seats &amp; tag codes</h2>
@@ -207,6 +228,8 @@
 <blockquote>
 <p>The tradie needs their own QuickieFix account first (registered in the app with their trade and licence, and admin-approved). The seat code links that account to your company — it doesn&#39;t create the account. To create accounts <em>for</em> them, use CSV import below.</p>
 </blockquote>
+<p><img src="images/portal-mytradies.png" alt="My Tradies — seats and import">
+<em>My Tradies — issue seats one at a time, or import your whole team.</em></p>
 <hr>
 <h2>5. Adding your whole team at once — CSV import</h2>
 <p><strong>My Tradies → Import from a spreadsheet</strong> — the fastest way to onboard an existing team:</p>
@@ -278,6 +301,8 @@
 </tr>
 </tbody></table>
 <p><strong>Click any row</strong> for the tradie&#39;s detail page: KPIs, complete <strong>job history</strong> (customer, address, completion date, on-site duration, rating per job) and their <strong>customer reviews</strong> verbatim — your quality-control view.</p>
+<p><img src="images/portal-dashboard.png" alt="The company Dashboard">
+<em>Your Dashboard — team KPIs at a glance.</em></p>
 <hr>
 <h2>8. Managing the roster: tags, removal, leavers</h2>
 <ul>

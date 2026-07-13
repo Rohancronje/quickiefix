@@ -48,8 +48,8 @@ The lifecycle of a seat: **issued → claimed → validated → (removed)**. You
 
 1. Open the **Business Portal**: **https://quickiefix-portal.web.app**
 
-![The Business Portal sign-in page](images/portal-login.png)
-*The Business Portal — create your company here.*
+![The Business Portal sign-in page](images/portal-signin.png)
+*The Business Portal — sign in or create your company here.*
 
 2. Click **"Create your company"**.
 3. Enter: **Company name**, **Your name**, **Email**, **Password** (min 6 characters).
@@ -72,6 +72,9 @@ Sign back in any time at the same URL with **Sign in**.
 | **After-hours callout** | optional | 140.00 |
 
 Click **Save & go live**. Your status badge flips from **Setup** (amber) to **Active** (green): *"Rate card saved — you are live."*
+
+![Settings — rate card](images/portal-settings.png)
+*Settings — save your hourly rate to go live.*
 
 **Why this matters:** the company rate card **overrides every tagged tradie's personal rates**. When any of your tradies accepts a job, the customer sees *your* company name and *your* rates, and those rates are snapshotted into the job as the agreed invoice baseline. One price list, no rogue quoting.
 
@@ -97,6 +100,9 @@ Click **Save & go live**. Your status badge flips from **Setup** (amber) to **Ac
 The **Tags** table on the same page shows every code you've ever issued, its status, and actions (**Copy code** for unclaimed ones, **Remove** for active ones).
 
 > The tradie needs their own QuickieFix account first (registered in the app with their trade and licence, and admin-approved). The seat code links that account to your company — it doesn't create the account. To create accounts *for* them, use CSV import below.
+
+![My Tradies — seats and import](images/portal-mytradies.png)
+*My Tradies — issue seats one at a time, or import your whole team.*
 
 ---
 
@@ -154,6 +160,9 @@ Everything else — availability, wave dispatch, browse & choose, live ETA, comp
 | Status | Approval badge |
 
 **Click any row** for the tradie's detail page: KPIs, complete **job history** (customer, address, completion date, on-site duration, rating per job) and their **customer reviews** verbatim — your quality-control view.
+
+![The company Dashboard](images/portal-dashboard.png)
+*Your Dashboard — team KPIs at a glance.*
 
 ---
 

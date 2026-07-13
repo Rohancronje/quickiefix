@@ -51,7 +51,7 @@ The portal serves two audiences from the same login page — your email decides 
 
 **Returning?** **Sign in** with email and password.
 
-![The Business Portal sign-in page](images/portal-login.png)
+![The Business Portal sign-in page](images/portal-signin.png)
 *The Business Portal sign-in page.*
 
 ---
@@ -74,6 +74,9 @@ Your team at a glance.
 
 Empty state ("No tradies yet") links straight to **Add tradies**.
 
+![The company Dashboard](images/portal-dashboard.png)
+*The Dashboard — KPI cards and the team performance panel.*
+
 ## 3. My Tradies
 
 Your roster and onboarding hub. Four sections:
@@ -89,6 +92,9 @@ Issue a single tag:
 3. *"Send this code to the tradie. It expires in 14 days."*
 
 The tradie claims it in their app (**Profile → Company → Claim seat**); a platform admin then validates it.
+
+![My Tradies — roster, seats and CSV import](images/portal-mytradies.png)
+*My Tradies — the roster, Add a seat, and spreadsheet import.*
 
 ### 3.3 Import from a spreadsheet
 Bulk onboarding:
@@ -126,6 +132,9 @@ Use it for quality control, dispute context and performance reviews.
 - **Company profile** — company name, **billing email**.
 - **Account** — admin email + Company ID (quote in support requests).
 - **Log out**.
+
+![Settings — rate card and company profile](images/portal-settings.png)
+*Settings — rate card, company profile and account.*
 
 ---
 
