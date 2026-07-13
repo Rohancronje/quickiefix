@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { computeStats, getTradieJobs, listCompanyTradies } from '../api';
+import { computeStats, getTradieJobs, listCompanyTags, listCompanyTradies } from '../api';
 import { useAuth } from '../auth';
 import {
   IconArrowRight,
@@ -21,13 +21,17 @@ export function Dashboard() {
   const { company } = useAuth();
   const nav = useNavigate();
   const [rows, setRows] = useState<Row[]>([]);
+  const [seatsIssued, setSeatsIssued] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!company) return;
     (async () => {
       setLoading(true);
-      const tradies = await listCompanyTradies(company.id);
+      const [tradies, tags] = await Promise.all([
+        listCompanyTradies(company.id),
+        listCompanyTags(company.id),
+      ]);
       const rows = await Promise.all(
         tradies.map(async (tradie) => ({
           tradie,
@@ -36,6 +40,9 @@ export function Dashboard() {
       );
       rows.sort((a, b) => b.stats.completedJobs - a.stats.completedJobs);
       setRows(rows);
+      // A seat you've issued counts as "tradie added" — validation is
+      // QuickieFix's job, and the checklist shouldn't stall on our queue.
+      setSeatsIssued(tags.filter((t) => t.status !== 'removed').length);
       setLoading(false);
     })();
   }, [company]);
@@ -70,7 +77,7 @@ export function Dashboard() {
     {
       label: 'Add your first tradie',
       sub: 'Invite pros so jobs can be routed to your team',
-      done: rows.length > 0,
+      done: rows.length > 0 || seatsIssued > 0,
       action: { label: 'Add tradie', to: '/team' },
     },
     {
@@ -137,6 +144,9 @@ export function Dashboard() {
               ))}
             </div>
             <div className="co-setup-foot">
+              {seatsIssued > 0 && rows.length === 0
+                ? 'Seat issued — once your tradie claims the code and QuickieFix validates it, they join your roster automatically. '
+                : ''}
               Your performance dashboard unlocks the moment your first job completes.
             </div>
           </div>
