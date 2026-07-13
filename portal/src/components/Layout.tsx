@@ -30,7 +30,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { company, logout } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  const title = TITLES[loc.pathname] ?? (loc.pathname.startsWith('/tradie') ? 'Tradie' : 'QuickieFix');
+  const title =
+    loc.pathname === '/'
+      ? `Welcome back, ${company?.name ?? ''} 👋`
+      : (TITLES[loc.pathname] ?? (loc.pathname.startsWith('/tradie') ? 'Tradie' : 'QuickieFix'));
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
     day: 'numeric',

@@ -11,6 +11,7 @@ const centsToInput = (cents?: number) =>
 export function Settings() {
   const { company, logout, refreshCompany } = useAuth();
   const [name, setName] = useState(company?.name ?? '');
+  const [nzbn, setNzbn] = useState(company?.nzbn ?? '');
   const [billingEmail, setBillingEmail] = useState(company?.billingEmail ?? '');
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -56,9 +57,13 @@ export function Settings() {
 
   const saveProfile = async () => {
     if (!company || !name.trim()) return;
+    if (!nzbn.trim()) {
+      flash('An NZBN is required for a trade company.');
+      return;
+    }
     setSaving(true);
     await updateCompanyName(company.id, name);
-    await updateCompanyProfile(company.id, { billingEmail });
+    await updateCompanyProfile(company.id, { billingEmail, nzbn });
     await refreshCompany();
     setSaving(false);
     flash('Saved ✓');
@@ -163,6 +168,21 @@ export function Settings() {
         <div className="co-field" style={{ marginBottom: 12 }}>
           <label>Company name</label>
           <input className="co-input" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="co-field" style={{ marginBottom: 12 }}>
+          <label>NZBN (required)</label>
+          <input
+            className="co-input"
+            placeholder="9429…"
+            value={nzbn}
+            onChange={(e) => setNzbn(e.target.value)}
+          />
+          {!company?.nzbn && (
+            <p className="co-help" style={{ marginTop: 6 }}>
+              ⚠️ No NZBN on file — employees who join your team trade under this number, so set it
+              before confirming any employee seats.
+            </p>
+          )}
         </div>
         <div className="co-field" style={{ marginBottom: 16 }}>
           <label>Billing email</label>
