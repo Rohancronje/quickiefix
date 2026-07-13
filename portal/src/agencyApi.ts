@@ -14,7 +14,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { Agency, AgencyLink, Company, Property } from './types';
+import { Agency, AgencyLink, Company, Job, Property } from './types';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -129,6 +129,16 @@ export async function listCompanyAgencyLinks(companyId: string): Promise<AgencyL
     .map((d) => d.data() as AgencyLink)
     .filter((l) => l.status !== 'removed')
     .sort((a, b) => b.requestedAt - a.requestedAt);
+}
+
+/* ----------------------------------------------------------------- jobs --- */
+
+/** Every job raised at this agency's managed properties (newest first). */
+export async function listAgencyJobs(agencyId: string): Promise<Job[]> {
+  const snap = await getDocs(query(collection(db, 'jobs'), where('agencyId', '==', agencyId)));
+  return snap.docs
+    .map((d) => d.data() as Job)
+    .sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt);
 }
 
 /* ------------------------------------------------------------ properties --- */
