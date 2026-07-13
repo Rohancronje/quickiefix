@@ -1,3 +1,4 @@
+import { appAlert } from '../../src/components/AppAlert';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -21,7 +22,7 @@ export default function Welcome() {
       await login(email, 'password');
       // routing guard handles navigation
     } catch (e) {
-      Alert.alert('Login failed', (e as Error).message);
+      appAlert('Login failed', (e as Error).message);
       setBusy(null);
     }
   };

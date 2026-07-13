@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { confirmClaimedTag, issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
 import { useAuth } from '../auth';
+import { confirmDialog } from '../components/confirm';
 import { IconTag, IconTradies } from '../backoffice/icons';
 import {
   downloadTemplate,
@@ -99,7 +100,14 @@ export function Team() {
 
   const remove = async (tag: CompanyTag) => {
     if (!company) return;
-    if (!confirm(`Remove the seat for ${tag.issuedToName}?`)) return;
+    if (
+      !(await confirmDialog(`Remove the seat for ${tag.issuedToName}?`, {
+        message: 'They leave your roster immediately; their past jobs stay on your record.',
+        confirmLabel: 'Remove seat',
+        danger: true,
+      }))
+    )
+      return;
     try {
       await removeTag(tag.id);
       await refresh(company);
@@ -119,9 +127,10 @@ export function Team() {
         ? 'They declared themselves a CONTRACTOR: they keep their own business name and NZBN, and invoice you for their work.'
         : `They declared themselves an EMPLOYEE: they'll appear under their personal name with ${company.name}'s NZBN.`;
     if (
-      !confirm(
-        `Confirm ${tag.issuedToName} (${tag.issuedToEmail}) as part of ${company.name}?\n\n${detail}\n\nTheir jobs will carry your company name and rate card from now on.`,
-      )
+      !(await confirmDialog(`Confirm ${tag.issuedToName} as part of ${company.name}?`, {
+        message: `${tag.issuedToEmail}\n\n${detail}\n\nTheir jobs will carry your company name and rate card from now on.`,
+        confirmLabel: 'Confirm tradie',
+      }))
     )
       return;
     try {

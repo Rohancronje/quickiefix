@@ -1,3 +1,5 @@
+import { SupportCard } from '../../../src/components/SupportCard';
+import { appAlert } from '../../../src/components/AppAlert';
 import React, { useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
@@ -23,7 +25,7 @@ export default function CustomerAccount() {
   const completed = jobs.filter((j) => j.status === 'completed').length;
 
   const confirmReset = () => {
-    Alert.alert(
+    appAlert(
       'Reset demo data?',
       'This clears all local jobs and accounts and reseeds the demo. You will be logged out.',
       [
@@ -70,6 +72,9 @@ export default function CustomerAccount() {
 
       <PropertiesSection customerId={customer.id} customerName={`${customer.firstName} ${customer.lastName}`} />
 
+      {/* Help & support - tickets reach the back office + ops email */}
+      <SupportCard user={customer} />
+
       {/* Sign-in & security */}
       <BiometricToggle />
 
@@ -95,7 +100,7 @@ function PropertiesSection({ customerId, customerName }: { customerId: string; c
     setBusy(true);
     await backend
       .createProperty({ id: customerId, name: customerName }, { label, address })
-      .catch((e) => Alert.alert('Could not add', (e as Error).message));
+      .catch((e) => appAlert('Could not add', (e as Error).message));
     setBusy(false);
     setLabel('');
     setAddress('');

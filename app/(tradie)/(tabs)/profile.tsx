@@ -1,3 +1,5 @@
+import { SupportCard } from '../../../src/components/SupportCard';
+import { appAlert } from '../../../src/components/AppAlert';
 import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
@@ -17,13 +19,13 @@ const RADIUS_OPTIONS = [5, 10, 15, 25];
  * approved list. Pending until the AGENCY confirms (they know who they
  * invited). Jobs at their managed properties then dispatch to you.
  */
-function AgencyPanelCard({ tradieId, tradieName }: { tradieId: string; tradieName: string }) {
+function AgencyPanelCard({ tradieId, tradieName, companyId }: { tradieId: string; tradieName: string; companyId?: string }) {
   const [links, setLinks] = useState<AgencyLink[]>([]);
   const [agencyCode, setAgencyCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => backend.subscribeMyAgencyLinks(tradieId, setLinks), [tradieId]);
+  useEffect(() => backend.subscribeMyAgencyLinks(tradieId, setLinks, companyId), [tradieId, companyId]);
 
   const join = async () => {
     setError(null);
@@ -33,9 +35,10 @@ function AgencyPanelCard({ tradieId, tradieName }: { tradieId: string; tradieNam
       const agencyName = await backend.requestAgencyLink(
         { id: tradieId, name: tradieName },
         agencyCode,
+        'tradie',
       );
       setAgencyCode('');
-      Alert.alert(
+      appAlert(
         'Request sent',
         `${agencyName} has been asked to add you to their approved panel. You'll appear for their properties once they confirm.`,
       );
@@ -137,7 +140,7 @@ export default function TradieProfile() {
     if (!c) return;
     // Employee vs contractor changes identity + billing: employees trade
     // under the company's name/NZBN; contractors keep their own business.
-    Alert.alert(
+    appAlert(
       'How do you work with them?',
       'Employees appear under their personal name with the company NZBN. Contractors keep their own business name and NZBN, and invoice the company.',
       [
@@ -153,7 +156,7 @@ export default function TradieProfile() {
       setJoining(true);
       const company = await backend.claimTag(c, tradie.id, engagement);
       setCode('');
-      Alert.alert(
+      appAlert(
         'Code accepted',
         `You've claimed a ${engagement} seat with ${company.name}. It shows as pending until ${company.name} confirms you.`,
       );
@@ -165,7 +168,7 @@ export default function TradieProfile() {
   };
 
   const leaveCompany = () =>
-    Alert.alert('Leave company?', `You'll no longer be linked to ${tradie.companyName}.`, [
+    appAlert('Leave company?', `You'll no longer be linked to ${tradie.companyName}.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Leave',
@@ -174,7 +177,7 @@ export default function TradieProfile() {
           try {
             await backend.leaveCompany(tradie.id);
           } catch (e) {
-            Alert.alert('Could not leave', (e as Error).message);
+            appAlert('Could not leave', (e as Error).message);
           }
         },
       },
@@ -188,7 +191,7 @@ export default function TradieProfile() {
   }[tradie.approval];
 
   const confirmReset = () => {
-    Alert.alert('Reset demo data?', 'Clears all local data and logs you out.', [
+    appAlert('Reset demo data?', 'Clears all local data and logs you out.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Reset',
@@ -273,7 +276,7 @@ export default function TradieProfile() {
       {!tradie.companyId && !tradie.nzbn && <NzbnPromptCard tradieId={tradie.id} />}
 
       {/* Property agents — approved-panel memberships */}
-      <AgencyPanelCard tradieId={tradie.id} tradieName={tradie.businessName} />
+      <AgencyPanelCard tradieId={tradie.id} tradieName={tradie.businessName} companyId={tradie.companyId} />
 
       {/* Rate card */}
       <RateCardCard tradie={tradie} validated={validated} />
@@ -309,6 +312,9 @@ export default function TradieProfile() {
           ))}
         </View>
       </Card>
+
+      {/* Help & support - tickets reach the back office + ops email */}
+      <SupportCard user={tradie} />
 
       {/* Sign-in & security */}
       <BiometricToggle />

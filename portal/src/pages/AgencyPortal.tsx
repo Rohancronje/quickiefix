@@ -9,6 +9,7 @@ import {
   unlinkTenant,
 } from '../agencyApi';
 import { useAuth } from '../auth';
+import { confirmDialog } from '../components/confirm';
 import { Agency, AgencyLink, Property } from '../types';
 
 const LINK_CHIP: Record<AgencyLink['status'], string> = {
@@ -48,17 +49,38 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   }, [refresh]);
 
   const approve = async (l: AgencyLink) => {
-    if (!confirm(`Approve ${l.memberName}${l.kind === 'company' ? ' (whole company)' : ''} for your panel? Jobs at your properties will dispatch to them.`)) return;
-    await approveAgencyLink(l.id);
-    await refresh();
-    flash(`${l.memberName} approved ✓`);
+    if (
+      !(await confirmDialog(`Approve ${l.memberName} for your panel?`, {
+        message: `${l.kind === 'company' ? 'This covers their whole team. ' : ''}Jobs at your properties will dispatch to them, on your agency's commercial terms.`,
+        confirmLabel: 'Approve',
+      }))
+    )
+      return;
+    try {
+      await approveAgencyLink(l.id);
+      await refresh();
+      flash(`${l.memberName} approved ✓`);
+    } catch (e) {
+      flash(`Could not approve: ${(e as Error).message}`);
+    }
   };
 
   const remove = async (l: AgencyLink) => {
-    if (!confirm(`Remove ${l.memberName} from your panel?`)) return;
-    await removeAgencyLink(l.id);
-    await refresh();
-    flash('Removed from panel');
+    if (
+      !(await confirmDialog(`Remove ${l.memberName} from your panel?`, {
+        message: 'They stop receiving jobs at your properties immediately.',
+        confirmLabel: 'Remove',
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      await removeAgencyLink(l.id);
+      await refresh();
+      flash('Removed from panel');
+    } catch (e) {
+      flash(`Could not remove: ${(e as Error).message}`);
+    }
   };
 
   const addProperty = async () => {

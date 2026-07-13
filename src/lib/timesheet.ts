@@ -10,7 +10,9 @@ export function toTimesheetRow(job: Job): TimesheetRow {
     customerName: job.customerName,
     address: job.location.address,
     trade: job.trade,
-    companyName: job.companyName, // "contracted to" — who the tradie bills
+    // "Contracted to" — who the tradie bills: their company if they worked
+    // under one, else the property agency whose panel job it was.
+    companyName: job.companyName ?? job.agencyName,
     status: job.status,
     acceptedAt,
     startedAt: onSiteAt,

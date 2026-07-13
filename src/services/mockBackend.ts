@@ -403,6 +403,28 @@ class MockBackend implements Backend {
     this.commit();
   }
 
+  async fileSupportTicket(
+    user: { id: string; name: string; email: string; role: 'customer' | 'tradie' },
+    subject: string,
+    detail: string,
+  ): Promise<void> {
+    await this.ensureLoaded();
+    const id = uid('cmp_');
+    this.db.complaints[id] = {
+      id,
+      kind: 'support',
+      customerId: user.id,
+      customerName: user.name,
+      contactEmail: user.email,
+      raisedByRole: user.role,
+      subject: subject.trim(),
+      detail: detail.trim(),
+      status: 'open',
+      createdAt: Date.now(),
+    };
+    this.commit();
+  }
+
   async getAvailableTradies(
     trade: NewJobInput['trade'],
     location: Job['location'],
@@ -606,18 +628,22 @@ class MockBackend implements Backend {
 
   /* --------------------------------------------------- property agencies -- */
 
-  async requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string> {
+  async requestAgencyLink(
+    member: { id: string; name: string },
+    code: string,
+    kind: 'tradie' | 'tenant',
+  ): Promise<string> {
     await this.ensureLoaded();
     const clean = code.trim().toUpperCase();
     const agency = Object.values(this.db.agencies).find((a) => a.code === clean);
     if (!agency) throw new Error('No property agency matches that code. Double-check it with the agency.');
     const dupe = Object.values(this.db.agencyLinks).find(
-      (l) => l.agencyId === agency.id && l.memberId === tradie.id && l.status !== 'removed',
+      (l) => l.agencyId === agency.id && l.memberId === member.id && l.status !== 'removed',
     );
     if (dupe) {
       throw new Error(
         dupe.status === 'approved'
-          ? `You're already on ${agency.name}'s panel.`
+          ? `You're already linked with ${agency.name}.`
           : `Your request with ${agency.name} is already pending their approval.`,
       );
     }
@@ -626,9 +652,9 @@ class MockBackend implements Backend {
       id,
       agencyId: agency.id,
       agencyName: agency.name,
-      kind: 'tradie',
-      memberId: tradie.id,
-      memberName: tradie.name,
+      kind,
+      memberId: member.id,
+      memberName: member.name,
       status: 'pending',
       requestedAt: Date.now(),
     };
@@ -636,11 +662,19 @@ class MockBackend implements Backend {
     return agency.name;
   }
 
-  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe {
+  subscribeMyAgencyLinks(
+    memberId: string,
+    cb: (links: AgencyLink[]) => void,
+    companyId?: string,
+  ): Unsubscribe {
     return this.subscribe(
       () =>
         Object.values(this.db.agencyLinks)
-          .filter((l) => l.memberId === tradieId && l.status !== 'removed')
+          .filter(
+            (l) =>
+              (l.memberId === memberId || (companyId != null && l.memberId === companyId)) &&
+              l.status !== 'removed',
+          )
           .sort((a, b) => b.requestedAt - a.requestedAt),
       cb,
     );

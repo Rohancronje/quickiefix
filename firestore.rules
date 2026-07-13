@@ -129,8 +129,8 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.resource.data.status == 'pending'
         && (
-          // Tradie linking themselves…
-          (request.resource.data.kind == 'tradie' && request.resource.data.memberId == request.auth.uid) ||
+          // A tradie or tenant linking themselves…
+          (request.resource.data.kind in ['tradie', 'tenant'] && request.resource.data.memberId == request.auth.uid) ||
           // …or a company admin linking their own company.
           (request.resource.data.kind == 'company' &&
            get(/databases/$(database)/documents/companies/$(request.resource.data.memberId)).data.adminUserId == request.auth.uid)

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, AppState, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppAlertHost } from '../src/components/AppAlert';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { LockScreen } from '../src/components/LockScreen';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
@@ -135,6 +136,8 @@ function RootNavigator() {
     <>
       <StatusBar style={statusStyle} />
       {content}
+      {/* Branded alerts render over everything, matching the app theme. */}
+      <AppAlertHost />
     </>
   );
 }

@@ -148,6 +148,13 @@ export interface Backend {
   createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;
   /** Raise a complaint about a completed/active job (customer side). */
   fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
+  /** General in-platform support ticket (any role) — lands in the back office
+   *  and emails the ops inbox. All communication stays on the platform. */
+  fileSupportTicket(
+    user: { id: string; name: string; email: string; role: 'customer' | 'tradie' },
+    subject: string,
+    detail: string,
+  ): Promise<void>;
   /** Customer confirms the tradie who accepted (accepted → confirmed). */
   confirmJob(jobId: string): Promise<void>;
   /** `choose` mode: the customer picks a tradie, who then gets a final accept
@@ -179,11 +186,20 @@ export interface Backend {
   releaseJob(jobId: string, tradieId: string): Promise<void>;
 
   // ---- Property agencies (approved-panel model) ----
-  /** Tradie enters an agency code → pending panel membership (the agency
-   *  approves). Returns the agency name for the confirmation UI. */
-  requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string>;
-  /** A tradie's agency panel memberships (pending + approved), live. */
-  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe;
+  /** A tradie OR tenant enters an agency code → pending membership (the
+   *  agency approves). Returns the agency name for the confirmation UI. */
+  requestAgencyLink(
+    member: { id: string; name: string },
+    code: string,
+    kind: 'tradie' | 'tenant',
+  ): Promise<string>;
+  /** A member's agency links (pending + approved), live. For tradies, pass
+   *  their companyId too — panels covering their company also apply to them. */
+  subscribeMyAgencyLinks(
+    memberId: string,
+    cb: (links: AgencyLink[]) => void,
+    companyId?: string,
+  ): Unsubscribe;
   startTravelling(jobId: string): Promise<void>;
   arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
   completeJob(jobId: string): Promise<void>;

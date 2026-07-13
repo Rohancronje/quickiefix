@@ -107,12 +107,15 @@ export interface Customer {
 
 export interface Complaint {
   id: string;
-  jobId: string;
+  kind?: 'job' | 'support';
+  jobId?: string;
   customerId: string;
   customerName: string;
   tradieId?: string;
   tradieName?: string;
-  trade: string;
+  trade?: string;
+  contactEmail?: string;
+  raisedByRole?: 'customer' | 'tradie';
   subject: string;
   detail: string;
   status: 'open' | 'resolved';

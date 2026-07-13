@@ -1,3 +1,4 @@
+import { appAlert } from '../../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -121,7 +122,7 @@ export default function TradieJob() {
         await backend.acceptJob(job.id, tradie.id);
       }
     } catch (e) {
-      Alert.alert('Could not accept', (e as Error).message);
+      appAlert('Could not accept', (e as Error).message);
     } finally {
       setAccepting(false);
     }
@@ -135,7 +136,7 @@ export default function TradieJob() {
     try {
       await backend.expressInterest(job.id, tradie.id);
     } catch (e) {
-      Alert.alert('Could not respond', (e as Error).message);
+      appAlert('Could not respond', (e as Error).message);
     }
   };
 
@@ -310,7 +311,7 @@ export default function TradieJob() {
               onPress={() => {
                 void backend.startTravelling(job.id);
                 // Hand the address straight to their preferred maps app.
-                Alert.alert('Open in maps?', job.location.address, [
+                appAlert('Open in maps?', job.location.address, [
                   { text: 'Not now', style: 'cancel' },
                   { text: 'Open maps', onPress: () => openInMaps(job.location) },
                 ]);
@@ -335,7 +336,7 @@ export default function TradieJob() {
             kind="ghost"
             small
             onPress={() =>
-              Alert.alert(
+              appAlert(
                 'Release this job?',
                 `${job.customerName} will be told you couldn't make it, and we'll alert other tradies straight away. This job won't be offered to you again.`,
                 [
@@ -348,7 +349,7 @@ export default function TradieJob() {
                         await backend.releaseJob(job.id, tradie.id);
                         router.replace('/dashboard');
                       } catch (e) {
-                        Alert.alert('Could not release', (e as Error).message);
+                        appAlert('Could not release', (e as Error).message);
                       }
                     },
                   },
@@ -456,7 +457,7 @@ function CompleteJobSheet({ job }: { job: Job }) {
       await backend.setJobBilling(job.id, { contactName: name, contactEmail: email });
       await backend.completeJob(job.id);
     } catch (e) {
-      Alert.alert('Could not complete', (e as Error).message);
+      appAlert('Could not complete', (e as Error).message);
       setBusy(false);
     }
   };

@@ -234,16 +234,18 @@ export interface Agency {
   createdAt: number;
 }
 
-/** A tradie's or company's membership of an agency panel. Created pending by
- *  the member entering the agency code; the AGENCY approves (they know who
- *  they invited). */
+/** A tradie's, company's or TENANT's membership of an agency. Created pending
+ *  by the member entering the agency code (usually from an email invite); the
+ *  AGENCY approves (they know who they invited). */
 export interface AgencyLink {
   id: string;
   agencyId: string;
   agencyName: string;
-  kind: 'tradie' | 'company';
-  memberId: string; // tradieId or companyId
+  kind: 'tradie' | 'company' | 'tenant';
+  memberId: string; // tradieId, companyId or customerId
   memberName: string;
+  /** Company links only: which of their tradies the panel covers. */
+  scope?: 'all' | 'employees';
   status: 'pending' | 'approved' | 'removed';
   requestedAt: number;
   approvedAt?: number;
@@ -437,15 +439,21 @@ export interface Message {
   at: number;
 }
 
-/** A complaint raised by a customer about a job/tradie, for admin handling. */
+/** A complaint about a job, OR a general support ticket — both reach the
+ *  back office and email the ops inbox. `customerId` is the raiser (either
+ *  role); job fields are absent for general tickets. */
 export interface Complaint {
   id: string;
-  jobId: string;
+  kind?: 'job' | 'support';
+  jobId?: string;
   customerId: string;
   customerName: string;
   tradieId?: string;
   tradieName?: string;
-  trade: TradeCategory;
+  trade?: TradeCategory;
+  /** Where to reply (the raiser's account email). */
+  contactEmail?: string;
+  raisedByRole?: 'customer' | 'tradie';
   subject: string;
   detail: string;
   status: 'open' | 'resolved';

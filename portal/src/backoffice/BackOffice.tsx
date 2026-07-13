@@ -1137,8 +1137,9 @@ function Complaints({
           {c.detail && <p style={{ fontSize: 14, marginBottom: 10 }}>{c.detail}</p>}
           <div className="between">
             <span className="faint" style={{ fontSize: 13 }}>
-              {tradeLabel(c.trade)} · {c.customerName}
-              {c.tradieName ? ` → ${c.tradieName}` : ''}
+              {c.kind === 'support'
+                ? `🛟 Support · ${c.customerName}${c.raisedByRole ? ` (${c.raisedByRole})` : ''}${c.contactEmail ? ` · ${c.contactEmail}` : ''}`
+                : `${c.trade ? tradeLabel(c.trade) : 'Job'} · ${c.customerName}${c.tradieName ? ` → ${c.tradieName}` : ''}`}
             </span>
             {c.status === 'open' && (
               <button className="btn btn-primary btn-sm" onClick={() => onResolve(c)}>

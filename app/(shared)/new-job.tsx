@@ -1,3 +1,4 @@
+import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useEffect, useState } from 'react';
@@ -232,7 +233,7 @@ export default function NewJob() {
   const dirty =
     !!trade || description.trim().length > 0 || address.trim().length > 0 || photos.length > 0;
   const confirmLeave = () => {
-    Alert.alert(
+    appAlert(
       'Discard this request?',
       "You haven't submitted this request yet — leaving now will discard what you've entered.",
       [

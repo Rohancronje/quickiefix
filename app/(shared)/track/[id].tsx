@@ -1,3 +1,4 @@
+import { appAlert } from '../../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -80,7 +81,7 @@ export default function TrackJob() {
     searching && job.scheduledFor != null && (job.dispatch?.startedAt ?? 0) > now;
 
   const cancel = () =>
-    Alert.alert('Cancel this job?', 'The tradie will be notified.', [
+    appAlert('Cancel this job?', 'The tradie will be notified.', [
       { text: 'Keep job', style: 'cancel' },
       {
         text: 'Cancel job',

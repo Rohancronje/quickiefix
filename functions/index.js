@@ -536,6 +536,42 @@ exports.onJobRescueAlert = onDocumentUpdated(
   },
 );
 
+/**
+ * Every complaint / support ticket emails the ops inbox immediately — the
+ * platform is the only communication channel, so nothing may sit unseen in
+ * the back office. Reply goes to the raiser's account email.
+ */
+exports.onSupportTicket = onDocumentCreated(
+  { document: 'complaints/{id}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const c = event.data?.data();
+    if (!c) return;
+    const isSupport = c.kind === 'support';
+    const rows = [
+      ['From', `${c.customerName || '—'}${c.raisedByRole ? ` (${c.raisedByRole})` : ''}`],
+      ['Reply to', c.contactEmail || '—'],
+      ...(c.jobId ? [['Job', `${String(c.trade || 'job').replace(/_/g, ' ')} · ${c.jobId}`]] : []),
+      ...(c.tradieName ? [['Tradie', c.tradieName]] : []),
+      ['Message', c.detail || '—'],
+    ]
+      .map(
+        ([k, v]) =>
+          `<tr><td style="padding:6px 10px;color:#5A6478;vertical-align:top">${k}</td><td style="padding:6px 10px;font-weight:600">${String(v)}</td></tr>`,
+      )
+      .join('');
+    await brevoSend({
+      to: FOUNDER_EMAIL,
+      toName: 'QuickieFix Ops',
+      subject: `${isSupport ? '🛟 Support ticket' : '⚠️ Complaint'}: ${c.subject || '(no subject)'}`,
+      html: `
+        <h2 style="margin:0 0 8px">${isSupport ? 'New support ticket' : 'New complaint'}</h2>
+        <p style="color:#5A6478">Raised in-app — it's also in the back office Complaints tab. Mark it
+        resolved there once handled.</p>
+        <table style="border-collapse:collapse;background:#F7F9FD;border-radius:8px">${rows}</table>`,
+    }).catch((e) => console.error('support ticket email failed', e));
+  },
+);
+
 exports.onJobCompletionRecord = onDocumentUpdated(
   { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
   async (event) => {

@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 // Same Firebase project as the mobile app. Web config values are not secret.
 export const firebaseConfig = {
@@ -14,4 +14,9 @@ export const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+// IndexedDB persistence: warm loads serve from the local cache instantly while
+// the network refresh happens behind the scenes — the single biggest speed win
+// for a data dashboard like this.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});

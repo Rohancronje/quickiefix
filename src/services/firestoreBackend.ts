@@ -372,12 +372,33 @@ export class FirestoreBackend implements Backend {
     const ref = doc(collection(this.db, 'complaints'));
     await setDoc(ref, {
       id: ref.id,
+      kind: 'job',
       jobId: job.id,
       customerId: job.customerId,
       customerName: job.customerName,
       tradieId: job.tradieId,
       tradieName: job.tradieName,
       trade: job.trade,
+      subject: subject.trim(),
+      detail: detail.trim(),
+      status: 'open',
+      createdAt: Date.now(),
+    });
+  }
+
+  async fileSupportTicket(
+    user: { id: string; name: string; email: string; role: 'customer' | 'tradie' },
+    subject: string,
+    detail: string,
+  ): Promise<void> {
+    const ref = doc(collection(this.db, 'complaints'));
+    await setDoc(ref, {
+      id: ref.id,
+      kind: 'support',
+      customerId: user.id, // the raiser, regardless of role
+      customerName: user.name,
+      contactEmail: user.email,
+      raisedByRole: user.role,
       subject: subject.trim(),
       detail: detail.trim(),
       status: 'open',
@@ -659,7 +680,11 @@ export class FirestoreBackend implements Backend {
 
   /* --------------------------------------------------- property agencies -- */
 
-  async requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string> {
+  async requestAgencyLink(
+    member: { id: string; name: string },
+    code: string,
+    kind: 'tradie' | 'tenant',
+  ): Promise<string> {
     const clean = code.trim().toUpperCase();
     const snap = await getDocs(
       query(collection(this.db, 'agencies'), where('code', '==', clean)),
@@ -668,7 +693,7 @@ export class FirestoreBackend implements Backend {
     const agency = snap.docs[0].data() as Agency;
     // Already linked/pending? Keep it idempotent and friendly.
     const existing = await getDocs(
-      query(collection(this.db, 'agencyLinks'), where('memberId', '==', tradie.id)),
+      query(collection(this.db, 'agencyLinks'), where('memberId', '==', member.id)),
     );
     const dupe = existing.docs
       .map((d) => d.data() as AgencyLink)
@@ -676,7 +701,7 @@ export class FirestoreBackend implements Backend {
     if (dupe) {
       throw new Error(
         dupe.status === 'approved'
-          ? `You're already on ${agency.name}'s panel.`
+          ? `You're already linked with ${agency.name}.`
           : `Your request with ${agency.name} is already pending their approval.`,
       );
     }
@@ -685,27 +710,49 @@ export class FirestoreBackend implements Backend {
       id: ref.id,
       agencyId: agency.id,
       agencyName: agency.name,
-      kind: 'tradie',
-      memberId: tradie.id,
-      memberName: tradie.name,
+      kind,
+      memberId: member.id,
+      memberName: member.name,
       status: 'pending',
       requestedAt: Date.now(),
     } satisfies AgencyLink);
     return agency.name;
   }
 
-  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe {
-    return onSnapshot(
-      query(collection(this.db, 'agencyLinks'), where('memberId', '==', tradieId)),
+  subscribeMyAgencyLinks(
+    memberId: string,
+    cb: (links: AgencyLink[]) => void,
+    companyId?: string,
+  ): Unsubscribe {
+    // Personal links + (for company tradies) panels covering their company.
+    let mine: AgencyLink[] = [];
+    let viaCompany: AgencyLink[] = [];
+    const emit = () =>
+      cb(
+        [...mine, ...viaCompany]
+          .filter((l) => l.status !== 'removed')
+          .sort((a, b) => b.requestedAt - a.requestedAt),
+      );
+    const unsubMine = onSnapshot(
+      query(collection(this.db, 'agencyLinks'), where('memberId', '==', memberId)),
       (snap) => {
-        cb(
-          snap.docs
-            .map((d) => d.data() as AgencyLink)
-            .filter((l) => l.status !== 'removed')
-            .sort((a, b) => b.requestedAt - a.requestedAt),
-        );
+        mine = snap.docs.map((d) => d.data() as AgencyLink);
+        emit();
       },
     );
+    const unsubCo = companyId
+      ? onSnapshot(
+          query(collection(this.db, 'agencyLinks'), where('memberId', '==', companyId)),
+          (snap) => {
+            viaCompany = snap.docs.map((d) => d.data() as AgencyLink);
+            emit();
+          },
+        )
+      : null;
+    return () => {
+      unsubMine();
+      unsubCo?.();
+    };
   }
 
   /** Live phone position of the assigned tradie en route (throttled by caller)

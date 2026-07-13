@@ -1,3 +1,4 @@
+import { appAlert } from '../../../src/components/AppAlert';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -66,7 +67,7 @@ export default function CustomerHome() {
   const openJob = (id: string) => router.push({ pathname: '/track/[id]', params: { id } });
 
   const cancelJob = (job: Job) =>
-    Alert.alert(
+    appAlert(
       'Cancel this request?',
       `Your ${tradeMeta(job.trade).label.toLowerCase()} request will be cancelled${
         job.tradieId ? ' and the tradie notified' : ''

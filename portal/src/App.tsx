@@ -1,8 +1,14 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
-import { BackOffice } from './backoffice/BackOffice';
+import { ConfirmHost } from './components/confirm';
 import { Layout } from './components/Layout';
 import { AgencyPortal } from './pages/AgencyPortal';
+
+// The back office is admin-only — keep its weight out of everyone else's load.
+const BackOffice = lazy(() =>
+  import('./backoffice/BackOffice').then((m) => ({ default: m.BackOffice })),
+);
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Settings } from './pages/Settings';
@@ -21,20 +27,43 @@ export default function App() {
     );
   }
 
-  if (isAdmin) return <BackOffice />;
-  if (agency) return <AgencyPortal agency={agency} />;
+  const spinner = (
+    <div className="center-screen">
+      <div className="spinner" />
+    </div>
+  );
+
+  if (isAdmin)
+    return (
+      <>
+        <Suspense fallback={spinner}>
+          <BackOffice />
+        </Suspense>
+        <ConfirmHost />
+      </>
+    );
+  if (agency)
+    return (
+      <>
+        <AgencyPortal agency={agency} />
+        <ConfirmHost />
+      </>
+    );
   if (!company) return <Login />;
 
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/team" element={<Team />} />
-        <Route path="/timesheets" element={<Timesheets />} />
-        <Route path="/tradie/:id" element={<TradieDetail />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Layout>
+    <>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/team" element={<Team />} />
+          <Route path="/timesheets" element={<Timesheets />} />
+          <Route path="/tradie/:id" element={<TradieDetail />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Layout>
+      <ConfirmHost />
+    </>
   );
 }

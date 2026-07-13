@@ -1,3 +1,4 @@
+import { appAlert } from '../../../src/components/AppAlert';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, AppState, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -93,7 +94,7 @@ export default function TradieDashboard() {
       await backend.acceptSelection(offer.job.id, tradie.id);
       router.push({ pathname: '/job/[id]', params: { id: offer.job.id } });
     } catch (e) {
-      Alert.alert('Could not accept', (e as Error).message);
+      appAlert('Could not accept', (e as Error).message);
     }
   };
   const declineSelection = (offer: JobOffer) => backend.declineSelection(offer.job.id, tradie.id);
@@ -101,7 +102,7 @@ export default function TradieDashboard() {
     try {
       await backend.expressInterest(offer.job.id, tradie.id);
     } catch (e) {
-      Alert.alert('Could not respond', (e as Error).message);
+      appAlert('Could not respond', (e as Error).message);
     }
   };
   const dismissRequest = (offer: JobOffer) => backend.declineJob(offer.job.id, tradie.id);

@@ -213,6 +213,7 @@ describe('workflow guards', () => {
     const agencyName = await mockBackend.requestAgencyLink(
       { id: onPanel.id, name: onPanel.businessName },
       agency.code,
+      'tradie',
     );
     expect(agencyName).toBe('Harbour PM');
     const links = await once<AgencyLink[]>((cb) => mockBackend.subscribeMyAgencyLinks(onPanel.id, cb));

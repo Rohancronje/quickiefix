@@ -1,3 +1,4 @@
+import { appAlert } from '../../../src/components/AppAlert';
 import React from 'react';
 import { Alert, Share, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
@@ -20,7 +21,7 @@ export default function Timesheets() {
 
   const exportCsv = async () => {
     if (jobs.length === 0) {
-      Alert.alert('Nothing to export', 'Complete a job first to build your timesheet.');
+      appAlert('Nothing to export', 'Complete a job first to build your timesheet.');
       return;
     }
     try {
@@ -29,7 +30,7 @@ export default function Timesheets() {
         message: jobsToCsv(jobs),
       });
     } catch (e) {
-      Alert.alert('Export failed', (e as Error).message);
+      appAlert('Export failed', (e as Error).message);
     }
   };
 

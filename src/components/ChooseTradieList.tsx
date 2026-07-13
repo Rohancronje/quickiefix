@@ -1,3 +1,4 @@
+import { appAlert } from './AppAlert';
 /**
  * Browse & choose: the customer's live list of tradies for a `choose`-mode job.
  * Combines currently-available matching tradies (live) with busy tradies who
@@ -92,7 +93,7 @@ export function ChooseTradieList({ job }: { job: Job }) {
       setBusyId(id);
       await backend.selectTradie(job.id, id);
     } catch (e) {
-      Alert.alert('Could not select', (e as Error).message);
+      appAlert('Could not select', (e as Error).message);
     } finally {
       setBusyId(null);
     }
