@@ -187,7 +187,7 @@ export default function CustomerHome() {
 
 const styles = StyleSheet.create({
   // Generous whitespace in the source PNG → render larger, pull margins in.
-  brand: { alignSelf: 'center', height: 64, width: 190, marginVertical: -14 },
+  brand: { alignSelf: 'center', height: 86, width: 254, marginVertical: -16 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

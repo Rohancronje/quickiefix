@@ -553,7 +553,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 const styles = StyleSheet.create({
   // The source PNG has generous whitespace padding, so render a touch larger
   // and pull the margins in for a visually ~32px lockup.
-  brand: { alignSelf: 'center', height: 64, width: 190, marginVertical: -14 },
+  brand: { alignSelf: 'center', height: 86, width: 254, marginVertical: -16 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   iconBtn: {

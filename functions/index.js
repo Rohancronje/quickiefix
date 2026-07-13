@@ -729,6 +729,26 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
     if (next) await notifyOfferCandidates(event.data.after.ref, after, jobId, [next]);
   }
 
+  // Browse-and-choose: a tradie raised their hand → nudge the customer to
+  // look at their browse list.
+  if (
+    after.status === 'searching' &&
+    (after.interestedTradies?.length ?? 0) > (before.interestedTradies?.length ?? 0) &&
+    after.customerId
+  ) {
+    const newest = after.interestedTradies[after.interestedTradies.length - 1];
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '👀 A tradie is keen on your job',
+        body: `${newest?.businessName || 'A tradie'} put their hand up — compare rates and reviews, then choose your pro.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
   // Browse-and-choose: the customer picked a tradie → prompt them to accept.
   if (after.selectedTradieId && after.selectedTradieId !== before.selectedTradieId) {
     const tokens = await pushTokensFor([after.selectedTradieId]);

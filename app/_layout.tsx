@@ -67,6 +67,13 @@ function RootNavigator() {
   const loading = useAuthRouting();
   const { user, locked } = useAuth();
   const router = useRouter();
+  const segments = useSegments();
+
+  // Status-bar icons must contrast the screen behind them: light icons on the
+  // navy screens (splash, lock, auth group), dark icons on the light app
+  // screens — otherwise the clock/battery vanish into the background.
+  const statusStyle =
+    loading || (user && locked) || segments[0] === '(auth)' ? 'light' : 'dark';
 
   // Push notifications: show banners in the foreground; tapping a job push
   // jumps straight to that job (tradie → offer screen, customer → tracking).
@@ -94,33 +101,39 @@ function RootNavigator() {
     };
   }, [router]);
 
+  let content: React.ReactNode;
   if (loading) {
-    return (
+    content = (
       <View style={{ flex: 1, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.amber} size="large" />
       </View>
     );
-  }
-
-  // Biometric app lock: a restored session stays sealed behind the OS
-  // fingerprint/face prompt after the app was fully closed.
-  if (user && locked) {
-    return (
+  } else if (user && locked) {
+    // Biometric app lock: a restored session stays sealed behind the OS
+    // fingerprint/face prompt after the app was fully closed.
+    content = (
       <AppFrame>
         <LockScreen />
+      </AppFrame>
+    );
+  } else {
+    content = (
+      <AppFrame>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(customer)" />
+          <Stack.Screen name="(tradie)" />
+          <Stack.Screen name="(shared)" />
+        </Stack>
       </AppFrame>
     );
   }
 
   return (
-    <AppFrame>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(customer)" />
-        <Stack.Screen name="(tradie)" />
-        <Stack.Screen name="(shared)" />
-      </Stack>
-    </AppFrame>
+    <>
+      <StatusBar style={statusStyle} />
+      {content}
+    </>
   );
 }
 
@@ -128,7 +141,6 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
-        <StatusBar style="light" />
         <AuthProvider>
           <RootNavigator />
         </AuthProvider>
