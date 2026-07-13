@@ -1,5 +1,6 @@
 import { mockBackend } from '../src/services/mockBackend';
 import { ChooseFeed, JobOffer, TradieCandidate, Unsubscribe } from '../src/services/backend';
+import { waveEligible } from '../src/lib/dispatch';
 import { Customer, FeeLineItem, Job, Tradie, TradeCategory } from '../src/types';
 
 const AK = { latitude: -36.79, longitude: 174.76 };
@@ -143,6 +144,66 @@ describe('workflow guards', () => {
     const multi = await readyTradie({ trade: 'plumber', secondaryTrades: ['electrician'] });
     const j = await job(cust, { trade: 'electrician' });
     expect(j.dispatch?.candidateIds).toContain(multi.id);
+  });
+
+  it('blocks double-booking: a tradie on a live job cannot accept another', async () => {
+    const c1 = await newCustomer();
+    const c2 = await newCustomer();
+    const t = await readyTradie();
+    // Both offers land while t is free (the real race)…
+    const a = await job(c1);
+    const b = await job(c2);
+    // …t takes one — the second accept must now be rejected.
+    await mockBackend.acceptJob(a.id, t.id);
+    await expect(mockBackend.acceptJob(b.id, t.id)).rejects.toThrow(/current job/i);
+  });
+
+  it('releaseJob hands the job back: searching again, tradie excluded and freed', async () => {
+    const cust = await newCustomer();
+    const t = await readyTradie();
+    const j = await job(cust);
+    await mockBackend.acceptJob(j.id, t.id);
+
+    await mockBackend.releaseJob(j.id, t.id);
+    const after = await once<Job | null>((cb) => mockBackend.subscribeJob(j.id, cb));
+    expect(after!.status).toBe('searching');
+    expect(after!.tradieId).toBeUndefined();
+    expect(after!.declinedBy).toContain(t.id); // never offered to them again
+    expect((await mockBackend.getTradie(t.id))!.status).toBe('available');
+  });
+
+  it('scheduled jobs anchor the dispatch clock at the booked time', async () => {
+    const cust = await newCustomer();
+    const t = await readyTradie();
+    const when = Date.now() + 3 * 60 * 60 * 1000; // in 3 hours
+    const j = await job(cust, { urgency: 'scheduled', scheduledFor: when });
+    expect(j.dispatch?.startedAt).toBe(when);
+    expect(j.scheduledFor).toBe(when);
+    // Nobody is in the wave until the booked time arrives.
+    expect(waveEligible(j, t.id, Date.now())).toBe(false);
+    expect(waveEligible(j, t.id, when)).toBe(true);
+  });
+
+  it('completing a job frees the tradie but never overrides an explicit offline', async () => {
+    const cust = await newCustomer();
+    const t = await readyTradie();
+    const j = await job(cust);
+    await mockBackend.acceptJob(j.id, t.id);
+    await mockBackend.arriveOnSite(j.id);
+    // Tradie flips offline (end of day) before completing the last job.
+    await mockBackend.setTradieStatus(t.id, 'offline');
+    await mockBackend.completeJob(j.id);
+    expect((await mockBackend.getTradie(t.id))!.status).toBe('offline');
+  });
+
+  it('cancelling stamps who cancelled (drives the push to the other party)', async () => {
+    const cust = await newCustomer();
+    await readyTradie();
+    const j = await job(cust);
+    await mockBackend.cancelJob(j.id, 'customer');
+    const after = await once<Job | null>((cb) => mockBackend.subscribeJob(j.id, cb));
+    expect(after!.status).toBe('cancelled');
+    expect(after!.cancelledBy).toBe('customer');
   });
 });
 

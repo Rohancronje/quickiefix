@@ -288,11 +288,19 @@ export class FirestoreBackend implements Backend {
     // Emergencies can't wait to browse — always auto-dispatch.
     const mode: 'auto' | 'choose' = input.isEmergency ? 'auto' : input.assignmentMode ?? 'auto';
 
+    // Scheduled jobs: the dispatch clock (and every push) starts at the booked
+    // time, not at creation — see dispatchSweep/waveEligible.
+    const startAt =
+      input.urgency === 'scheduled' && input.scheduledFor && input.scheduledFor > now
+        ? input.scheduledFor
+        : now;
+
     // Snapshot the ranked candidate pool now. For `auto` this is the wave
-    // dispatch order (available only). For `choose` we also include busy/in-area
-    // tradies so they can receive the opt-in request. Exclude the requester.
+    // dispatch order (available only). For `choose` — and for scheduled jobs,
+    // whose dispatch fires later — include busy/in-area tradies too, since
+    // who's available will have changed by then. Exclude the requester.
     const candidates =
-      mode === 'choose'
+      mode === 'choose' || startAt > now
         ? await this.getInAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
@@ -321,7 +329,7 @@ export class FirestoreBackend implements Backend {
       assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      dispatch: { candidateIds, startedAt: now },
+      dispatch: { candidateIds, startedAt: startAt },
       interestedTradies: [],
       declinedBy: [],
       ...propertyStamp,
@@ -521,6 +529,10 @@ export class FirestoreBackend implements Backend {
       if (tradie.paymentHold) {
         throw new Error('Your account is paused. Clear your balance to accept jobs.');
       }
+      // One live job at a time — a double-booked tradie shadows one customer.
+      if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
+        throw new Error('Finish your current job before taking another.');
+      }
 
       // Read the company (if any) before any writes, to stamp + snapshot rates.
       const company =
@@ -649,6 +661,10 @@ export class FirestoreBackend implements Backend {
       if (tradie.paymentHold) {
         throw new Error('Your account is paused. Clear your balance to accept jobs.');
       }
+      // One live job at a time — a double-booked tradie shadows one customer.
+      if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
+        throw new Error('Finish your current job before taking another.');
+      }
 
       const company =
         tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
@@ -740,18 +756,24 @@ export class FirestoreBackend implements Backend {
       if (!snap.exists()) return;
       const job = snap.data() as Job;
       if (job.status !== 'on_site' && job.status !== 'travelling') return;
+      // Free the tradie for new offers — but never override an explicit
+      // 'offline' (mirrors the cancel path / onJobReleased).
+      const tradieSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
       tx.update(this.jobRef(jobId), {
         status: 'completed',
         'timestamps.completedAt': Date.now(),
       });
       // completedJobs is incremented by the onJobCompleted Cloud Function.
-      if (job.tradieId) {
-        tx.update(this.userRef(job.tradieId), { status: 'available' });
+      if (job.tradieId && tradieSnap?.exists()) {
+        const status = (tradieSnap.data() as Tradie).status;
+        if (status === 'job_accepted' || status === 'on_site') {
+          tx.update(this.userRef(job.tradieId), { status: 'available' });
+        }
       }
     });
   }
 
-  async cancelJob(jobId: string, _by: 'customer' | 'tradie'): Promise<void> {
+  async cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void> {
     await runTransaction(this.db, async (tx) => {
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
@@ -760,10 +782,44 @@ export class FirestoreBackend implements Backend {
       // Only the job doc is written here — releasing the assigned tradie back to
       // `available` is done server-side by the onJobLifecycle function, since a
       // cancelling customer has no permission to write the tradie's user doc.
+      // `cancelledBy` lets the server push the OTHER party (who may be driving).
       tx.update(this.jobRef(jobId), {
         status: 'cancelled',
+        cancelledBy: by,
         'timestamps.cancelledAt': Date.now(),
       });
+    });
+  }
+
+  /** Assigned tradie can't make it: hand the job back to dispatch. The job
+   *  returns to `searching` with a fresh wave clock (this tradie excluded),
+   *  the customer is pushed, and the tradie is freed for new offers. */
+  async releaseJob(jobId: string, tradieId: string): Promise<void> {
+    await runTransaction(this.db, async (tx) => {
+      const snap = await tx.get(this.jobRef(jobId));
+      if (!snap.exists()) return;
+      const job = snap.data() as Job;
+      if (job.tradieId !== tradieId) return;
+      if (!['accepted', 'confirmed', 'travelling'].includes(job.status)) {
+        throw new Error("You're already on site — finish up or ask the customer to cancel.");
+      }
+      const now = Date.now();
+      tx.update(this.jobRef(jobId), {
+        status: 'searching',
+        tradieId: deleteField(),
+        tradieName: deleteField(),
+        companyId: deleteField(),
+        companyName: deleteField(),
+        rateSnapshot: deleteField(),
+        tradieLocation: deleteField(),
+        selectedTradieId: deleteField(),
+        declinedBy: arrayUnion(tradieId),
+        'timestamps.searchingAt': now,
+        'dispatch.startedAt': now,
+        // Fresh push wave — everyone (minus this tradie) gets alerted again.
+        'dispatch.notifiedIds': [],
+      });
+      tx.update(this.userRef(tradieId), { status: 'available' });
     });
   }
 

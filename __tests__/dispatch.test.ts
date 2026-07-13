@@ -3,7 +3,6 @@ import {
   hadNoCandidates,
   isSearchExhausted,
   rankCandidates,
-  shouldAutoConfirm,
   waveEligible,
   waveSize,
 } from '../src/lib/dispatch';
@@ -58,6 +57,15 @@ describe('waveEligible', () => {
   it('is false for non-searching jobs', () => {
     expect(waveEligible(makeJob({ status: 'confirmed' }), 'a', 0)).toBe(false);
   });
+
+  it('scheduled jobs: nobody is eligible until the booked time', () => {
+    const scheduled = makeJob({
+      scheduledFor: 10_000,
+      dispatch: { candidateIds: ['a'], startedAt: 10_000 },
+    });
+    expect(waveEligible(scheduled, 'a', 9_999)).toBe(false);
+    expect(waveEligible(scheduled, 'a', 10_000)).toBe(true);
+  });
 });
 
 describe('isSearchExhausted', () => {
@@ -72,6 +80,11 @@ describe('isSearchExhausted', () => {
     expect(isSearchExhausted(job, WAVE.noCandidatesTimeoutMs)).toBe(false);
     expect(isSearchExhausted(job, WAVE.noTradieAfterMs)).toBe(true);
   });
+
+  it('never exhausts a scheduled job before its booked time', () => {
+    const job = makeJob({ dispatch: { candidateIds: [], startedAt: 1e12 } });
+    expect(isSearchExhausted(job, 1e12 - 1)).toBe(false);
+  });
 });
 
 describe('hadNoCandidates', () => {
@@ -81,11 +94,3 @@ describe('hadNoCandidates', () => {
   });
 });
 
-describe('shouldAutoConfirm', () => {
-  it('only auto-confirms emergencies past their window', () => {
-    const base = { status: 'accepted' as const, timestamps: { createdAt: 0, acceptedAt: 0 } };
-    expect(shouldAutoConfirm(makeJob({ ...base, isEmergency: false }), 1e9)).toBe(false);
-    expect(shouldAutoConfirm(makeJob({ ...base, isEmergency: true }), 0)).toBe(false);
-    expect(shouldAutoConfirm(makeJob({ ...base, isEmergency: true }), 1e9)).toBe(true);
-  });
-});

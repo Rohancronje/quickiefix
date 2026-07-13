@@ -17,6 +17,19 @@ export function formatDateTime(ts?: number): string {
   });
 }
 
+/** "Today 3:00 pm" / "Tomorrow 8:00 am" / "Wed 15 Jul, 8:00 am" — for
+ *  scheduled jobs, relative to the device clock. */
+export function formatWhen(ts: number): string {
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(d) - startOfDay(new Date())) / 86_400_000);
+  if (dayDiff === 0) return `Today ${time}`;
+  if (dayDiff === 1) return `Tomorrow ${time}`;
+  const day = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  return `${day}, ${time}`;
+}
+
 export function formatDuration(ms?: number): string {
   if (ms == null) return '—';
   const mins = Math.round(ms / 60000);

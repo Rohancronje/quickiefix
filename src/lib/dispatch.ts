@@ -51,6 +51,8 @@ export function waveEligible(job: Job, tradieId: string, now: number): boolean {
   if (idx < 0) return false;
   if (job.declinedBy.includes(tradieId)) return false;
   const startedAt = job.dispatch?.startedAt ?? job.timestamps.searchingAt ?? job.timestamps.createdAt;
+  // Scheduled jobs: nobody is eligible until the booked time arrives.
+  if (now < startedAt) return false;
   return idx < waveSize(now - startedAt);
 }
 
@@ -59,6 +61,8 @@ export function waveEligible(job: Job, tradieId: string, now: number): boolean {
 export function isSearchExhausted(job: Job, now: number): boolean {
   if (job.status !== 'searching') return false;
   const startedAt = job.dispatch?.startedAt ?? job.timestamps.searchingAt ?? job.timestamps.createdAt;
+  // Scheduled jobs: the clock hasn't started yet — nothing to exhaust.
+  if (now < startedAt) return false;
   const noCandidates = (job.dispatch?.candidateIds?.length ?? 0) === 0;
   const threshold = noCandidates ? WAVE.noCandidatesTimeoutMs : WAVE.noTradieAfterMs;
   return now - startedAt >= threshold;
@@ -69,17 +73,11 @@ export function hadNoCandidates(job: Job): boolean {
   return (job.dispatch?.candidateIds?.length ?? 0) === 0;
 }
 
-/** Should an accepted job auto-advance to confirmed (emergency window passed)? */
-export function shouldAutoConfirm(job: Job, now: number): boolean {
-  if (job.status !== 'accepted' || !job.isEmergency) return false;
-  const acceptedAt = job.timestamps.acceptedAt;
-  return acceptedAt != null && now - acceptedAt >= WAVE.emergencyAutoConfirmMs;
-}
-
 /** A friendly line describing the current search stage, for the customer. */
 export function searchStageLabel(job: Job, now: number): string {
   const startedAt = job.dispatch?.startedAt ?? job.timestamps.searchingAt ?? job.timestamps.createdAt;
   const elapsed = now - startedAt;
+  if (elapsed < 0) return 'Booked — we alert the closest pros at your scheduled time.';
   if (elapsed >= WAVE.widenAt2Ms) return 'Reaching every nearby pro…';
   if (elapsed >= WAVE.widenAt1Ms) return 'Widening the search…';
   return 'Alerting the closest pros…';

@@ -12,7 +12,7 @@ import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import { useJob, useUser } from '../../../src/hooks/useData';
-import { formatDuration } from '../../../src/lib/format';
+import { formatDuration, formatWhen } from '../../../src/lib/format';
 import { distanceKm, formatDistance } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
 import { openInMaps } from '../../../src/lib/maps';
@@ -171,6 +171,11 @@ export default function TradieJob() {
           <Txt variant="body" color={colors.textMuted}>
             {job.description}
           </Txt>
+          {job.scheduledFor != null && (
+            <Txt variant="label" color={colors.blue}>
+              🗓️ Wanted: {formatWhen(job.scheduledFor)}
+            </Txt>
+          )}
           {isMine ? (
             <>
               {/* Embedded map preview (renders only on builds that include maps). */}
@@ -296,17 +301,6 @@ export default function TradieJob() {
         )}
 
         {/* Status-driven actions */}
-        {job.status === 'accepted' && isMine && (
-          <Card style={styles.gpsCard}>
-            <Txt variant="label" color={colors.blue}>
-              ⏳ Waiting for {job.customerName} to confirm
-            </Txt>
-            <Txt variant="caption" color={colors.textMuted}>
-              You've got this job. As soon as the customer confirms you can set off.
-              {job.isEmergency ? ' Emergencies confirm automatically within a few minutes.' : ''}
-            </Txt>
-          </Card>
-        )}
         {job.status === 'confirmed' && isMine && (
           <View style={{ gap: spacing.md }}>
             <Button
@@ -330,6 +324,38 @@ export default function TradieJob() {
             <Button title="🧭 Open address in maps" kind="secondary" onPress={() => openInMaps(job.location)} />
             <Button title="I've arrived — start job" icon="📍" onPress={() => backend.arriveOnSite(job.id, 'manual')} />
           </View>
+        )}
+
+        {/* Escape hatch: hand the job back before arriving (breakdown, injury,
+            can't reach the customer) — dispatch restarts and the customer is
+            notified. Not available once on site. */}
+        {isMine && ['accepted', 'confirmed', 'travelling'].includes(job.status) && (
+          <Button
+            title="I can't make it — release this job"
+            kind="ghost"
+            small
+            onPress={() =>
+              Alert.alert(
+                'Release this job?',
+                `${job.customerName} will be told you couldn't make it, and we'll alert other tradies straight away. This job won't be offered to you again.`,
+                [
+                  { text: 'Keep the job', style: 'cancel' },
+                  {
+                    text: 'Release job',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await backend.releaseJob(job.id, tradie.id);
+                        router.replace('/dashboard');
+                      } catch (e) {
+                        Alert.alert('Could not release', (e as Error).message);
+                      }
+                    },
+                  },
+                ],
+              )
+            }
+          />
         )}
         {job.status === 'on_site' && isMine && <CompleteJobSheet job={job} />}
 

@@ -308,6 +308,26 @@ export default function TradieDashboard() {
   );
 }
 
+/** Suburb/city portion of an address — candidates see the area, not the door
+ *  number, until a job is theirs (mirrors the job screen). */
+function areaOnly(address: string): string {
+  const parts = address.split(',').map((s) => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(1).join(', ') : 'Nearby';
+}
+
+/** "🗓️ Tomorrow 8:00 am" line for scheduled jobs on offer cards. */
+function ScheduledLine({ ts }: { ts?: number }) {
+  if (ts == null) return null;
+  const d = new Date(ts);
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const day = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  return (
+    <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+      🗓️ Wanted: {day}, {time}
+    </Txt>
+  );
+}
+
 /** Browse & choose: the customer picked this tradie — final accept/decline. */
 function SelectionCard({
   offer,
@@ -342,8 +362,9 @@ function SelectionCard({
       <Txt variant="body" color={colors.text} numberOfLines={2}>
         {offer.job.description}
       </Txt>
+      <ScheduledLine ts={offer.job.scheduledFor} />
       <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
-        📍 {offer.job.location.address}
+        📍 {areaOnly(offer.job.location.address)} · exact address once it's yours
       </Txt>
       <Button title="View details & photos" kind="secondary" small onPress={onView} />
       <View style={styles.offerActions}>
@@ -392,8 +413,9 @@ function RequestCard({
       <Txt variant="body" color={colors.text} numberOfLines={2}>
         {offer.job.description}
       </Txt>
+      <ScheduledLine ts={offer.job.scheduledFor} />
       <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
-        📍 {offer.job.location.address}
+        📍 {areaOnly(offer.job.location.address)} · exact address once it's yours
       </Txt>
       <Button title="View details & photos" kind="secondary" small onPress={onView} />
       <View style={styles.offerActions}>

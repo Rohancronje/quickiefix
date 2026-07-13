@@ -19,6 +19,7 @@ import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
 import { useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { formatWhen } from '../../src/lib/format';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
@@ -40,6 +41,10 @@ export default function NewJob() {
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [urgency, setUrgency] = useState<UrgencyType>('now');
+  // Scheduled-for: day offset (0 = today) + hour slot. Tradies are alerted AT
+  // this time — dispatch simply doesn't start until then.
+  const [schedDay, setSchedDay] = useState(1);
+  const [schedHour, setSchedHour] = useState(8);
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
   const [isEmergency, setIsEmergency] = useState(false);
   // Emergencies can't wait to browse — force auto-assign.
@@ -61,6 +66,38 @@ export default function NewJob() {
     longitude: coords?.longitude,
   };
 
+  // Scheduling slots: only future times are offered (≥45 min out for today).
+  const TIME_SLOTS = [
+    { hour: 8, label: '8:00 am' },
+    { hour: 10, label: '10:00 am' },
+    { hour: 12, label: '12:00 pm' },
+    { hour: 15, label: '3:00 pm' },
+    { hour: 18, label: '6:00 pm' },
+  ];
+  const slotTime = (offset: number, hour: number) => {
+    const d = new Date();
+    d.setHours(hour, 0, 0, 0);
+    return d.getTime() + offset * 86_400_000;
+  };
+  const dayOptions = [0, 1, 2, 3].map((offset) => ({
+    offset,
+    label:
+      offset === 0
+        ? 'Today'
+        : offset === 1
+          ? 'Tomorrow'
+          : new Date(Date.now() + offset * 86_400_000).toLocaleDateString([], {
+              weekday: 'short',
+              day: 'numeric',
+              month: 'short',
+            }),
+  }));
+  const timeOptions = TIME_SLOTS.filter((t) => slotTime(schedDay, t.hour) > Date.now() + 45 * 60_000);
+  const scheduledFor =
+    urgency === 'scheduled' && timeOptions.some((t) => t.hour === schedHour)
+      ? slotTime(schedDay, schedHour)
+      : null;
+
   const canNext = (): boolean => {
     switch (step) {
       case 0:
@@ -69,6 +106,8 @@ export default function NewJob() {
         return description.trim().length >= 5;
       case 2:
         return address.trim().length > 0;
+      case 3:
+        return urgency === 'now' || scheduledFor != null;
       default:
         return true;
     }
@@ -135,6 +174,7 @@ export default function NewJob() {
           photos,
           location: jobLocation,
           urgency,
+          scheduledFor: urgency === 'scheduled' && scheduledFor ? scheduledFor : undefined,
           isEmergency,
           assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
@@ -378,6 +418,44 @@ export default function NewJob() {
                 </View>
               </Pressable>
 
+              {/* Day + time slots — tradies are alerted AT this time, not now. */}
+              {urgency === 'scheduled' && (
+                <View style={{ gap: spacing.sm }}>
+                  <Txt variant="label">Which day?</Txt>
+                  <View style={styles.chipRow}>
+                    {dayOptions.map((d) => (
+                      <Chip
+                        key={d.offset}
+                        label={d.label}
+                        selected={schedDay === d.offset}
+                        onPress={() => setSchedDay(d.offset)}
+                      />
+                    ))}
+                  </View>
+                  <Txt variant="label">What time?</Txt>
+                  <View style={styles.chipRow}>
+                    {timeOptions.map((t) => (
+                      <Chip
+                        key={t.hour}
+                        label={t.label}
+                        selected={schedHour === t.hour}
+                        onPress={() => setSchedHour(t.hour)}
+                      />
+                    ))}
+                  </View>
+                  {timeOptions.length === 0 && (
+                    <Txt variant="caption" color={colors.textMuted}>
+                      No slots left today — pick another day.
+                    </Txt>
+                  )}
+                  {scheduledFor != null && (
+                    <Txt variant="caption" color={colors.success}>
+                      🗓️ Booked for {formatWhen(scheduledFor)} — we alert nearby pros then.
+                    </Txt>
+                  )}
+                </View>
+              )}
+
               {/* How to match — auto-dispatch vs browse & choose. */}
               <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
                 <Txt variant="label">How do you want to match?</Txt>
@@ -417,10 +495,14 @@ export default function NewJob() {
                 )}
               </View>
 
-              {/* Emergency flag — auto-confirms fast and jumps the search queue. */}
+              {/* Emergency flag — jumps the search queue (and can't be scheduled). */}
               <Pressable
                 style={[styles.emergency, isEmergency && styles.emergencyActive]}
-                onPress={() => setIsEmergency((v) => !v)}
+                onPress={() => {
+                  const next = !isEmergency;
+                  setIsEmergency(next);
+                  if (next) setUrgency('now'); // an emergency can't wait for a booked slot
+                }}
               >
                 <Txt style={{ fontSize: 22 }}>{isEmergency ? '🚨' : '⚠️'}</Txt>
                 <View style={{ flex: 1 }}>
@@ -518,6 +600,7 @@ const styles = StyleSheet.create({
   progressFill: { height: 6, borderRadius: 3, backgroundColor: colors.amber },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   orLine: { flex: 1, height: 1, backgroundColor: colors.line },
   option: {

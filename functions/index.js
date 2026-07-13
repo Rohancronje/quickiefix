@@ -62,7 +62,9 @@ async function generateResetLink(email) {
 // Wave-dispatch timing — must mirror WAVE in src/constants.ts.
 const NO_TRADIE_AFTER_MS = 240_000; // searching → no_tradie_found (pool had candidates)
 const NO_CANDIDATES_AFTER_MS = 30_000; // empty pool → fail fast
-const EMERGENCY_AUTO_CONFIRM_MS = 180_000; // accepted emergency → confirmed
+// Browse-and-choose jobs are customer-driven, but an abandoned one must not
+// haunt tradie feeds / block the customer's trade slot forever.
+const CHOOSE_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
 // Password-reset abuse limits (rolling window). Per-email stops victim inbox
 // bombing; per-IP stops one attacker hammering many addresses / burning quota.
@@ -280,10 +282,23 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
   await Promise.all(
     searching.docs.map(async (d) => {
       const job = d.data();
-      // Browse-and-choose has no wave clock — the customer drives it, so never
-      // auto-expire it here.
-      if (job.assignmentMode === 'choose') return;
+      // Browse-and-choose has no wave clock — the customer drives it — but an
+      // abandoned one must still expire, or it blocks the customer's one-live-
+      // job-per-trade slot and ghosts every candidate's feed forever.
+      if (job.assignmentMode === 'choose') {
+        const openedAt = job.timestamps?.searchingAt ?? job.timestamps?.createdAt;
+        if (openedAt && now - openedAt >= CHOOSE_EXPIRE_MS) {
+          await d.ref.update({
+            status: 'no_tradie_found',
+            'timestamps.noTradieFoundAt': now,
+          });
+        }
+        return;
+      }
       const startedAt = job.dispatch?.startedAt ?? job.timestamps?.searchingAt ?? job.timestamps?.createdAt;
+      // Scheduled jobs: the dispatch clock starts at the booked time — until
+      // then there is nothing to expire and nobody to push.
+      if (startedAt && startedAt > now) return;
       const noCandidates = !(job.dispatch?.candidateIds && job.dispatch.candidateIds.length);
       const threshold = noCandidates ? NO_CANDIDATES_AFTER_MS : NO_TRADIE_AFTER_MS;
       if (startedAt && now - startedAt >= threshold) {
@@ -294,7 +309,8 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
         return;
       }
       // Wave widening: push newly-eligible candidates (skip declines + already-
-      // notified). Nearest-first order is the candidateIds ranking.
+      // notified). Nearest-first order is the candidateIds ranking. This is
+      // also what sends the FIRST wave for scheduled jobs once they come due.
       if (!noCandidates && startedAt) {
         const allowed = pushWaveSize(now - startedAt);
         const declined = job.declinedBy ?? [];
@@ -302,20 +318,6 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
           .filter((id) => !declined.includes(id))
           .slice(0, allowed === Infinity ? undefined : allowed);
         await notifyOfferCandidates(d.ref, job, d.id, eligible);
-      }
-    }),
-  );
-
-  // accepted emergency → confirmed
-  const accepted = await db.collection('jobs').where('status', '==', 'accepted').get();
-  await Promise.all(
-    accepted.docs.map(async (d) => {
-      const job = d.data();
-      if (job.isEmergency && job.timestamps?.acceptedAt && now - job.timestamps.acceptedAt >= EMERGENCY_AUTO_CONFIRM_MS) {
-        await d.ref.update({
-          status: 'confirmed',
-          'timestamps.confirmedAt': now,
-        });
       }
     }),
   );
@@ -491,6 +493,49 @@ exports.onUserAudit = onDocumentUpdated('users/{uid}', async (event) => {
  *    confirmed on-site (falls back to their account email).
  * The code is the invoice reference for the future Xero push.
  */
+/**
+ * Founder concierge rescue: when dispatch gives up on a job (no_tradie_found),
+ * email the founder immediately with the details so a manual line-up can start.
+ * The track screen promises the customer "our team has been alerted" — this is
+ * that alert.
+ */
+exports.onJobRescueAlert = onDocumentUpdated(
+  { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!after || after.status !== 'no_tradie_found' || before?.status === 'no_tradie_found') return;
+
+    const trade = String(after.trade || 'job').replace(/_/g, ' ');
+    const rows = [
+      ['Trade', trade],
+      ['Mode', after.assignmentMode === 'choose' ? 'Browse & choose (expired)' : 'Auto-assign'],
+      ['Emergency', after.isEmergency ? '🚨 YES' : 'No'],
+      ['Customer', after.customerName || '—'],
+      ['Address', after.location?.address || '—'],
+      ['Issue', after.description || '—'],
+      ['Scheduled for', after.scheduledFor ? whenNZ(after.scheduledFor) : '—'],
+      ['Candidates in pool', String(after.dispatch?.candidateIds?.length ?? 0)],
+      ['Job ID', event.params.jobId],
+    ]
+      .map(
+        ([k, v]) =>
+          `<tr><td style="padding:6px 10px;color:#5A6478">${k}</td><td style="padding:6px 10px;font-weight:600">${String(v)}</td></tr>`,
+      )
+      .join('');
+    await brevoSend({
+      to: FOUNDER_EMAIL,
+      toName: 'QuickieFix Ops',
+      subject: `⚠️ Rescue needed — no tradie found (${trade}${after.isEmergency ? ', EMERGENCY' : ''})`,
+      html: `
+        <h2 style="margin:0 0 8px">No tradie found — concierge rescue</h2>
+        <p style="color:#5A6478">Dispatch exhausted every option for this job. The customer has been
+        told the team is on it — line someone up or contact them.</p>
+        <table style="border-collapse:collapse;background:#F7F9FD;border-radius:8px">${rows}</table>`,
+    }).catch((e) => console.error('rescue alert email failed', e));
+  },
+);
+
 exports.onJobCompletionRecord = onDocumentUpdated(
   { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
   async (event) => {
@@ -657,10 +702,33 @@ function areaOnly(address) {
   return parts.length > 1 ? parts.slice(1).join(', ') : parts[0] || '';
 }
 
-/** Job details line shown on offer pushes: what + roughly where. */
+/** NZ-local "Tomorrow 8:00 am" style label for scheduled jobs. */
+function whenNZ(ms) {
+  try {
+    return new Intl.DateTimeFormat('en-NZ', {
+      timeZone: 'Pacific/Auckland',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(ms));
+  } catch {
+    return new Date(ms).toISOString();
+  }
+}
+
+/** Job details line shown on offer pushes: what + roughly where + when. */
 function jobPushBody(job) {
   const area = areaOnly(job.location?.address);
-  return [snip(job.description), area ? `📍 ${snip(area, 60)}` : null].filter(Boolean).join('\n');
+  return [
+    snip(job.description),
+    [area ? `📍 ${snip(area, 60)}` : null, job.scheduledFor ? `🗓️ ${whenNZ(job.scheduledFor)}` : null]
+      .filter(Boolean)
+      .join(' · '),
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 /** Send the offer push to `ids` that haven't been notified yet; record them. */
@@ -697,6 +765,9 @@ exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
   const job = event.data?.data();
   if (!job || job.status !== 'searching') return;
   if (job.assignmentMode === 'choose') return;
+  // Scheduled jobs: dispatchSweep sends the first wave when the booked time
+  // arrives — pinging tradies now for tomorrow's job would just be noise.
+  if ((job.dispatch?.startedAt ?? 0) > Date.now()) return;
   const candidates = job.dispatch?.candidateIds ?? [];
   if (!candidates.length) return;
   await notifyOfferCandidates(
@@ -788,6 +859,102 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
         to,
         title: '🚗 On the way',
         body: `${after.tradieName || 'Your tradie'} is heading to you now.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Browse-and-choose: the customer's pick DECLINED → tell them to choose again.
+  if (
+    before.selectedTradieId &&
+    !after.selectedTradieId &&
+    after.status === 'searching' &&
+    after.customerId
+  ) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '😕 Your pick had to pass',
+        body: 'That tradie declined this time — your other options are still lined up. Tap to choose someone else.',
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Cancelled → tell the OTHER party (a tradie may already be driving).
+  if (after.status === 'cancelled' && before.status !== 'cancelled') {
+    const trade = String(after.trade || 'job').replace(/_/g, ' ');
+    if (after.cancelledBy === 'customer' && after.tradieId) {
+      const tokens = await pushTokensFor([after.tradieId]);
+      await expoPush(
+        tokens.map((to) => ({
+          to,
+          title: '🚫 Job cancelled',
+          body: `${after.customerName || 'The customer'} cancelled the ${trade} job — no need to head over.`,
+          sound: 'default',
+          channelId: 'offers',
+          priority: 'high',
+          data: { jobId, role: 'tradie' },
+        })),
+      );
+    }
+    if (after.cancelledBy === 'tradie' && after.customerId) {
+      const tokens = await pushTokensFor([after.customerId]);
+      await expoPush(
+        tokens.map((to) => ({
+          to,
+          title: '🚫 Job cancelled',
+          body: `${after.tradieName || 'The tradie'} cancelled your ${trade} job. Tap to request again.`,
+          sound: 'default',
+          data: { jobId, role: 'customer' },
+        })),
+      );
+    }
+  }
+
+  // The assigned tradie RELEASED the job (couldn't make it) → back to searching.
+  if (
+    after.status === 'searching' &&
+    ['accepted', 'confirmed', 'travelling'].includes(before.status) &&
+    after.customerId
+  ) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '🔄 Finding you a new tradie',
+        body: `${before.tradieName || 'Your tradie'} couldn't make it — we're alerting other pros now.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Search failed → the customer must know (they may have backgrounded the app).
+  if (after.status === 'no_tradie_found' && before.status !== 'no_tradie_found' && after.customerId) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '😔 No tradie found this time',
+        body: "We couldn't reach an available pro for this one. Our team has been alerted — tap to try again.",
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Completed → the record + rating live in-app; the email alone isn't enough.
+  if (after.status === 'completed' && before.status !== 'completed' && after.customerId) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '✅ Job complete',
+        body: `${after.tradieName || 'Your tradie'} marked the job complete. View your record and leave a rating.`,
         sound: 'default',
         data: { jobId, role: 'customer' },
       })),

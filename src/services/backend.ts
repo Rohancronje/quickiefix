@@ -156,6 +156,9 @@ export interface Backend {
   /** `choose` mode: the selected tradie declines → selection cleared, customer
    *  can pick someone else. */
   declineSelection(jobId: string, tradieId: string): Promise<void>;
+  /** Assigned tradie can't make it: hand the job back to dispatch (job returns
+   *  to searching with this tradie excluded; the customer is notified). */
+  releaseJob(jobId: string, tradieId: string): Promise<void>;
   startTravelling(jobId: string): Promise<void>;
   arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
   completeJob(jobId: string): Promise<void>;

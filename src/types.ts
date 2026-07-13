@@ -334,6 +334,9 @@ export interface Job {
   // Tradies who were offered this job and declined
   declinedBy: string[];
 
+  /** Who cancelled (drives the "job cancelled" push to the other party). */
+  cancelledBy?: 'customer' | 'tradie';
+
   // Ratings exchanged after completion
   customerRating?: Rating; // customer -> tradie
   tradieRating?: Rating; // tradie -> customer

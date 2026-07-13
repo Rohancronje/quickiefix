@@ -14,8 +14,8 @@ import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, tradeMeta } from '../../../src/constants';
 import { useJob, useMessages, useUser } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
-import { hadNoCandidates, isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
-import { formatDuration } from '../../../src/lib/format';
+import { hadNoCandidates, isSearchExhausted, searchStageLabel } from '../../../src/lib/dispatch';
+import { formatDuration, formatWhen } from '../../../src/lib/format';
 import { distanceKm, estimateEtaMinutes } from '../../../src/lib/geo';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
@@ -40,12 +40,11 @@ export default function TrackJob() {
 
   // Client-side safety net for the wave clock (the scheduled function is the
   // authority, but this keeps the flow correct even before it runs): once every
-  // wave is exhausted flip to no_tradie_found; auto-confirm emergencies.
+  // wave is exhausted flip to no_tradie_found.
   const firedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!job) return;
-    // Auto-dispatch only: browse-and-choose has no wave clock — the customer
-    // drives it, so we never auto-flip it to no_tradie_found.
+    // Auto-dispatch only: browse-and-choose expires server-side after 24h.
     if (
       job.status === 'searching' &&
       job.assignmentMode !== 'choose' &&
@@ -54,10 +53,6 @@ export default function TrackJob() {
     ) {
       firedRef.current = job.id + ':nt';
       backend.markNoTradieFound(job.id);
-    }
-    if (shouldAutoConfirm(job, now) && firedRef.current !== job.id + ':ac') {
-      firedRef.current = job.id + ':ac';
-      backend.confirmJob(job.id);
     }
   }, [job?.id, job?.status, now]);
 
@@ -79,8 +74,10 @@ export default function TrackJob() {
 
   const meta = tradeMeta(job.trade);
   const searching = job.status === 'searching';
-  const awaitingConfirm = job.status === 'accepted'; // a tradie accepted; customer must confirm
   const noneFound = job.status === 'no_tradie_found';
+  // Scheduled job whose dispatch clock hasn't started yet.
+  const bookedForLater =
+    searching && job.scheduledFor != null && (job.dispatch?.startedAt ?? 0) > now;
 
   const cancel = () =>
     Alert.alert('Cancel this job?', 'The tradie will be notified.', [
@@ -91,10 +88,6 @@ export default function TrackJob() {
         onPress: () => backend.cancelJob(job.id, 'customer'),
       },
     ]);
-
-  const confirm = async () => {
-    await backend.confirmJob(job.id);
-  };
 
   const submitRating = async (rating: Rating) => {
     await backend.rateAsCustomer(job.id, rating);
@@ -186,16 +179,21 @@ export default function TrackJob() {
           </View>
         )}
 
-        {/* Auto-dispatch search in progress */}
+        {/* Auto-dispatch search in progress (or booked for later) */}
         {searching && job.assignmentMode !== 'choose' && (
           <Card style={styles.searchHero}>
-            <ActivityIndicator color={colors.amber} size="large" />
+            {!bookedForLater && <ActivityIndicator color={colors.amber} size="large" />}
             <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
-              {job.isEmergency ? '🚨 Finding you help now' : 'Finding you a tradie'}
+              {bookedForLater
+                ? `🗓️ Booked for ${formatWhen(job.scheduledFor!)}`
+                : job.isEmergency
+                  ? '🚨 Finding you help now'
+                  : 'Finding you a tradie'}
             </Txt>
             <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
-              {searchStageLabel(job, now)} We alert the closest verified pros and widen the
-              search until one accepts — usually within a few minutes.
+              {bookedForLater
+                ? "We'll alert the closest verified pros at your booked time. You can cancel any time before then."
+                : `${searchStageLabel(job, now)} We alert the closest verified pros and widen the search until one accepts — usually within a few minutes.`}
             </Txt>
           </Card>
         )}
@@ -214,24 +212,6 @@ export default function TrackJob() {
             </Txt>
             <Button title="Try again" onPress={() => router.replace('/new-job')} />
           </Card>
-        )}
-
-        {/* A tradie accepted — customer confirms them */}
-        {awaitingConfirm && tradie && (
-          <View style={{ gap: spacing.sm }}>
-            <Card style={{ gap: spacing.sm, borderColor: colors.blue, borderWidth: 1 }}>
-              <Txt variant="label" color={colors.blue}>
-                ✅ {tradie.businessName} accepted your job
-              </Txt>
-              <Txt variant="caption" color={colors.textMuted}>
-                Confirm to lock them in and let them head your way.
-                {job.isEmergency ? ' As an emergency, this confirms automatically in a few minutes.' : ''}
-              </Txt>
-              {job.rateSnapshot && <RateSnapshotView job={job} />}
-              <Button title="Confirm this tradie" icon="👍" onPress={confirm} />
-            </Card>
-            <TradieProfileCard tradie={tradie} />
-          </View>
         )}
 
         {/* Confirmed / en route / on site — assigned tradie profile */}

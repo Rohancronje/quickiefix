@@ -314,10 +314,16 @@ class MockBackend implements Backend {
     // Emergencies can't wait to browse — always auto-dispatch.
     const mode: 'auto' | 'choose' = input.isEmergency ? 'auto' : input.assignmentMode ?? 'auto';
 
-    // Snapshot the ranked candidate pool now. `choose` also includes busy/in-area
-    // tradies so they can receive the opt-in request.
+    // Scheduled jobs: the dispatch clock starts at the booked time.
+    const startAt =
+      input.urgency === 'scheduled' && input.scheduledFor && input.scheduledFor > now
+        ? input.scheduledFor
+        : now;
+
+    // Snapshot the ranked candidate pool now. `choose` (and scheduled jobs,
+    // which dispatch later) also include busy/in-area tradies.
     const candidates =
-      mode === 'choose'
+      mode === 'choose' || startAt > now
         ? this.inAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
@@ -336,7 +342,7 @@ class MockBackend implements Backend {
       assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      dispatch: { candidateIds, startedAt: now },
+      dispatch: { candidateIds, startedAt: startAt },
       interestedTradies: [],
       declinedBy: [],
     };
@@ -483,6 +489,10 @@ class MockBackend implements Backend {
     if (tradie.paymentHold) {
       throw new Error('Your account is paused. Clear your balance to accept jobs.');
     }
+    // One live job at a time — a double-booked tradie shadows one customer.
+    if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
+      throw new Error('Finish your current job before taking another.');
+    }
 
     // Auto-assign means exactly that: first to accept is locked in — no
     // redundant customer-confirm step. Land straight at confirmed.
@@ -598,6 +608,10 @@ class MockBackend implements Backend {
     if (tradie.paymentHold) {
       throw new Error('Your account is paused. Clear your balance to accept jobs.');
     }
+    // One live job at a time — a double-booked tradie shadows one customer.
+    if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
+      throw new Error('Finish your current job before taking another.');
+    }
 
     const now = Date.now();
     // The customer already chose them, so accepting lands straight at confirmed.
@@ -666,7 +680,8 @@ class MockBackend implements Backend {
       job.completionCode = `QF-${job.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;
       const t = job.tradieId ? this.db.users[job.tradieId] : null;
       if (t && t.role === 'tradie') {
-        t.status = 'available';
+        // Free the tradie — but never override an explicit 'offline'.
+        if (t.status === 'job_accepted' || t.status === 'on_site') t.status = 'available';
         t.completedJobs += 1;
         this.recordFee(job, t);
       }
@@ -705,14 +720,40 @@ class MockBackend implements Backend {
     };
   }
 
-  async cancelJob(jobId: string, _by: 'customer' | 'tradie'): Promise<void> {
+  async cancelJob(jobId: string, by: 'customer' | 'tradie'): Promise<void> {
     await this.transitionJob(jobId, (job) => {
       if (job.status === 'completed' || job.status === 'cancelled') return;
       job.status = 'cancelled';
+      job.cancelledBy = by;
       job.timestamps.cancelledAt = Date.now();
       const t = job.tradieId ? this.db.users[job.tradieId] : null;
       if (t && t.role === 'tradie' && t.status !== 'offline') t.status = 'available';
     });
+  }
+
+  /** Assigned tradie can't make it: hand the job back to dispatch. */
+  async releaseJob(jobId: string, tradieId: string): Promise<void> {
+    await this.ensureLoaded();
+    const job = this.db.jobs[jobId];
+    if (!job || job.tradieId !== tradieId) return;
+    if (!['accepted', 'confirmed', 'travelling'].includes(job.status)) {
+      throw new Error("You're already on site — finish up or ask the customer to cancel.");
+    }
+    const now = Date.now();
+    job.status = 'searching';
+    delete job.tradieId;
+    delete job.tradieName;
+    delete job.companyId;
+    delete job.companyName;
+    delete job.rateSnapshot;
+    delete job.tradieLocation;
+    delete job.selectedTradieId;
+    if (!job.declinedBy.includes(tradieId)) job.declinedBy.push(tradieId);
+    job.timestamps.searchingAt = now;
+    if (job.dispatch) job.dispatch.startedAt = now;
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') t.status = 'available';
+    this.commit();
   }
 
   private async transitionJob(jobId: string, fn: (job: Job) => void): Promise<void> {
