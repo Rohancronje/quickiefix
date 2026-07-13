@@ -265,6 +265,22 @@ export class FirestoreBackend implements Backend {
   /* --------------------------------------------------------------- jobs -- */
 
   async createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job> {
+    // One live job per trade per customer: a plumbing job already in motion
+    // blocks a second plumbing request until it finishes — other trades are fine.
+    const live: JobStatus[] = ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'];
+    const mineSnap = await getDocs(
+      query(collection(this.db, 'jobs'), where('customerId', '==', requester.id)),
+    );
+    const clash = mineSnap.docs
+      .map((d) => d.data() as Job)
+      .find((j) => j.trade === input.trade && live.includes(j.status));
+    if (clash) {
+      const label = input.trade.replace(/_/g, ' ');
+      throw new Error(
+        `You already have a ${label} job on the go. Track or cancel it from your activity before requesting another ${label}.`,
+      );
+    }
+
     const jobRef = doc(collection(this.db, 'jobs'));
     const photos = await this.uploadPhotos(jobRef.id, input.photos);
     const now = Date.now();
@@ -466,6 +482,13 @@ export class FirestoreBackend implements Backend {
       if (job.status !== 'searching') {
         throw new Error('Sorry, this job has already been taken.');
       }
+      // Browse-and-choose: nobody can take the job until the customer picks
+      // a tradie, and then only that tradie can accept it.
+      if (job.assignmentMode === 'choose' && job.selectedTradieId !== tradieId) {
+        throw new Error(
+          "The customer is still choosing a tradie. Tap \"I'm interested\" so they can pick you.",
+        );
+      }
       // Only a tradie in this job's dispatch pool may accept it. (Legacy jobs
       // created before wave dispatch have no snapshot — skip the guard there.)
       if (job.dispatch && !job.dispatch.candidateIds.includes(tradieId)) {
@@ -532,6 +555,14 @@ export class FirestoreBackend implements Backend {
   async setJobBilling(jobId: string, billing: BillingDetails): Promise<void> {
     await updateDoc(this.jobRef(jobId), {
       billing: { contactName: billing.contactName.trim(), contactEmail: billing.contactEmail.trim() },
+    });
+  }
+
+  /** Live phone position of the assigned tradie en route (throttled by caller)
+   *  — drives the customer's real distance/ETA instead of the base address. */
+  async setJobTradieLocation(jobId: string, point: GeoPoint): Promise<void> {
+    await updateDoc(this.jobRef(jobId), {
+      tradieLocation: { ...point, updatedAt: Date.now() },
     });
   }
 

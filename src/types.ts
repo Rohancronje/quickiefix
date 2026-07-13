@@ -316,6 +316,10 @@ export interface Job {
   // Assigned tradie (set on acceptance — the first candidate to accept wins)
   tradieId?: string;
   tradieName?: string;
+  /** The assigned tradie's live phone position while en route (throttled
+   *  updates) — the customer's distance/ETA tracks this, not the tradie's
+   *  base/office address. */
+  tradieLocation?: GeoPoint & { updatedAt: number };
   /** Company stamped at acceptance from the tradie's validated tag (§6.1).
    *  Immutable thereafter — drives company billing + history even after a leaver. */
   companyId?: string;

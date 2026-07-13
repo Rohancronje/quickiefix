@@ -22,7 +22,7 @@ async function newCustomer(): Promise<Customer> {
 }
 
 async function readyTradie(
-  opts: { trade?: TradeCategory; status?: Tradie['status'] } = {},
+  opts: { trade?: TradeCategory; status?: Tradie['status']; secondaryTrades?: TradeCategory[] } = {},
 ): Promise<Tradie> {
   const t = await mockBackend.registerTradie({
     firstName: 'T',
@@ -32,7 +32,7 @@ async function readyTradie(
     businessName: 'Biz',
     yearsExperience: 5,
     primaryTrade: opts.trade ?? 'electrician',
-    secondaryTrades: [],
+    secondaryTrades: opts.secondaryTrades ?? [],
     qualifications: [],
     serviceRadiusKm: 20,
   });
@@ -92,6 +92,45 @@ describe('auto dispatch', () => {
     expect((await mockBackend.getTradie(t1.id))!.status).toBe('job_accepted');
 
     await expect(mockBackend.acceptJob(j.id, t2.id)).rejects.toThrow(/already been taken/i);
+  });
+});
+
+describe('workflow guards', () => {
+  it('choose mode: a tradie cannot accept before the customer picks them', async () => {
+    const cust = await newCustomer();
+    const t = await readyTradie();
+    const j = await job(cust, { assignmentMode: 'choose' });
+
+    await expect(mockBackend.acceptJob(j.id, t.id)).rejects.toThrow(/still choosing/i);
+
+    // Once picked, accepting locks it straight in.
+    await mockBackend.selectTradie(j.id, t.id);
+    const accepted = await mockBackend.acceptSelection(j.id, t.id);
+    expect(accepted.status).toBe('confirmed');
+  });
+
+  it('blocks a second live job for the same trade; other trades are fine', async () => {
+    const cust = await newCustomer();
+    const t = await readyTradie({ trade: 'plumber' });
+    const j = await job(cust, { trade: 'plumber' });
+    await mockBackend.acceptJob(j.id, t.id); // plumbing job now in progress
+
+    await expect(job(cust, { trade: 'plumber' })).rejects.toThrow(/already have a plumber job/i);
+
+    const other = await job(cust, { trade: 'electrician' });
+    expect(other.status).toBe('searching'); // different trade is fine
+
+    // Finishing (or cancelling) the plumbing job frees the trade again.
+    await mockBackend.cancelJob(j.id, 'customer');
+    const again = await job(cust, { trade: 'plumber' });
+    expect(again.status).toBe('searching');
+  });
+
+  it('secondary trades receive matching jobs (plumber with electrician secondary)', async () => {
+    const cust = await newCustomer();
+    const multi = await readyTradie({ trade: 'plumber', secondaryTrades: ['electrician'] });
+    const j = await job(cust, { trade: 'electrician' });
+    expect(j.dispatch?.candidateIds).toContain(multi.id);
   });
 });
 

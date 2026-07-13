@@ -16,7 +16,7 @@ import { useJob, useMessages, useUser } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
 import { hadNoCandidates, isSearchExhausted, searchStageLabel, shouldAutoConfirm } from '../../../src/lib/dispatch';
 import { formatDuration } from '../../../src/lib/format';
-import { estimateEtaMinutes } from '../../../src/lib/geo';
+import { distanceKm, estimateEtaMinutes } from '../../../src/lib/geo';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
 import { Job, Rating, Tradie } from '../../../src/types';
@@ -239,7 +239,7 @@ export default function TrackJob() {
               {/* Rates were locked in at acceptance — show them up front. */}
               {job.status === 'confirmed' && job.rateSnapshot && <RateSnapshotView job={job} />}
               {job.status === 'travelling' &&
-                tradie.baseLocation &&
+                (job.tradieLocation || tradie.baseLocation) &&
                 job.location.latitude != null && <EtaBanner tradie={tradie} job={job} />}
               {job.status === 'on_site' && (
                 <View style={[styles.etaBanner, { backgroundColor: colors.successSoft }]}>
@@ -367,23 +367,25 @@ export default function TrackJob() {
   );
 }
 
-function EtaBanner({ tradie, job }: { tradie: Tradie; job: { location: { latitude?: number; longitude?: number } } }) {
-  const eta = tradie.baseLocation && job.location.latitude != null && job.location.longitude != null
-    ? estimateEtaMinutes(
-        Math.hypot(
-          (tradie.baseLocation.latitude - job.location.latitude) * 111,
-          (tradie.baseLocation.longitude - job.location.longitude) * 88,
-        ),
-      )
-    : null;
+function EtaBanner({ tradie, job }: { tradie: Tradie; job: Job }) {
+  // Prefer the tradie's LIVE phone position (published while en route);
+  // fall back to their base location only when no live fix has arrived yet.
+  const from = job.tradieLocation ?? tradie.baseLocation;
+  const km =
+    from && job.location.latitude != null && job.location.longitude != null
+      ? distanceKm(from, { latitude: job.location.latitude, longitude: job.location.longitude })
+      : null;
+  const live = !!job.tradieLocation;
   return (
     <View style={styles.etaBanner}>
       <Txt variant="label" color={colors.blue}>
         🚗 {tradie.businessName} is on the way
       </Txt>
-      {eta != null && (
+      {km != null && (
         <Txt variant="caption" color={colors.textMuted}>
-          Estimated arrival in about {eta} min
+          {live ? '📍 Live · ' : ''}
+          {km < 10 ? km.toFixed(1) : Math.round(km)} km away · arriving in about{' '}
+          {estimateEtaMinutes(km)} min
         </Txt>
       )}
     </View>

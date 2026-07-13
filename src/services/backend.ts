@@ -145,6 +145,9 @@ export interface Backend {
   declineJob(jobId: string, tradieId: string): Promise<void>;
   /** Save the invoicing contact confirmed at completion time. */
   setJobBilling(jobId: string, billing: BillingDetails): Promise<void>;
+  /** Publish the assigned tradie's live phone position on the job (en route)
+   *  so the customer's distance/ETA tracks the phone, not the base address. */
+  setJobTradieLocation(jobId: string, point: GeoPoint): Promise<void>;
   /** `choose` mode: a busy (unavailable) tradie opts into a job so the customer
    *  can see them in the browse list. */
   expressInterest(jobId: string, tradieId: string): Promise<void>;

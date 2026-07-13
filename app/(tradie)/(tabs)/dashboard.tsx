@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, AppState, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { JobCard } from '../../../src/components/JobCard';
@@ -47,6 +47,28 @@ export default function TradieDashboard() {
   // Independent tradies need a rate card so customers see pricing on acceptance;
   // company-tagged tradies inherit the company's rates. Prompt until it's set.
   const profileIncomplete = !tradie.companyId && !tradie.rateCard;
+
+  // Keep the dispatch/browse distance anchored to the PHONE, not a stale point:
+  // refresh the tradie's location whenever the app opens/foregrounds while
+  // they're available (silent best-effort — GPS off changes nothing).
+  const lastLocRefresh = useRef(0);
+  useEffect(() => {
+    const refresh = () => {
+      if (tradie.status !== 'available') return;
+      if (Date.now() - lastLocRefresh.current < 120_000) return; // at most every 2 min
+      lastLocRefresh.current = Date.now();
+      getCurrentLocation()
+        .then((loc) =>
+          backend.setTradieLocation(tradie.id, { latitude: loc.latitude, longitude: loc.longitude }),
+        )
+        .catch(() => {});
+    };
+    refresh();
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, [tradie.id, tradie.status]);
 
   const toggleAvailability = async (value: boolean) => {
     if (value) {

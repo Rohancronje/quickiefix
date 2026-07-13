@@ -33,6 +33,7 @@ export default function TradieJob() {
 
   // GPS on-site detection: while travelling, watch position and auto-arrive
   // once inside the geofence radius around the property.
+  const lastPublishRef = useRef(0);
   useEffect(() => {
     let cancelled = false;
     if (!job || !trackingActive || !jobCoords) return;
@@ -43,6 +44,12 @@ export default function TradieJob() {
       const d = distanceKm(point, { latitude: jobCoords.latitude, longitude: jobCoords.longitude });
       if (d <= ON_SITE_RADIUS_KM) {
         backend.arriveOnSite(job.id, 'gps');
+      }
+      // Publish the live phone position (throttled) so the customer's
+      // distance/ETA tracks the tradie's phone, not their base address.
+      if (Date.now() - lastPublishRef.current >= 20_000) {
+        lastPublishRef.current = Date.now();
+        void backend.setJobTradieLocation(job.id, point).catch(() => {});
       }
     })
       .then((stop) => {

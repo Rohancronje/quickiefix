@@ -191,7 +191,16 @@ service cloud.firestore {
         resource.data.tradieId == request.auth.uid ||
         (
           resource.data.status == 'searching' &&
-          request.auth.uid in resource.data.dispatch.candidateIds
+          request.auth.uid in resource.data.dispatch.candidateIds &&
+          (
+            // Browse-and-choose: an UNCHOSEN candidate may decline or express
+            // interest, but may NOT take the job (status/tradieId) — only the
+            // tradie the customer picked can (covered by the clause below).
+            resource.data.get('assignmentMode', 'auto') != 'choose' ||
+            resource.data.get('selectedTradieId', '') == request.auth.uid ||
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['status', 'tradieId', 'tradieName'])
+          )
         ) ||
         (
           resource.data.status == 'searching' &&
