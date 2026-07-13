@@ -20,6 +20,11 @@ export function TradieProfileCard({ tradie }: { tradie: Tradie }) {
         <Avatar label={initials(tradie.firstName, tradie.lastName)} size={60} color={colors.navy} />
         <View style={{ flex: 1, gap: 2 }}>
           <Txt variant="heading">{tradie.businessName}</Txt>
+          {tradie.companyName && (
+            <Txt variant="caption" color={colors.navy} style={{ fontWeight: '700' }}>
+              Member of {tradie.companyName}
+            </Txt>
+          )}
           <Txt variant="caption" color={colors.textMuted}>
             {primary.emoji} {primary.label} · {tradie.yearsExperience} yrs experience
           </Txt>
@@ -33,9 +38,6 @@ export function TradieProfileCard({ tradie }: { tradie: Tradie }) {
       </View>
 
       <View style={styles.badges}>
-        {tradie.companyName && (
-          <Badge label={`🏢 ${tradie.companyName}`} color={colors.navy} soft={colors.surfaceAlt} />
-        )}
         {tradie.approval === 'approved' && (
           <Badge label="✓ Verified" color={colors.success} soft={colors.successSoft} />
         )}

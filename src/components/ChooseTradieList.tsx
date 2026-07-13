@@ -116,6 +116,11 @@ export function ChooseTradieList({ job }: { job: Job }) {
                 <Txt variant="label" numberOfLines={1}>
                   {e.business}
                 </Txt>
+                {e.companyName && (
+                  <Txt variant="caption" color={colors.navy} numberOfLines={1} style={{ fontWeight: '700' }}>
+                    Member of {e.companyName}
+                  </Txt>
+                )}
                 <Txt variant="caption" color={colors.textMuted}>
                   {e.ratingCount > 0 ? `⭐ ${e.ratingAvg.toFixed(1)} (${e.ratingCount})` : '⭐ New'} ·{' '}
                   {e.completedJobs} jobs

@@ -468,9 +468,6 @@ export default function NewJob() {
                 <Txt style={{ fontSize: 26 }}>⚡</Txt>
                 <View style={{ flex: 1 }}>
                   <Txt variant="label">Help now</Txt>
-                  <Txt variant="caption" color={colors.textMuted}>
-                    Dispatch the nearest available tradie immediately.
-                  </Txt>
                 </View>
               </Pressable>
               <Pressable
@@ -480,9 +477,6 @@ export default function NewJob() {
                 <Txt style={{ fontSize: 26 }}>🗓️</Txt>
                 <View style={{ flex: 1 }}>
                   <Txt variant="label">Schedule for later</Txt>
-                  <Txt variant="caption" color={colors.textMuted}>
-                    Line up a tradie for a time that suits you.
-                  </Txt>
                 </View>
               </Pressable>
 
