@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickieFix — Company User Manual</title>
+<style>
+  :root { --navy:#0B1220; --amber:#FFB020; --muted:#5A6478; --line:#E2E7F1; }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--navy); margin: 0; padding: 0; background: #fff;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px 80px; }
+  .brandbar {
+    background: var(--navy); color: #fff; padding: 28px 40px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brandbar img { height: 46px; }
+  .brandbar .word { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brandbar .word b { color: var(--amber); }
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 8px; }
+  h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  p, li { color: #22314e; }
+  strong { color: var(--navy); }
+  a { color: #3D7BFF; text-decoration: none; }
+  code { background: #F1F4FA; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px; background: #FFF7E6;
+    border-left: 4px solid var(--amber); border-radius: 6px;
+  }
+  blockquote p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F7F9FD; }
+  hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  li { margin: 3px 0; }
+  .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
+  @media print {
+    .page { padding: 8mm 0 0; max-width: none; }
+    .brandbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { break-after: avoid; }
+    table, blockquote { break-inside: avoid; }
+    a { color: inherit; }
+  }
+  @page { margin: 14mm 12mm; }
+</style>
+</head>
+<body>
+  <div class="brandbar">
+    <img src="https://quickiefix.store/email-logo.png" alt="QuickieFix">
+    <div class="word">Quickie<b>Fix</b> · User Manual</div>
+  </div>
+  <div class="page">
+    <h1>QuickieFix — Company User Manual</h1>
+<p><strong>Run your whole trade team on QuickieFix: one roster, one rate card, one dashboard.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Applies to</strong></td>
+<td>QuickieFix Business Portal + mobile app v1.2.0</td>
+</tr>
+<tr>
+<td><strong>Audience</strong></td>
+<td>Trade businesses with multiple tradies (owners, ops managers, admins)</td>
+</tr>
+<tr>
+<td><strong>Business Portal</strong></td>
+<td><a href="https://quickiefix-portal.web.app">https://quickiefix-portal.web.app</a></td>
+</tr>
+<tr>
+<td><strong>App download (for your tradies)</strong></td>
+<td><a href="https://quickiefix.store/download">https://quickiefix.store/download</a></td>
+</tr>
+<tr>
+<td><strong>Document version</strong></td>
+<td>1.0 · July 2026</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-how-the-company-model-works">How the company model works</a></li>
+<li><a href="#2-creating-your-company">Creating your company</a></li>
+<li><a href="#3-going-live-your-rate-card">Going live: your rate card</a></li>
+<li><a href="#4-adding-tradies-one-at-a-time--seats--tag-codes">Adding tradies one at a time — seats &amp; tag codes</a></li>
+<li><a href="#5-adding-your-whole-team-at-once--csv-import">Adding your whole team at once — CSV import</a></li>
+<li><a href="#6-what-your-tradies-experience">What your tradies experience</a></li>
+<li><a href="#7-your-dashboard-team-performance">Your dashboard: team performance</a></li>
+<li><a href="#8-managing-the-roster-tags-removal-leavers">Managing the roster: tags, removal, leavers</a></li>
+<li><a href="#9-money-rates-fees-shared-credits-billing">Money: rates, fees, shared credits, billing</a></li>
+<li><a href="#10-company-settings">Company settings</a></li>
+<li><a href="#11-rules-to-know">Rules to know</a></li>
+<li><a href="#12-troubleshooting--faq">Troubleshooting &amp; FAQ</a></li>
+</ol>
+<hr>
+<h2>1. How the company model works</h2>
+<p>QuickieFix uses a <strong>tag model</strong>: the individual tradie is always the unit that gets dispatched, and your company is the <strong>tag</strong> that binds their jobs to your business for branding, rates, reporting and billing.</p>
+<p>What that means in practice:</p>
+<ul>
+<li>Your tradies each run the normal QuickieFix app — going available, receiving jobs by proximity/rating, completing on-site.</li>
+<li>Every job a <strong>tagged</strong> tradie accepts is stamped with your company name and <strong>your company rate card</strong> — customers see your business and your prices.</li>
+<li>Their completed jobs, hours and ratings roll up into <strong>your portal dashboard</strong>.</li>
+<li>You control the roster: only you (or QuickieFix) can remove a tradie from your team.</li>
+</ul>
+<p>The lifecycle of a seat: <strong>issued → claimed → validated → (removed)</strong>. You issue a tag code; the tradie claims it in the app; QuickieFix validates the identity match; from then on they&#39;re on your roster.</p>
+<hr>
+<h2>2. Creating your company</h2>
+<ol>
+<li>Open the <strong>Business Portal</strong>: <strong><a href="https://quickiefix-portal.web.app">https://quickiefix-portal.web.app</a></strong></li>
+<li>Click <strong>&quot;Create your company&quot;</strong>.</li>
+<li>Enter: <strong>Company name</strong>, <strong>Your name</strong>, <strong>Email</strong>, <strong>Password</strong> (min 6 characters).</li>
+<li>Click <strong>Create company</strong>.</li>
+</ol>
+<p>You land on your Dashboard. Your company status is <strong>&quot;Setup&quot;</strong> until you save a rate card (next section) — do that first.</p>
+<p>Sign back in any time at the same URL with <strong>Sign in</strong>.</p>
+<hr>
+<h2>3. Going live: your rate card</h2>
+<p><strong>Settings → Rate card.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Hourly rate (NZD)</strong></td>
+<td>✅</td>
+<td>95.00</td>
+</tr>
+<tr>
+<td><strong>Callout fee</strong></td>
+<td>optional</td>
+<td>80.00</td>
+</tr>
+<tr>
+<td><strong>After-hours callout</strong></td>
+<td>optional</td>
+<td>140.00</td>
+</tr>
+</tbody></table>
+<p>Click <strong>Save &amp; go live</strong>. Your status badge flips from <strong>Setup</strong> (amber) to <strong>Active</strong> (green): <em>&quot;Rate card saved — you are live.&quot;</em></p>
+<p><strong>Why this matters:</strong> the company rate card <strong>overrides every tagged tradie&#39;s personal rates</strong>. When any of your tradies accepts a job, the customer sees <em>your</em> company name and <em>your</em> rates, and those rates are snapshotted into the job as the agreed invoice baseline. One price list, no rogue quoting.</p>
+<hr>
+<h2>4. Adding tradies one at a time — seats &amp; tag codes</h2>
+<p><strong>My Tradies → Add a seat.</strong></p>
+<ol>
+<li>Enter the tradie&#39;s <strong>Name</strong>, <strong>Email</strong>, and optionally <strong>Phone</strong> — these must match the details they use in the app, because QuickieFix validates the match.</li>
+<li>Click <strong>Add seat</strong>.</li>
+<li>A tag code is generated — e.g. <strong><code>QF-7K2P9M</code></strong> — with a <strong>Copy code</strong> button. <strong>Send this code to the tradie. It expires in 14 days</strong> and is single-use.</li>
+</ol>
+<p><strong>What happens next:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Status badge</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>You issue the code</td>
+<td>🟡 <strong>issued</strong></td>
+<td>Waiting for the tradie</td>
+</tr>
+<tr>
+<td>Tradie enters it in the app (Profile → Company → Claim seat)</td>
+<td>🔵 <strong>claimed</strong></td>
+<td>Waiting for QuickieFix validation</td>
+</tr>
+<tr>
+<td>QuickieFix confirms the name/email/phone match</td>
+<td>🟢 <strong>validated</strong></td>
+<td>On your roster — jobs now carry your brand &amp; rates</td>
+</tr>
+<tr>
+<td>You remove them</td>
+<td>⚪ <strong>removed</strong></td>
+<td>Seat revoked</td>
+</tr>
+</tbody></table>
+<p>The <strong>Tags</strong> table on the same page shows every code you&#39;ve ever issued, its status, and actions (<strong>Copy code</strong> for unclaimed ones, <strong>Remove</strong> for active ones).</p>
+<blockquote>
+<p>The tradie needs their own QuickieFix account first (registered in the app with their trade and licence, and admin-approved). The seat code links that account to your company — it doesn&#39;t create the account. To create accounts <em>for</em> them, use CSV import below.</p>
+</blockquote>
+<hr>
+<h2>5. Adding your whole team at once — CSV import</h2>
+<p><strong>My Tradies → Import from a spreadsheet</strong> — the fastest way to onboard an existing team:</p>
+<ol>
+<li>Click <strong>Download template</strong>. Columns:
+<code>firstName, lastName, email, businessName, primaryTrade, secondaryTrades, yearsExperience, licenceNumber</code><ul>
+<li><code>primaryTrade</code> must be one of: electrician, plumber, gasfitter, builder, roofer, painter, locksmith, handyman, appliance_repair, landscaper, cleaner, pest_control</li>
+<li><code>secondaryTrades</code> is semicolon-separated, e.g. <code>gasfitter;handyman</code></li>
+<li>Example row: <code>Mike,Jones,mike@example.com,Lazer Plumbing,plumber,gasfitter;handyman,8,PGDB-12345</code></li>
+</ul>
+</li>
+<li>Fill it in and click <strong>Choose CSV file</strong>.</li>
+<li>Review the <strong>preview</strong>: rows are marked <strong>ready</strong> (green) or flagged with issues (red — missing name, invalid email, unknown trade). Fix and re-upload if needed.</li>
+<li>Click <strong>Import X tradie(s)</strong>.</li>
+</ol>
+<p>For each imported tradie, QuickieFix automatically:</p>
+<ul>
+<li>creates their account (with a temporary password),</li>
+<li>issues a <strong>pre-validated tag</strong> (no code-claiming step needed — they&#39;re on your roster immediately),</li>
+<li>sends them a branded <strong>welcome email</strong>: <em>&quot;You&#39;ve been added to {Your Company} on QuickieFix&quot;</em> with their credentials and the app download button.</li>
+</ul>
+<p>Your tradies just tap the email&#39;s download link, log in, and go available.</p>
+<hr>
+<h2>6. What your tradies experience</h2>
+<p>Point your team at the <strong>Tradie User Manual</strong> for day-to-day use. The company-specific differences they&#39;ll notice:</p>
+<ul>
+<li><strong>Profile → Company</strong> shows your business with a <strong>✓ Verified</strong> badge and the note <em>&quot;Your jobs and rates are managed by this business.&quot;</em></li>
+<li><strong>Their rate card is locked</strong> (<em>Rate card 🔒 — Rates are managed by {Company}</em>). Their personal rates are kept on file and resume automatically if they ever leave.</li>
+<li>Customers see <strong>your company name</strong> on their accepted jobs.</li>
+<li>Free-job credits: <strong>your shared company pool is consumed before their personal credits</strong>.</li>
+<li>Only you can remove them from the roster — they can&#39;t be poached off your seat by accident.</li>
+</ul>
+<p>Everything else — availability, wave dispatch, browse &amp; choose, live ETA, completion codes, timesheets — is the standard tradie experience.</p>
+<hr>
+<h2>7. Your dashboard: team performance</h2>
+<p><strong>Dashboard</strong> gives you the trading picture at a glance:</p>
+<p><strong>KPI cards:</strong> Tradies · Completed jobs · Avg rating · Time on site (aggregate)</p>
+<p><strong>Team performance table</strong> — one row per tradie:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Shows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tradie</td>
+<td>Name + business name</td>
+</tr>
+<tr>
+<td>Trade</td>
+<td>Primary trade</td>
+</tr>
+<tr>
+<td>Jobs</td>
+<td>Completed count</td>
+</tr>
+<tr>
+<td>Rating</td>
+<td>★ average</td>
+</tr>
+<tr>
+<td>Time on site</td>
+<td>Total billable-style hours</td>
+</tr>
+<tr>
+<td>Status</td>
+<td>Approval badge</td>
+</tr>
+</tbody></table>
+<p><strong>Click any row</strong> for the tradie&#39;s detail page: KPIs, complete <strong>job history</strong> (customer, address, completion date, on-site duration, rating per job) and their <strong>customer reviews</strong> verbatim — your quality-control view.</p>
+<hr>
+<h2>8. Managing the roster: tags, removal, leavers</h2>
+<ul>
+<li><strong>Roster</strong> = every tradie with a <strong>validated</strong> tag, listed under <em>&quot;Tradies in {Company}&quot;</em>.</li>
+<li><strong>Removing someone</strong>: My Tradies → Tags table → <strong>Remove</strong> → confirm. Their tag becomes <em>removed</em>; from that moment new jobs no longer carry your brand or rates (their personal rate card resumes).</li>
+<li><strong>History is preserved</strong>: jobs completed while tagged remain stamped with your company forever — removal never rewrites the past. Their historical performance stays visible in your reporting.</li>
+<li><strong>Expired codes</strong>: unclaimed codes die after 14 days — just issue a fresh seat.</li>
+</ul>
+<hr>
+<h2>9. Money: rates, fees, shared credits, billing</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>How it works</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Customer invoicing</strong></td>
+<td>Your tradies&#39; jobs carry <strong>your rate card</strong>. The customer is invoiced <strong>by your business directly</strong> — QuickieFix processes no payment. Every completed job generates a <code>QF-XXXXXX</code> confirmation code emailed to the customer with the rate snapshot; put it on your invoice as the shared reference.</td>
+</tr>
+<tr>
+<td><strong>Platform fee</strong></td>
+<td>A small flat fee per completed job ($15) — charged per tradie, invoiced monthly on the 1st, off-app, 7-day terms.</td>
+</tr>
+<tr>
+<td><strong>Shared credits</strong></td>
+<td>Your company can hold a <strong>shared pool of free-job credits</strong> — consumed before any tradie&#39;s personal credits, so early jobs cost nothing. Ask QuickieFix to load your pool.</td>
+</tr>
+<tr>
+<td><strong>Non-payment</strong></td>
+<td>Sustained non-payment leads to a dispatch hold on the affected tradies until settled.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>10. Company settings</h2>
+<p><strong>Settings</strong> page:</p>
+<ul>
+<li><strong>Rate card</strong> — update any time; new rates apply to <em>future</em> acceptances (in-flight jobs keep the rate snapshotted at their confirmation).</li>
+<li><strong>Company profile</strong> — company name and <strong>billing email</strong> (where your platform invoices go, e.g. <code>accounts@yourcompany.co.nz</code>).</li>
+<li><strong>Account</strong> — your admin email and Company ID (quote it in support requests).</li>
+<li><strong>Log out</strong>.</li>
+</ul>
+<hr>
+<h2>11. Rules to know</h2>
+<ul>
+<li><strong>No rate card = not live.</strong> Set the hourly rate first; everything else follows.</li>
+<li><strong>Tag codes are single-use and expire in 14 days.</strong></li>
+<li><strong>Name/email must match</strong> between the seat you issue and the tradie&#39;s app account — that&#39;s what validation checks.</li>
+<li><strong>Company rates override personal rates</strong> for tagged tradies; the override ends when the tag is removed.</li>
+<li><strong>Job history is immutable</strong> — completed jobs stay stamped with the company that held the tag at acceptance.</li>
+<li><strong>Shared credits before personal credits.</strong></li>
+</ul>
+<hr>
+<h2>12. Troubleshooting &amp; FAQ</h2>
+<p><strong>My tradie claimed the code but still isn&#39;t on the roster.</strong>
+Claimed seats need a one-time QuickieFix validation (identity match). It shows as <em>Pending verification</em> in their app and 🔵 <em>claimed</em> in your Tags table until then. If it&#39;s stuck, check the name/email you issued matches their account exactly.</p>
+<p><strong>The code expired before they used it.</strong>
+Issue a new seat — codes are throwaway.</p>
+<p><strong>A tradie left the company.</strong>
+Tags table → <strong>Remove</strong>. Past jobs stay yours; future jobs are theirs alone.</p>
+<p><strong>Can a tradie be on two companies?</strong>
+No — one active tag per tradie.</p>
+<p><strong>Can I set different rates per tradie?</strong>
+Not within one company — the company rate card is uniform (that&#39;s the point). Genuinely different pricing tiers would be separate companies.</p>
+<p><strong>Where do I see what we owe QuickieFix?</strong>
+Each tradie&#39;s dashboard shows their month (&quot;💳 This month&quot;); the consolidated invoice arrives monthly at your billing email. Fees are flat per completed job, credits are burned first.</p>
+<p><strong>My import flagged rows as &quot;Unknown trade&quot;.</strong>
+The <code>primaryTrade</code> column must use the exact keys listed in section 5 (lowercase, underscores — e.g. <code>appliance_repair</code>).</p>
+<hr>
+<p><em>QuickieFix · On-demand, verified tradies · quickiefix.store</em></p>
+
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.store</div>
+  </div>
+</body>
+</html>

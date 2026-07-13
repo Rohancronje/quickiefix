@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickieFix — Customer User Manual</title>
+<style>
+  :root { --navy:#0B1220; --amber:#FFB020; --muted:#5A6478; --line:#E2E7F1; }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--navy); margin: 0; padding: 0; background: #fff;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px 80px; }
+  .brandbar {
+    background: var(--navy); color: #fff; padding: 28px 40px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brandbar img { height: 46px; }
+  .brandbar .word { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brandbar .word b { color: var(--amber); }
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 8px; }
+  h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  p, li { color: #22314e; }
+  strong { color: var(--navy); }
+  a { color: #3D7BFF; text-decoration: none; }
+  code { background: #F1F4FA; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px; background: #FFF7E6;
+    border-left: 4px solid var(--amber); border-radius: 6px;
+  }
+  blockquote p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F7F9FD; }
+  hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  li { margin: 3px 0; }
+  .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
+  @media print {
+    .page { padding: 8mm 0 0; max-width: none; }
+    .brandbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { break-after: avoid; }
+    table, blockquote { break-inside: avoid; }
+    a { color: inherit; }
+  }
+  @page { margin: 14mm 12mm; }
+</style>
+</head>
+<body>
+  <div class="brandbar">
+    <img src="https://quickiefix.store/email-logo.png" alt="QuickieFix">
+    <div class="word">Quickie<b>Fix</b> · User Manual</div>
+  </div>
+  <div class="page">
+    <h1>QuickieFix — Customer User Manual</h1>
+<p><strong>On-demand, verified tradies dispatched to your door.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Applies to</strong></td>
+<td>QuickieFix mobile app v1.2.0 (Android) and the web app</td>
+</tr>
+<tr>
+<td><strong>Audience</strong></td>
+<td>Customers requesting trade services</td>
+</tr>
+<tr>
+<td><strong>Get the app</strong></td>
+<td><a href="https://quickiefix.store/download">https://quickiefix.store/download</a></td>
+</tr>
+<tr>
+<td><strong>Web app</strong></td>
+<td><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></td>
+</tr>
+<tr>
+<td><strong>Website</strong></td>
+<td><a href="https://quickiefix.store">https://quickiefix.store</a></td>
+</tr>
+<tr>
+<td><strong>Document version</strong></td>
+<td>1.0 · July 2026</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-what-quickiefix-does">What QuickieFix does</a></li>
+<li><a href="#2-installing-and-signing-up">Installing and signing up</a></li>
+<li><a href="#3-signing-in-security-and-biometrics">Signing in, security and biometrics</a></li>
+<li><a href="#4-your-home-screen">Your home screen</a></li>
+<li><a href="#5-requesting-a-tradie--step-by-step">Requesting a tradie — step by step</a></li>
+<li><a href="#6-auto-assign-vs-browse--choose">Auto-assign vs Browse &amp; choose</a></li>
+<li><a href="#7-emergencies">Emergencies</a></li>
+<li><a href="#8-tracking-your-job">Tracking your job</a></li>
+<li><a href="#9-messaging-your-tradie">Messaging your tradie</a></li>
+<li><a href="#10-job-completion-your-confirmation-code-and-invoicing">Job completion, your confirmation code and invoicing</a></li>
+<li><a href="#11-ratings-and-reporting-a-problem">Ratings and reporting a problem</a></li>
+<li><a href="#12-your-account">Your account</a></li>
+<li><a href="#13-notifications-and-emails-youll-receive">Notifications and emails you&#39;ll receive</a></li>
+<li><a href="#14-privacy-and-data-retention">Privacy and data retention</a></li>
+<li><a href="#15-rules-to-know">Rules to know</a></li>
+<li><a href="#16-troubleshooting--faq">Troubleshooting &amp; FAQ</a></li>
+</ol>
+<hr>
+<h2>1. What QuickieFix does</h2>
+<p>QuickieFix connects you with <strong>verified, licensed tradies</strong> in minutes — no quotes, no waiting, no phone tag. You describe the problem, we alert the closest available pros, and you watch your tradie travel to your door in real time.</p>
+<p><strong>Trades available:</strong> ⚡ Electrician · 🔧 Plumber · 🔥 Gasfitter · 🏗️ Builder · 🏠 Roofer · 🎨 Painter · 🔑 Locksmith · 🛠️ Handyman · 🔌 Appliance Repair · 🌿 Landscaper · 🧽 Cleaner · 🐜 Pest Control</p>
+<p>Every tradie on the platform is admin-verified before they can receive a single job. Regulated trades (electricians, plumbers, gasfitters, builders) must hold a valid licence.</p>
+<blockquote>
+<p><strong>QuickieFix is not an emergency service.</strong> If there is a fire, a gas leak you can smell, risk of electrocution, or any danger to life — <strong>call 111 first</strong>.</p>
+</blockquote>
+<hr>
+<h2>2. Installing and signing up</h2>
+<h3>Android</h3>
+<ol>
+<li>On your phone, open <strong><a href="https://quickiefix.store/download">https://quickiefix.store/download</a></strong> — this always serves the newest version.</li>
+<li>Tap the downloaded file and allow the installation when prompted.</li>
+<li>Open <strong>QuickieFix</strong>.</li>
+</ol>
+<h3>Web (laptop or desktop)</h3>
+<p>Open <strong><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></strong> in any modern browser. The web app mirrors the phone app.</p>
+<h3>Creating your account</h3>
+<ol>
+<li>On the welcome screen (&quot;<strong>Get trusted help fast.</strong>&quot;), tap <strong>🔍 I need a tradie</strong>.</li>
+<li>Fill in your <strong>first name, last name, email and a password</strong> (minimum 6 characters).</li>
+<li>Tap <strong>Create account</strong>. You&#39;re in — no approval wait for customers.</li>
+</ol>
+<p>Already registered? Tap <strong>Already have an account? Log in</strong>.</p>
+<hr>
+<h2>3. Signing in, security and biometrics</h2>
+<ul>
+<li><strong>Log in</strong> with your email and password. Forgot it? Tap <strong>Forgot password?</strong> — a branded reset email arrives with a <strong>Reset my password</strong> button.</li>
+<li><strong>The app signs you out whenever it is fully closed</strong> (banking-style security). Returning users land straight on the login page.</li>
+<li><strong>Fingerprint / face unlock:</strong> turn on <strong>Biometric unlock</strong> in your <strong>Account</strong> tab. From then on, opening the app shows a lock screen — one scan and you&#39;re back in, no password typing. You can always tap <strong>Use password instead</strong>.</li>
+<li>Briefly hopping to another app (e.g. Maps) and back within a minute never signs you out.</li>
+</ul>
+<hr>
+<h2>4. Your home screen</h2>
+<p>From top to bottom:</p>
+<table>
+<thead>
+<tr>
+<th>Element</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>QuickieFix logo</strong></td>
+<td>Brand header</td>
+</tr>
+<tr>
+<td><strong>Greeting</strong> (&quot;Good morning, Sam&quot;)</td>
+<td>With &quot;What do you need sorted today?&quot;</td>
+</tr>
+<tr>
+<td><strong>🔔 Bell</strong></td>
+<td>Badge shows your active jobs; tap for your Activity list</td>
+</tr>
+<tr>
+<td><strong>Avatar</strong></td>
+<td>Opens your Account tab</td>
+</tr>
+<tr>
+<td><strong>⚡ Request in progress banner</strong></td>
+<td>Appears when a job is live — <strong>Continue</strong> to track it or <strong>Cancel</strong></td>
+</tr>
+<tr>
+<td><strong>&quot;Need a hand right now?&quot; card</strong></td>
+<td><strong>⚡ Request help</strong> starts a new request</td>
+</tr>
+<tr>
+<td><strong>What do you need?</strong></td>
+<td>Trade tiles — tap one to start a request with that trade pre-selected</td>
+</tr>
+<tr>
+<td><strong>Recent</strong></td>
+<td>Your last completed/cancelled jobs</td>
+</tr>
+</tbody></table>
+<p>Bottom tabs: <strong>Home · Activity · Account</strong>.</p>
+<hr>
+<h2>5. Requesting a tradie — step by step</h2>
+<p>Tap <strong>⚡ Request help</strong> (or a trade tile). The wizard has <strong>4 steps</strong> with a progress bar.</p>
+<h3>Step 1 — Service</h3>
+<p>Pick the trade you need. Tap <strong>Continue</strong>.</p>
+<h3>Step 2 — Details &amp; photos</h3>
+<ol>
+<li>Describe the issue (at least 5 characters). <em>Example: &quot;My hot water cylinder is leaking in the garage.&quot;</em> The more detail, the faster the right tradie can help.</li>
+<li><strong>Add up to 4 photos</strong> (optional but highly recommended): tap <strong>📷 Camera</strong> to take one or <strong>🖼️ Gallery</strong> to attach existing photos. Remove a photo with the small ✕ on its corner. Tradies see your photos before deciding — good photos get faster, better-matched responses.</li>
+</ol>
+<h3>Step 3 — Location</h3>
+<p>Three ways to set the address:</p>
+<ul>
+<li><strong>Your properties</strong> (if you&#39;ve added any — see the Property Manager manual): tap the property and the address fills itself.</li>
+<li><strong>📍 Use my current location</strong> — GPS pins your exact position.</li>
+<li><strong>Type the address</strong> — after 3 characters, live <strong>address suggestions</strong> appear (New Zealand addresses only). Pick one and you&#39;ll see <strong>&quot;✓ Location pinned — tradies see exact distance&quot;</strong>: your job now carries exact coordinates, which means accurate distance ranking, accurate ETAs and a working map.</li>
+</ul>
+<h3>Step 4 — When &amp; matching</h3>
+<ul>
+<li><strong>⚡ Help now</strong> or <strong>🗓️ Schedule for later</strong>.</li>
+<li><strong>How do you want to match?</strong> — see section 6.</li>
+<li><strong>⚠️ This is an emergency</strong> — see section 7.</li>
+</ul>
+<p>Tap <strong>⚡ Find me a tradie</strong> (auto) or <strong>👀 Browse tradies</strong> (browse) to submit.</p>
+<blockquote>
+<p><strong>Leaving mid-request?</strong> The app warns you: <em>&quot;Discard this request?&quot;</em> so a half-filled form is never lost by accident.</p>
+</blockquote>
+<hr>
+<h2>6. Auto-assign vs Browse &amp; choose</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>⚡ Auto-assign</strong> (default)</th>
+<th><strong>👀 Browse &amp; choose</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>How it works</strong></td>
+<td>We alert nearby pros; the <strong>first to accept takes the job</strong></td>
+<td>You see a live list of available pros and <strong>pick your own</strong></td>
+</tr>
+<tr>
+<td><strong>Speed</strong></td>
+<td>Fastest</td>
+<td>You control the pace</td>
+</tr>
+<tr>
+<td><strong>Who is alerted</strong></td>
+<td>The nearest 3 tradies first, widening to 8, then all (so the closest get first shot)</td>
+<td>Available tradies appear automatically; busy tradies are invited and appear if they opt in</td>
+</tr>
+<tr>
+<td><strong>What you compare</strong></td>
+<td>Nothing to do — sit back</td>
+<td><strong>Rate, star rating, jobs completed and distance</strong> per tradie</td>
+</tr>
+<tr>
+<td><strong>Locking in</strong></td>
+<td>First accept = locked in. You&#39;re notified: &quot;✅ Tradie found!&quot;</td>
+<td>You tap <strong>Choose this tradie</strong> → they get a final accept prompt → locked in</td>
+</tr>
+</tbody></table>
+<p><strong>In Browse mode:</strong></p>
+<ul>
+<li>The list is sorted nearest-first. Each card shows the business name, rating, completed jobs, distance/ETA and hourly rate.</li>
+<li>Tradies who put their hand up show a <strong>&quot;responded&quot;</strong> badge; you&#39;ll also get a push: <em>&quot;👀 A tradie is keen on your job&quot;</em>.</li>
+<li>Tradies can <strong>ask you questions</strong> before you choose — a <em>&quot;💬 … asked you a question&quot;</em> banner appears at the top; answer right there, or tap <strong>View tradie</strong> to see their profile.</li>
+<li>Until <em>you</em> choose, <strong>no tradie can take your job</strong> — they can only express interest.</li>
+<li>If your pick declines, you&#39;re back at the list to choose someone else.</li>
+</ul>
+<hr>
+<h2>7. Emergencies</h2>
+<p>Tick <strong>⚠️ This is an emergency</strong> for gas leaks, no power, flooding or lockouts.</p>
+<ul>
+<li>A safety banner appears: <strong>&quot;Is anyone in danger?&quot;</strong> with a <strong>📞 Call 111 now</strong> button. QuickieFix is not an emergency service.</li>
+<li>Emergencies are <strong>always auto-assigned</strong> (browse is disabled — no time to shop around).</li>
+<li>Tradies receive a distinct <strong>🚨 Emergency job</strong> alert.</li>
+</ul>
+<hr>
+<h2>8. Tracking your job</h2>
+<p>Submitting takes you straight to the live tracking screen. What you&#39;ll see, in order:</p>
+<ol>
+<li><strong>Finding you a tradie</strong> — a live search card. Watch the search widen: <em>&quot;Alerting the closest pros…&quot; → &quot;Widening the search…&quot; → &quot;Reaching every nearby pro…&quot;</em>. Most jobs match within a few minutes. If genuinely no one is available, you&#39;ll see <strong>&quot;No tradie found&quot;</strong> with a <strong>Try again</strong> button — our team is also alerted.</li>
+<li><strong>✅ Confirmed</strong> — your tradie is locked in. You&#39;ll see their <strong>profile card</strong> (rating, completed jobs, licence badge) and the <strong>rates that now apply</strong> — the hourly rate and any call-out fee are snapshotted at this moment and can&#39;t change mid-job.</li>
+<li><strong>🚗 On the way</strong> — the banner shows <strong>&quot;📍 Live · 3.2 km away · arriving in about 8 min&quot;</strong>, tracking the tradie&#39;s actual phone as they drive. The map shows your address pin and an <strong>amber dot</strong> moving toward it (Uber-style). Distances/ETAs update as they move.</li>
+<li><strong>🛠️ On site</strong> — they&#39;ve arrived and are working. Arrival is detected automatically by GPS.</li>
+<li><strong>✅ Completed</strong> — see section 10.</li>
+</ol>
+<p><strong>Your request card</strong> (description, address, photos) and a <strong>progress timeline</strong> with timestamps sit at the bottom of the screen.</p>
+<p><strong>Cancelling:</strong> tap <strong>Cancel job</strong> any time before completion. The tradie is notified.</p>
+<hr>
+<h2>9. Messaging your tradie</h2>
+<ul>
+<li>Tap the <strong>💬 icon</strong> in the tracking screen header to open the job&#39;s <strong>message centre</strong> — the job description and photos sit at the top for context, the conversation below.</li>
+<li><strong>Before a tradie is assigned</strong> (browse mode), candidates can ask you questions and you can answer — it&#39;s the same thread.</li>
+<li><strong>Contact details are masked</strong>: phone numbers, emails and social handles are automatically hidden in messages, for everyone&#39;s safety. Keep it on QuickieFix.</li>
+<li><strong>🧹 Messages are deleted automatically when the job closes</strong> (completed or cancelled). Photos are deleted 24 hours after the job ends.</li>
+</ul>
+<hr>
+<h2>10. Job completion, your confirmation code and invoicing</h2>
+<p>When the work is done, the tradie completes the job <strong>with you present</strong>:</p>
+<ol>
+<li>They confirm the <strong>invoice contact name and email</strong> with you (prefilled from your account — correct it on the spot if the invoice should go elsewhere, e.g. to your landlord or office).</li>
+<li>The moment they mark it complete, QuickieFix generates a unique <strong>confirmation code — format <code>QF-XXXXXX</code></strong> — created by our servers and impossible for anyone to alter.</li>
+<li>You receive a <strong>completion record email</strong> with the code and the <strong>exact rates that applied</strong> (hourly rate, call-out fee).</li>
+</ol>
+<p><strong>How payment works:</strong> QuickieFix takes no payment in the app. <strong>The tradie invoices you directly</strong> at the rates you saw when they were confirmed. Quote the <code>QF-</code> code on any invoice query — it&#39;s your shared, tamper-proof record of the job.</p>
+<p>The tracking screen also shows a <strong>job summary</strong>: total time, time on site, and the code.</p>
+<hr>
+<h2>11. Ratings and reporting a problem</h2>
+<ul>
+<li>After completion, rate your tradie: <strong>1–5 stars</strong> plus quick tags (<em>Professional, Friendly, On time, Excellent workmanship, Would recommend</em>) and an optional review. Ratings keep the platform honest — they&#39;re aggregated by our servers and can&#39;t be faked.</li>
+<li>The tradie rates you too (privately) on things like communication and access.</li>
+<li>Something wrong? Tap <strong>Report a problem</strong> on the completed job, enter a subject and the details, and <strong>Submit complaint</strong>. Our team reviews every complaint and will be in touch.</li>
+</ul>
+<hr>
+<h2>12. Your account</h2>
+<p><strong>Account</strong> tab, from top to bottom:</p>
+<ul>
+<li><strong>Profile</strong> — your name, email and request/completed counts.</li>
+<li><strong>Saved addresses</strong> — home and work.</li>
+<li><strong>🏠 Properties</strong> — landlord features: add properties, link tenants, see jobs at your properties. Covered fully in the <em>Property Manager &amp; Landlord User Manual</em>.</li>
+<li><strong>Biometric unlock</strong> — fingerprint/face sign-in toggle.</li>
+<li><strong>Log out</strong> — signs out fully and stops notifications to this device.</li>
+</ul>
+<hr>
+<h2>13. Notifications and emails you&#39;ll receive</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Notification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A tradie expressed interest (browse)</td>
+<td>👀 <em>&quot;A tradie is keen on your job&quot;</em></td>
+</tr>
+<tr>
+<td>Tradie locked in</td>
+<td>✅ <em>&quot;Tradie found! … will head over shortly&quot;</em></td>
+</tr>
+<tr>
+<td>Tradie sets off</td>
+<td>🚗 <em>&quot;On the way&quot;</em></td>
+</tr>
+<tr>
+<td>Job completed</td>
+<td>📧 Completion record email with your <code>QF-</code> code and rates</td>
+</tr>
+<tr>
+<td>Password reset requested</td>
+<td>📧 Reset email with a secure link</td>
+</tr>
+</tbody></table>
+<p>Tapping any job notification opens the job directly. Notification badges clear automatically when you open the app.</p>
+<hr>
+<h2>14. Privacy and data retention</h2>
+<table>
+<thead>
+<tr>
+<th>Data</th>
+<th>Policy</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Messages</strong></td>
+<td>Deleted automatically the moment a job completes or is cancelled</td>
+</tr>
+<tr>
+<td><strong>Job photos</strong></td>
+<td>Deleted automatically 24 hours after the job ends</td>
+</tr>
+<tr>
+<td><strong>Your exact address</strong></td>
+<td>Shown to a tradie <strong>only once the job is theirs</strong>. Before that, candidates see only the suburb/area and rough distance</td>
+</tr>
+<tr>
+<td><strong>Contact details in chat</strong></td>
+<td>Automatically masked</td>
+</tr>
+<tr>
+<td><strong>Completion codes &amp; job records</strong></td>
+<td>Kept permanently as your invoice reference</td>
+</tr>
+<tr>
+<td><strong>Rates</strong></td>
+<td>Snapshotted at confirmation — cannot change mid-job</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>15. Rules to know</h2>
+<ul>
+<li><strong>One live job per trade.</strong> You can&#39;t have two plumbing jobs running at once — track or cancel the current one first. You <em>can</em> run a plumbing job and an electrical job side by side.</li>
+<li><strong>Emergencies are always auto-assigned.</strong></li>
+<li><strong>Rates are locked at confirmation.</strong> What you saw is what applies.</li>
+<li><strong>The app signs out when fully closed.</strong> Turn on biometrics for one-touch return.</li>
+</ul>
+<hr>
+<h2>16. Troubleshooting &amp; FAQ</h2>
+<p><strong>The search is taking a while.</strong>
+The search widens automatically — nearest 3 pros first, then 8, then everyone in range. Most jobs match in minutes. If no one accepts, you&#39;ll be told clearly and can retry.</p>
+<p><strong>Can I choose a specific tradie?</strong>
+Yes — pick <strong>👀 Browse &amp; choose</strong> in Step 4. Not available for emergencies.</p>
+<p><strong>Why can&#39;t I create a second plumbing job?</strong>
+One live job per trade. Finish or cancel the current plumbing job first (other trades are unaffected).</p>
+<p><strong>Why can&#39;t I see the tradie&#39;s phone number?</strong>
+All contact stays in-app until a job is confirmed — messages are masked to protect both sides. Once the tradie is assigned and en route, you can coordinate through the in-app chat.</p>
+<p><strong>I was asked for my fingerprint twice / the app logged me out.</strong>
+Fully closing the app ends the session by design. Enable <strong>Biometric unlock</strong> in Account for one-scan re-entry.</p>
+<p><strong>Where&#39;s my invoice?</strong>
+The tradie invoices you directly. Your completion email contains the rates and your <code>QF-</code> confirmation code — quote it in any query.</p>
+<p><strong>The map isn&#39;t showing.</strong>
+The embedded map needs app version 1.2.0 or later — update via <a href="https://quickiefix.store/download">https://quickiefix.store/download</a>.</p>
+<hr>
+<p><em>QuickieFix · On-demand, verified tradies · quickiefix.store</em></p>
+
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.store</div>
+  </div>
+</body>
+</html>

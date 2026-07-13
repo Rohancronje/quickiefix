@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickieFix — Tradie User Manual</title>
+<style>
+  :root { --navy:#0B1220; --amber:#FFB020; --muted:#5A6478; --line:#E2E7F1; }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--navy); margin: 0; padding: 0; background: #fff;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px 80px; }
+  .brandbar {
+    background: var(--navy); color: #fff; padding: 28px 40px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brandbar img { height: 46px; }
+  .brandbar .word { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brandbar .word b { color: var(--amber); }
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 8px; }
+  h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  p, li { color: #22314e; }
+  strong { color: var(--navy); }
+  a { color: #3D7BFF; text-decoration: none; }
+  code { background: #F1F4FA; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px; background: #FFF7E6;
+    border-left: 4px solid var(--amber); border-radius: 6px;
+  }
+  blockquote p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F7F9FD; }
+  hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  li { margin: 3px 0; }
+  .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
+  @media print {
+    .page { padding: 8mm 0 0; max-width: none; }
+    .brandbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    h2 { break-after: avoid; }
+    table, blockquote { break-inside: avoid; }
+    a { color: inherit; }
+  }
+  @page { margin: 14mm 12mm; }
+</style>
+</head>
+<body>
+  <div class="brandbar">
+    <img src="https://quickiefix.store/email-logo.png" alt="QuickieFix">
+    <div class="word">Quickie<b>Fix</b> · User Manual</div>
+  </div>
+  <div class="page">
+    <h1>QuickieFix — Tradie User Manual</h1>
+<p><strong>Jobs come to you. No quoting, no chasing, no phone tag.</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Applies to</strong></td>
+<td>QuickieFix mobile app v1.2.0 (Android) and the web app</td>
+</tr>
+<tr>
+<td><strong>Audience</strong></td>
+<td>Tradies — sole traders and company-tagged team members</td>
+</tr>
+<tr>
+<td><strong>Get the app</strong></td>
+<td><a href="https://quickiefix.store/download">https://quickiefix.store/download</a></td>
+</tr>
+<tr>
+<td><strong>Web app</strong></td>
+<td><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></td>
+</tr>
+<tr>
+<td><strong>Document version</strong></td>
+<td>1.0 · July 2026</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-how-quickiefix-works-for-tradies">How QuickieFix works for tradies</a></li>
+<li><a href="#2-registering-and-getting-approved">Registering and getting approved</a></li>
+<li><a href="#3-signing-in-security-and-biometrics">Signing in, security and biometrics</a></li>
+<li><a href="#4-setting-up-your-profile">Setting up your profile</a></li>
+<li><a href="#5-your-dashboard">Your dashboard</a></li>
+<li><a href="#6-going-available-and-how-dispatch-finds-you">Going available and how dispatch finds you</a></li>
+<li><a href="#7-receiving-and-accepting-jobs--auto-assign">Receiving and accepting jobs — Auto-assign</a></li>
+<li><a href="#8-browse--choose-jobs--getting-picked">Browse &amp; choose jobs — getting picked</a></li>
+<li><a href="#9-doing-the-job-travel-arrival-completion">Doing the job: travel, arrival, completion</a></li>
+<li><a href="#10-the-completion-code-and-getting-paid">The completion code and getting paid</a></li>
+<li><a href="#11-messaging-customers">Messaging customers</a></li>
+<li><a href="#12-ratings">Ratings</a></li>
+<li><a href="#13-timesheets">Timesheets</a></li>
+<li><a href="#14-money-fees-free-credits-invoicing">Money: fees, free credits, invoicing</a></li>
+<li><a href="#15-working-under-a-company">Working under a company</a></li>
+<li><a href="#16-notifications-youll-receive">Notifications you&#39;ll receive</a></li>
+<li><a href="#17-rules-to-know">Rules to know</a></li>
+<li><a href="#18-troubleshooting--faq">Troubleshooting &amp; FAQ</a></li>
+</ol>
+<hr>
+<h2>1. How QuickieFix works for tradies</h2>
+<p>Customers request help; QuickieFix alerts the <strong>closest available, verified tradies</strong>. You accept on your phone, navigate with your own maps app, do the work, and complete the job on-site. The customer pays you <strong>directly on your rates</strong> — QuickieFix never touches the money. Your only cost is a small per-job platform fee, invoiced monthly.</p>
+<p><strong>Matching is ranked by proximity, then rating, then response rate — never by price.</strong> Being close, rated well and quick to respond gets you more work.</p>
+<hr>
+<h2>2. Registering and getting approved</h2>
+<ol>
+<li>Open the app → <strong>🧰 I&#39;m a tradie</strong> (or from the login page: <em>&quot;Are you a tradie? Join as a tradie&quot;</em>).</li>
+<li>Complete the application:<ul>
+<li><strong>Personal</strong> — name, email, password (min 6 characters).</li>
+<li><strong>Business</strong> — business name (required), trading name, years of experience, NZBN (optional).</li>
+<li><strong>Primary trade</strong> — pick one of the 12 trades.</li>
+<li><strong>Secondary trades (optional)</strong> — every extra trade you&#39;re competent in <strong>gets you dispatched for those jobs too</strong>. A plumber who lists gasfitting receives gasfitter jobs.</li>
+<li><strong>Licence</strong> — regulated trades (⚡ electrician, 🔧 plumber, 🔥 gasfitter, 🏗️ builder) must supply a licence number (e.g. <code>EWRB-104882</code>). Certificate &amp; insurance uploads are requested during review.</li>
+<li><strong>Service radius</strong> — 5 / 10 / 15 / 25 km. You&#39;re only offered jobs inside this radius.</li>
+</ul>
+</li>
+<li>Tap <strong>Submit application</strong>.</li>
+</ol>
+<p>Your account is <strong>⏳ pending until an admin verifies your details</strong> — you&#39;ll see a banner on the dashboard until then. Once approved: <strong>✓ Verified &amp; approved</strong>.</p>
+<blockquote>
+<p><strong>Joining through your company?</strong> If your company added you, you&#39;ll instead receive a <strong>welcome email</strong> with a temporary password and the download link — see section 15.</p>
+</blockquote>
+<hr>
+<h2>3. Signing in, security and biometrics</h2>
+<ul>
+<li>The app <strong>signs you out whenever it&#39;s fully closed</strong> (banking-style). Enable <strong>Biometric unlock</strong> in your <strong>Profile</strong> tab for one-scan re-entry.</li>
+<li><strong>Important for job flow:</strong> closing the app does <strong>not</strong> take you off the market. If you&#39;re available, <strong>job offers still reach your phone as push notifications</strong> — tapping one opens the job ready to accept. Only tapping <strong>Log out</strong> stops notifications to your device.</li>
+<li>Quick hops to Maps and back never sign you out.</li>
+</ul>
+<hr>
+<h2>4. Setting up your profile</h2>
+<p><strong>Profile</strong> tab — complete this before going available:</p>
+<ul>
+<li><strong>Rate card</strong> <em>(required for independents)</em> — hourly rate, optional call-out fee, optional after-hours call-out. <strong>Customers see these rates the moment you&#39;re confirmed</strong>, and they&#39;re snapshotted per job as the agreed baseline. No rate card = customers see no pricing = fewer picks.</li>
+<li><strong>Trades &amp; qualifications</strong> — primary/secondary trades, licence numbers, NZBN.</li>
+<li><strong>Service radius</strong> — change any time (5/10/15/25 km).</li>
+<li><strong>Company</strong> — claim a seat code if you work for a business (section 15).</li>
+<li><strong>Biometric unlock</strong> toggle.</li>
+</ul>
+<hr>
+<h2>5. Your dashboard</h2>
+<p>Top to bottom:</p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Greeting + 🔔 bell</strong></td>
+<td>Badge = pending offers + selections + browse requests</td>
+</tr>
+<tr>
+<td><strong>Availability card</strong></td>
+<td>Your on/off switch — see section 6</td>
+</tr>
+<tr>
+<td><strong>Operational summary</strong></td>
+<td>Completed · In progress · ★ Rating · Radius, plus &quot;Last completed…&quot;</td>
+</tr>
+<tr>
+<td><strong>Performance banner</strong></td>
+<td>🚀 Ready to earn → ⭐ streaks → 🏆 Top-rated pro (4.8★+, 5+ ratings)</td>
+</tr>
+<tr>
+<td><strong>Active job card</strong></td>
+<td>Your current job — tap to manage</td>
+</tr>
+<tr>
+<td><strong>&quot;You&#39;ve been selected&quot;</strong></td>
+<td>Browse-mode customers who <strong>chose you</strong> — accept or decline</td>
+</tr>
+<tr>
+<td><strong>&quot;Customers looking for you&quot;</strong></td>
+<td>Browse-mode jobs where the customer is choosing — put your hand up</td>
+</tr>
+<tr>
+<td><strong>Need help?</strong></td>
+<td>You can request a tradie yourself — you&#39;re the customer this time</td>
+</tr>
+<tr>
+<td><strong>💳 This month</strong></td>
+<td>Fees, free credits, billable total (section 14)</td>
+</tr>
+</tbody></table>
+<p>A loud <strong>amber banner</strong> also drops over any screen when a new request lands — with a buzz and a chime.</p>
+<hr>
+<h2>6. Going available and how dispatch finds you</h2>
+<p>Flip the <strong>availability toggle</strong> to <strong>🟢 Available — accepting jobs</strong>.</p>
+<ul>
+<li>Going available captures your <strong>phone&#39;s GPS position</strong> — distance ranking, browse-list distances and customer ETAs are measured from <strong>where you actually are</strong>, not your office. Your position refreshes automatically whenever you open the app while available.</li>
+<li><strong>Wave dispatch (auto jobs):</strong> a new job alerts the <strong>nearest 3</strong> available tradies first; after 90 seconds it widens to 8; after 3 minutes, everyone in radius. Closest gets first shot — respond fast.</li>
+<li>You will <strong>not</strong> receive offers while: offline, pending approval, on a payment hold, or already on an active job.</li>
+</ul>
+<hr>
+<h2>7. Receiving and accepting jobs — Auto-assign</h2>
+<ol>
+<li><strong>The alert</strong>: push notification — <em>&quot;⚡ New plumber job — Sam&quot;</em> with the job description and <strong>suburb</strong> (exact addresses are never shown before a job is yours). Emergency jobs arrive as <strong>🚨 Emergency</strong>.</li>
+<li>Tap it (or the in-app banner) to open the <strong>job offer screen</strong>: customer&#39;s first name, full description, <strong>photos</strong>, the <strong>area + distance</strong> (e.g. <em>&quot;📍 Takapuna, Auckland · ~2.1 km from you&quot;</em>), and the message thread to <strong>ask a question before accepting</strong>.</li>
+<li><strong>⚡ First to accept is locked in.</strong> Tap <strong>Accept job</strong> — you get the job immediately, no further confirmation step. The customer is told you&#39;re on the way.</li>
+<li>Not interested? <strong>Decline</strong> — the job instantly moves to the next nearest tradie and won&#39;t be shown to you again.</li>
+</ol>
+<blockquote>
+<p><strong>Fairness:</strong> accepted = locked. If you open a job someone else already took, you&#39;ll see <em>&quot;This job has been taken by another tradie.&quot;</em></p>
+</blockquote>
+<hr>
+<h2>8. Browse &amp; choose jobs — getting picked</h2>
+<p>Some customers prefer to pick their tradie. These jobs are <strong>never first-come-first-served</strong>:</p>
+<ol>
+<li>You&#39;ll see <strong>&quot;👀 A customer nearby is choosing a tradie&quot;</strong> on your dashboard (<em>Customers looking for you</em>). Tap <strong>View details &amp; photos</strong> for the full brief.</li>
+<li>Tap <strong>I&#39;m interested</strong> to put yourself on the customer&#39;s list — they&#39;re notified instantly. You can also <strong>answer their questions</strong> in the thread to stand out. If you&#39;re currently available you may already be visible in their list automatically; expressing interest and answering questions still helps you stand out.</li>
+<li><strong>You cannot accept a browse job until the customer picks you.</strong> The customer compares rate, rating, completed jobs and distance.</li>
+<li>If they choose you: <strong>⭐ &quot;{Customer} chose you — accept to lock it in&quot;</strong> arrives as a push and a green dashboard card. Tap <strong>Accept — lock it in</strong> — the job is immediately confirmed (or <strong>Decline</strong> and the customer picks someone else).</li>
+</ol>
+<hr>
+<h2>9. Doing the job: travel, arrival, completion</h2>
+<p>Once the job is yours, the <strong>exact address, map preview and &quot;Open in maps ↗&quot;</strong> unlock.</p>
+<ol>
+<li><strong>🚗 Go now</strong> — marks you as travelling and offers to open the address in <strong>your preferred maps app</strong> (Google Maps, Waze, Apple Maps). The customer sees your <strong>live position and ETA</strong> while you drive (your phone publishes it automatically while the app is open).</li>
+<li><strong>Arrival</strong> — detected automatically by GPS when you reach the property, or tap <strong>📍 I&#39;ve arrived — start job</strong>. Your on-site time starts counting (it feeds your timesheet).</li>
+<li><strong>Complete</strong> — when the work is done, tap <strong>Complete job</strong> <em>with the customer present</em>:<ul>
+<li>Confirm the <strong>invoice contact name and email</strong> (prefilled from their account — fix it on the spot if the invoice should go elsewhere).</li>
+<li>Tap <strong>Confirm &amp; complete job</strong>.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>10. The completion code and getting paid</h2>
+<p>On completion, QuickieFix&#39;s servers generate a unique, tamper-proof <strong>confirmation code — <code>QF-XXXXXX</code></strong> — and email the customer a <strong>completion record</strong> carrying the code and <strong>your snapshotted rates</strong>.</p>
+<ul>
+<li><strong>You invoice the customer directly</strong> at those rates. QuickieFix takes no cut of the invoice and processes no payment.</li>
+<li>Put the <code>QF-</code> code on your invoice — it&#39;s the shared record both sides can trust, and it&#39;s the reference used in any dispute.</li>
+<li>Your completed-job summary shows the code, invoice email, total duration and time on site.</li>
+</ul>
+<hr>
+<h2>11. Messaging customers</h2>
+<ul>
+<li>Tap the <strong>💬 icon</strong> on any job header to open the per-job <strong>message centre</strong> — the job description + photos at the top, the thread below.</li>
+<li><strong>Pre-accept</strong>: use it to ask clarifying questions (&quot;Is the cylinder accessible?&quot;) — smart questions win browse-mode picks.</li>
+<li><strong>Contact details are masked</strong> both ways (numbers, emails, handles) until the job is yours — keep it on QuickieFix.</li>
+<li><strong>🧹 Messages are deleted automatically when the job closes.</strong> Job photos are deleted 24 hours after the job ends.</li>
+</ul>
+<hr>
+<h2>12. Ratings</h2>
+<ul>
+<li>After each job, <strong>rate the customer</strong> (stars + tags: <em>Good communication, Easy access, Respectful, Clear brief, Would work with again</em>). Tradie ratings of customers stay private.</li>
+<li>Customers rate you publicly — your average and count appear on your profile card, in browse lists, and feed your dispatch ranking. Ratings are computed server-side and cannot be faked.</li>
+</ul>
+<hr>
+<h2>13. Timesheets</h2>
+<p>The <strong>Timesheets</strong> tab is your automatic job log:</p>
+<ul>
+<li>Every completed job with date, customer, address, <strong>total time, on-site time</strong> and your rating.</li>
+<li>Summary totals at the top.</li>
+<li><strong>⬇️ Export as CSV</strong> — take your records into Excel, your accountant, or your own system.</li>
+</ul>
+<hr>
+<h2>14. Money: fees, free credits, invoicing</h2>
+<p>The <strong>💳 This month</strong> panel on your dashboard shows exactly where you stand:</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>How it works</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Platform fee</strong></td>
+<td>A small flat fee per <strong>completed</strong> job ($15) — your only cost</td>
+</tr>
+<tr>
+<td><strong>Free credits</strong></td>
+<td>Your first jobs are free (5 credits on approval; companies can hold a shared pool). Credits are used automatically before any fee is charged</td>
+</tr>
+<tr>
+<td><strong>Invoicing</strong></td>
+<td>Monthly, on the 1st, <strong>off-app</strong> (7-day terms). No in-app payment, no card on file</td>
+</tr>
+<tr>
+<td><strong>Payment hold</strong></td>
+<td>Sustained non-payment pauses dispatch (<strong>⏸️ Dispatch paused</strong> banner). Settle the invoice and dispatch resumes immediately</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>15. Working under a company</h2>
+<p>If you work for a business that manages its team on QuickieFix:</p>
+<ul>
+<li><strong>Seat codes</strong>: your company issues you a single-use code like <code>QF-7K2P9M</code> (valid 14 days). Enter it in <strong>Profile → Company → Claim seat</strong>. It shows <strong>pending</strong> until QuickieFix validates the match, then your profile shows the company with a <strong>✓ Verified</strong> badge.</li>
+<li><strong>Bulk import</strong>: if the company added you directly, you&#39;ll get a <strong>welcome email</strong> with a temporary password — download the app, log in, set yourself available.</li>
+<li><strong>Rates</strong>: once validated, <strong>your rate card is managed by the company</strong> (shown as <em>Rate card 🔒</em>). Your personal rates are kept on file and resume if you leave.</li>
+<li><strong>Free credits</strong>: the company&#39;s shared credit pool is used before your personal credits.</li>
+<li>Only the company (or QuickieFix) can remove you from their team. Your jobs report into their portal dashboard.</li>
+</ul>
+<hr>
+<h2>16. Notifications you&#39;ll receive</h2>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Notification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>New auto job near you</td>
+<td>⚡ <em>&quot;New {trade} job — {customer}&quot;</em> + description + suburb</td>
+</tr>
+<tr>
+<td>Emergency job</td>
+<td>🚨 <em>&quot;Emergency {trade} job&quot;</em> (high priority)</td>
+</tr>
+<tr>
+<td>Customer chose you (browse)</td>
+<td>⭐ <em>&quot;{Customer} chose you — accept to lock it in&quot;</em></td>
+</tr>
+<tr>
+<td>You declined / job taken</td>
+<td>The job leaves your feed automatically</td>
+</tr>
+</tbody></table>
+<p>Offer alerts use a high-importance channel with sound; tapping any notification opens the job directly. Badges clear when you open the app.</p>
+<hr>
+<h2>17. Rules to know</h2>
+<ul>
+<li><strong>Exact addresses unlock only when the job is yours.</strong> Before that: suburb + distance only.</li>
+<li><strong>Browse jobs can&#39;t be accepted until the customer picks you.</strong> Enforced server-side.</li>
+<li><strong>First-to-accept wins auto jobs</strong> — accepted = locked, instantly.</li>
+<li><strong>Rates are snapshotted at confirmation</strong> — what the customer saw is the agreed baseline.</li>
+<li><strong>One active job at a time</strong> — new offers pause while you&#39;re on a job.</li>
+<li><strong>Messages die with the job; photos 24 h later.</strong> Export anything you need first.</li>
+<li><strong>Declining is fine</strong> — but your response rate feeds your ranking. Decline fast rather than ignoring.</li>
+</ul>
+<hr>
+<h2>18. Troubleshooting &amp; FAQ</h2>
+<p><strong>I&#39;m available but get no offers.</strong>
+Check, in order: approval status (Profile banner), availability toggle, payment hold banner, service radius vs where the work is, and that you haven&#39;t got an active job. Also confirm notifications are allowed for QuickieFix in Android settings.</p>
+<p><strong>Why can&#39;t I accept this browse job?</strong>
+The customer hasn&#39;t picked you yet. Tap <strong>I&#39;m interested</strong> and answer their questions — accepting only unlocks if they choose you.</p>
+<p><strong>Why can&#39;t I see the exact address?</strong>
+It unlocks the moment the job is yours. Before that, every candidate sees area-only — that&#39;s deliberate, for customer privacy and fairness.</p>
+<p><strong>&quot;Sorry, this job has already been taken.&quot;</strong>
+Another tradie accepted first. Speed matters in auto mode.</p>
+<p><strong>The customer&#39;s ETA of me looks wrong.</strong>
+Your live position publishes while the app is open during travel. Keep QuickieFix open (or return to it) while driving; position updates every ~20 seconds.</p>
+<p><strong>How do I stop offers overnight?</strong>
+Toggle yourself <strong>Offline</strong> — or just stay available: offers only come while you&#39;re available, and you can decline anything. Logging out also stops all pushes to the device.</p>
+<p><strong>Where do I see what I owe?</strong>
+Dashboard → <strong>💳 This month</strong>. Invoices come monthly on the 1st with 7-day terms.</p>
+<hr>
+<p><em>QuickieFix · On-demand, verified tradies · quickiefix.store</em></p>
+
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.store</div>
+  </div>
+</body>
+</html>
