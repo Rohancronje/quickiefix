@@ -26,6 +26,7 @@ export default function TradieJob() {
   const tradie = useTradie();
   const job = useJob(id);
   const stopRef = useRef<(() => void) | null>(null);
+  const [accepting, setAccepting] = useState(false);
 
   const jobCoords = job && hasCoords(job.location) ? job.location : null;
   const trackingActive = job?.status === 'confirmed' || job?.status === 'travelling';
@@ -87,6 +88,11 @@ export default function TradieJob() {
   const chosenMe = isChoose && job.selectedTradieId === tradie.id;
   const alreadyInterested = (job.interestedTradies ?? []).some((t) => t.tradieId === tradie.id);
   const acceptJob = async () => {
+    // The accept transaction takes a moment — without this guard a double-tap
+    // fires a second accept that loses to the first and shows a bogus
+    // "already taken" alert to the very tradie who just won the job.
+    if (accepting) return;
+    setAccepting(true);
     try {
       if (chosenMe) {
         // The customer already picked this tradie — accepting locks the job in
@@ -97,6 +103,8 @@ export default function TradieJob() {
       }
     } catch (e) {
       Alert.alert('Could not accept', (e as Error).message);
+    } finally {
+      setAccepting(false);
     }
   };
   const declineJob = () => {
@@ -178,7 +186,7 @@ export default function TradieJob() {
                 <Button title="Decline" kind="ghost" small onPress={declineJob} />
               </View>
               <View style={{ flex: 2 }}>
-                <Button title="Accept — lock it in" kind="success" onPress={acceptJob} />
+                <Button title="Accept — lock it in" kind="success" loading={accepting} onPress={acceptJob} />
               </View>
             </View>
           </View>
@@ -214,7 +222,7 @@ export default function TradieJob() {
                 ⚡ This job is still open
               </Txt>
               <Txt variant="caption" color={colors.textMuted}>
-                Ask the customer a question below, or accept it — first to accept wins.
+                Ask the customer a question below, or accept it — first to accept is locked in.
               </Txt>
             </Card>
             <View style={{ flexDirection: 'row', gap: spacing.md }}>
@@ -222,7 +230,7 @@ export default function TradieJob() {
                 <Button title="Decline" kind="ghost" small onPress={declineJob} />
               </View>
               <View style={{ flex: 2 }}>
-                <Button title="Accept job" kind="success" onPress={acceptJob} />
+                <Button title="Accept job" kind="success" loading={accepting} onPress={acceptJob} />
               </View>
             </View>
           </View>

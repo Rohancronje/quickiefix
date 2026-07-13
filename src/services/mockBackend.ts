@@ -464,10 +464,13 @@ class MockBackend implements Backend {
       throw new Error('Your account is paused. Clear your balance to accept jobs.');
     }
 
-    job.status = 'accepted';
+    // Auto-assign means exactly that: first to accept is locked in — no
+    // redundant customer-confirm step. Land straight at confirmed.
+    job.status = 'confirmed';
     job.tradieId = tradie.id;
     job.tradieName = tradie.businessName;
     job.timestamps.acceptedAt = Date.now();
+    job.timestamps.confirmedAt = Date.now();
 
     // Stamp company + rate snapshot from the tradie's state at acceptance (§6.1).
     const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;

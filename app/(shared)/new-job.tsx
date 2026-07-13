@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AddressField } from '../../src/components/AddressField';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
@@ -323,7 +324,7 @@ export default function NewJob() {
                 </Txt>
                 <View style={styles.orLine} />
               </View>
-              <Field
+              <AddressField
                 label="Address"
                 placeholder="12 Queen Street, Auckland"
                 value={address}
@@ -332,10 +333,19 @@ export default function NewJob() {
                   setCoords(null);
                   setPropertyId(null);
                 }}
+                onSelect={(r) => {
+                  setAddress(r.address);
+                  setCoords(
+                    r.latitude != null && r.longitude != null
+                      ? { latitude: r.latitude, longitude: r.longitude }
+                      : null,
+                  );
+                  setPropertyId(null);
+                }}
               />
               {coords && (
                 <Txt variant="caption" color={colors.success}>
-                  ✓ GPS location captured
+                  ✓ Location pinned — tradies see exact distance
                 </Txt>
               )}
             </Step>

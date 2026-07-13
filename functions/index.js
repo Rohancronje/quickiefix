@@ -18,6 +18,8 @@ const BREVO_API_KEY = defineSecret('BREVO_API_KEY');
 // Expo access token (read-only use) so the /download redirect can resolve the
 // latest EAS build at request time.
 const EXPO_TOKEN = defineSecret('EXPO_TOKEN');
+// Google Places API key — server-side only; the app talks to our proxy below.
+const PLACES_API_KEY = defineSecret('PLACES_API_KEY');
 const EAS_PROJECT_ID = 'af87594c-64e6-4ab1-8796-04cf077c722b';
 
 // Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
@@ -642,6 +644,19 @@ const PUSH_WAVE = { first: 3, second: 8, widenAt1Ms: 90_000, widenAt2Ms: 180_000
 const pushWaveSize = (elapsedMs) =>
   elapsedMs >= PUSH_WAVE.widenAt2Ms ? Infinity : elapsedMs >= PUSH_WAVE.widenAt1Ms ? PUSH_WAVE.second : PUSH_WAVE.first;
 
+/** Trim long text for a notification body. */
+const snip = (s, n = 90) => {
+  const t = String(s || '').trim();
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+};
+
+/** Job details line shown on offer pushes: what + where. */
+function jobPushBody(job) {
+  return [snip(job.description), job.location?.address ? `📍 ${snip(job.location.address, 60)}` : null]
+    .filter(Boolean)
+    .join('\n');
+}
+
 /** Send the offer push to `ids` that haven't been notified yet; record them. */
 async function notifyOfferCandidates(jobRef, job, jobId, ids) {
   const notified = job.dispatch?.notifiedIds ?? [];
@@ -652,8 +667,10 @@ async function notifyOfferCandidates(jobRef, job, jobId, ids) {
   await expoPush(
     tokens.map((to) => ({
       to,
-      title: job.isEmergency ? '🚨 Emergency job near you' : '⚡ New job near you',
-      body: `${job.customerName || 'A customer'} needs a ${trade} — first to accept wins.`,
+      title: job.isEmergency
+        ? `🚨 Emergency ${trade} job — ${job.customerName || 'a customer'}`
+        : `⚡ New ${trade} job — ${job.customerName || 'a customer'}`,
+      body: jobPushBody(job) || `${job.customerName || 'A customer'} needs a ${trade}.`,
       sound: 'default',
       channelId: 'offers',
       priority: 'high',
@@ -712,8 +729,8 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
     await expoPush(
       tokens.map((to) => ({
         to,
-        title: '⭐ A customer chose you',
-        body: `${after.customerName || 'A customer'} picked you — accept to lock it in.`,
+        title: `⭐ ${after.customerName || 'A customer'} chose you — accept to lock it in`,
+        body: jobPushBody(after) || 'Open the job to see the details.',
         sound: 'default',
         channelId: 'offers',
         priority: 'high',
@@ -730,7 +747,7 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
       tokens.map((to) => ({
         to,
         title: '✅ Tradie found!',
-        body: `${after.tradieName || 'A tradie'} accepted your ${String(after.trade || 'job').replace(/_/g, ' ')} job.`,
+        body: `${after.tradieName || 'A tradie'} is locked in for your ${String(after.trade || 'job').replace(/_/g, ' ')} job and will head over shortly.`,
         sound: 'default',
         data: { jobId, role: 'customer' },
       })),
@@ -758,6 +775,81 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
  * request time and 302-redirects to its APK. Emails/links never go stale: as
  * long as a recent build exists, this always points at the latest one.
  */
+
+/**
+ * Google Places proxy — address autocomplete for the app. The API key lives in
+ * Secret Manager and never ships in the client. Session tokens are passed
+ * through so a typing session + the final details lookup bill as ONE Places
+ * session, not per keystroke. Sydney region for trans-Tasman latency.
+ *
+ *  POST { op: 'suggest', input, sessionToken }  → { suggestions: [{placeId, text}] }
+ *  POST { op: 'details', placeId, sessionToken } → { address, latitude, longitude }
+ */
+exports.places = onRequest(
+  { secrets: [PLACES_API_KEY], region: 'australia-southeast1', cors: true },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'POST only' });
+      return;
+    }
+    const key = PLACES_API_KEY.value().trim();
+    const { op, input, placeId, sessionToken } = req.body || {};
+    try {
+      if (op === 'suggest') {
+        if (!input || String(input).trim().length < 3) {
+          res.json({ suggestions: [] });
+          return;
+        }
+        const r = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'X-Goog-Api-Key': key },
+          body: JSON.stringify({
+            input: String(input).slice(0, 120),
+            ...(sessionToken ? { sessionToken: String(sessionToken).slice(0, 64) } : {}),
+            includedRegionCodes: ['nz'],
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          console.error('places autocomplete failed:', r.status, JSON.stringify(data));
+          res.status(502).json({ error: 'lookup failed' });
+          return;
+        }
+        res.json({
+          suggestions: (data.suggestions || [])
+            .map((s) => s.placePrediction)
+            .filter(Boolean)
+            .map((p) => ({ placeId: p.placeId, text: p.text?.text || '' })),
+        });
+      } else if (op === 'details' && placeId) {
+        const qs = sessionToken
+          ? `?sessionToken=${encodeURIComponent(String(sessionToken).slice(0, 64))}`
+          : '';
+        const r = await fetch(
+          `https://places.googleapis.com/v1/places/${encodeURIComponent(String(placeId))}${qs}`,
+          { headers: { 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': 'formattedAddress,location' } },
+        );
+        const data = await r.json();
+        if (!r.ok) {
+          console.error('places details failed:', r.status, JSON.stringify(data));
+          res.status(502).json({ error: 'lookup failed' });
+          return;
+        }
+        res.json({
+          address: data.formattedAddress || '',
+          latitude: data.location?.latitude ?? null,
+          longitude: data.location?.longitude ?? null,
+        });
+      } else {
+        res.status(400).json({ error: 'unknown op' });
+      }
+    } catch (e) {
+      console.error('places proxy error:', e);
+      res.status(500).json({ error: 'lookup failed' });
+    }
+  },
+);
+
 exports.download = onRequest(
   { secrets: [EXPO_TOKEN], region: 'us-central1', cors: true },
   async (req, res) => {

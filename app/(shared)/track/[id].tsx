@@ -236,6 +236,8 @@ export default function TrackJob() {
                   </Txt>
                 </View>
               )}
+              {/* Rates were locked in at acceptance — show them up front. */}
+              {job.status === 'confirmed' && job.rateSnapshot && <RateSnapshotView job={job} />}
               {job.status === 'travelling' &&
                 tradie.baseLocation &&
                 job.location.latitude != null && <EtaBanner tradie={tradie} job={job} />}

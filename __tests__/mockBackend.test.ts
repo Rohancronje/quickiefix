@@ -87,7 +87,7 @@ describe('auto dispatch', () => {
     const j = await job(cust);
 
     const accepted = await mockBackend.acceptJob(j.id, t1.id);
-    expect(accepted.status).toBe('accepted');
+    expect(accepted.status).toBe('confirmed'); // auto-assign: accept = locked in
     expect(accepted.tradieId).toBe(t1.id);
     expect((await mockBackend.getTradie(t1.id))!.status).toBe('job_accepted');
 

@@ -498,19 +498,22 @@ export class FirestoreBackend implements Backend {
         };
       }
 
+      // Auto-assign means exactly that: first to accept is locked in — no
+      // redundant customer-confirm step. Land straight at confirmed.
       const updated: Job = {
         ...job,
-        status: 'accepted',
+        status: 'confirmed',
         tradieId: tradie.id,
         tradieName: tradie.businessName,
-        timestamps: { ...job.timestamps, acceptedAt: now },
+        timestamps: { ...job.timestamps, acceptedAt: now, confirmedAt: now },
         ...stamp,
       };
       tx.update(this.jobRef(jobId), {
-        status: 'accepted',
+        status: 'confirmed',
         tradieId: tradie.id,
         tradieName: tradie.businessName,
         'timestamps.acceptedAt': now,
+        'timestamps.confirmedAt': now,
         ...stamp,
       });
       tx.update(this.userRef(tradieId), {
