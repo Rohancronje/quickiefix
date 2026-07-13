@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
+import { confirmClaimedTag, issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
 import { useAuth } from '../auth';
 import { IconTag, IconTradies } from '../backoffice/icons';
 import {
@@ -103,6 +103,21 @@ export function Team() {
     await removeTag(tag.id);
     await refresh(company);
     flash('Seat removed');
+  };
+
+  // You issued the seat, you know the tradie — confirming the claim is yours.
+  const confirmClaim = async (tag: CompanyTag) => {
+    if (!company) return;
+    if (
+      !confirm(
+        `Confirm ${tag.issuedToName} (${tag.issuedToEmail}) as part of ${company.name}? ` +
+          'Their jobs will carry your company name and rate card from now on.',
+      )
+    )
+      return;
+    await confirmClaimedTag(tag.id);
+    await refresh(company);
+    flash(`${tag.issuedToName} is now on your roster ✓`);
   };
 
   // Roster = validated members. Union users bound to the company with validated
@@ -398,6 +413,14 @@ export function Team() {
                             onClick={() => copyCode(tag.code)}
                           >
                             Copy code
+                          </button>
+                        )}{' '}
+                        {tag.status === 'claimed' && (
+                          <button
+                            className="co-btn co-btn-primary co-btn-sm"
+                            onClick={() => confirmClaim(tag)}
+                          >
+                            Confirm tradie
                           </button>
                         )}{' '}
                         <button className="co-btn co-btn-danger co-btn-sm" onClick={() => remove(tag)}>

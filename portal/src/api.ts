@@ -128,6 +128,27 @@ export async function listCompanyTags(companyId: string): Promise<CompanyTag[]> 
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/**
+ * Company admin confirms a CLAIMED seat: the company knows who they invited,
+ * so verification belongs to them, not the back office. Marks the tag
+ * validated and binds the tradie to the company (rules verify the claim
+ * chain: tag → claimedByUserId → this admin's company).
+ */
+export async function confirmClaimedTag(tagId: string): Promise<void> {
+  await runTransaction(db, async (tx) => {
+    const tagRef = doc(db, 'companyTags', tagId);
+    const snap = await tx.get(tagRef);
+    if (!snap.exists()) return;
+    const tag = snap.data() as CompanyTag;
+    if (tag.status !== 'claimed' || !tag.claimedByUserId) return;
+    tx.update(tagRef, { status: 'validated', validatedAt: Date.now() });
+    tx.update(doc(db, 'users', tag.claimedByUserId), {
+      companyId: tag.companyId,
+      companyName: tag.companyName,
+    });
+  });
+}
+
 export async function removeTag(tagId: string): Promise<void> {
   await runTransaction(db, async (tx) => {
     const tagRef = doc(db, 'companyTags', tagId);

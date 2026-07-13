@@ -13,6 +13,9 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   signup: (companyName: string, adminName: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Re-fetch the company doc after a write (rate card, profile) so every
+   *  screen — e.g. the dashboard checklist — sees the change immediately. */
+  refreshCompany: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -60,9 +63,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCompany(null);
     setIsAdmin(false);
   };
+  const refreshCompany = async () => {
+    const u = auth.currentUser;
+    if (u && !isPlatformAdminEmail(u.email)) {
+      try {
+        setCompany(await getMyCompany(u.uid));
+      } catch {
+        /* keep the stale copy rather than flashing to null */
+      }
+    }
+  };
 
   return (
-    <Ctx.Provider value={{ company, isAdmin, adminEmail, loading, login, signup, logout }}>
+    <Ctx.Provider value={{ company, isAdmin, adminEmail, loading, login, signup, logout, refreshCompany }}>
       {children}
     </Ctx.Provider>
   );

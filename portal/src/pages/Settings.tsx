@@ -8,7 +8,7 @@ const centsToInput = (cents?: number) =>
   cents === undefined ? '' : (cents / 100).toFixed(2);
 
 export function Settings() {
-  const { company, logout } = useAuth();
+  const { company, logout, refreshCompany } = useAuth();
   const [name, setName] = useState(company?.name ?? '');
   const [billingEmail, setBillingEmail] = useState(company?.billingEmail ?? '');
   const [saving, setSaving] = useState(false);
@@ -35,8 +35,9 @@ export function Settings() {
     setSaving(true);
     await updateCompanyName(company.id, name);
     await updateCompanyProfile(company.id, { billingEmail });
+    await refreshCompany();
     setSaving(false);
-    flash('Saved — refresh to see it everywhere');
+    flash('Saved ✓');
   };
 
   const saveRateCard = async () => {
@@ -51,9 +52,10 @@ export function Settings() {
     if (afterHours.trim()) card.afterHoursCalloutFeeCents = dollarsToCents(afterHours);
     setSavingRate(true);
     await setCompanyRateCard(company.id, card);
+    await refreshCompany();
     setRateCard(card);
     setSavingRate(false);
-    flash('Rate card saved — you are live');
+    flash('Rate card saved — you are live 🎉');
   };
 
   return (

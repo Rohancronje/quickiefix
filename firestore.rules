@@ -42,6 +42,17 @@ service cloud.firestore {
             .hasOnly(['companyId', 'companyName', 'activeTagId']) &&
           resource.data.companyId != null &&
           get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid
+        ) ||
+        (
+          // Company admin CONFIRMS a claimed seat: may bind a tradie to their
+          // own company ONLY via the claim chain — the tradie's active tag must
+          // belong to this admin's company and be claimed by this tradie.
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['companyId', 'companyName']) &&
+          resource.data.activeTagId != null &&
+          get(/databases/$(database)/documents/companyTags/$(resource.data.activeTagId)).data.claimedByUserId == userId &&
+          get(/databases/$(database)/documents/companyTags/$(resource.data.activeTagId)).data.companyId == request.resource.data.companyId &&
+          get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.adminUserId == request.auth.uid
         )
       );
       allow delete: if false;
