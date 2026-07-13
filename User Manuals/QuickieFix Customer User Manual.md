@@ -7,7 +7,7 @@
 | **Applies to** | QuickieFix mobile app v1.2.0 (Android) and the web app |
 | **Audience** | Customers requesting trade services |
 | **Get the app** | https://quickiefix.store/download |
-| **Web app** | https://quickiefix-2ea2a.web.app |
+| **Web app** | https://quickiefix-app.web.app |
 | **Website** | https://quickiefix.store |
 | **Document version** | 1.0 · July 2026 |
 
@@ -56,7 +56,7 @@ Every tradie on the platform is admin-verified before they can receive a single 
 
 ### Web (laptop or desktop)
 
-Open **https://quickiefix-2ea2a.web.app** in any modern browser. The web app mirrors the phone app.
+Open **https://quickiefix-app.web.app** in any modern browser. The web app mirrors the phone app.
 
 ### Creating your account
 
@@ -66,6 +66,9 @@ Open **https://quickiefix-2ea2a.web.app** in any modern browser. The web app mir
 
 Already registered? Tap **Already have an account? Log in**.
 
+![The welcome screen](images/app-welcome.png)
+*The welcome screen — start here.*
+
 ---
 
 ## 3. Signing in, security and biometrics
@@ -74,6 +77,9 @@ Already registered? Tap **Already have an account? Log in**.
 - **The app signs you out whenever it is fully closed** (banking-style security). Returning users land straight on the login page.
 - **Fingerprint / face unlock:** turn on **Biometric unlock** in your **Account** tab. From then on, opening the app shows a lock screen — one scan and you're back in, no password typing. You can always tap **Use password instead**.
 - Briefly hopping to another app (e.g. Maps) and back within a minute never signs you out.
+
+![The login screen](images/app-login.png)
+*The login screen — with sign-up and tradie links below.*
 
 ---
 
@@ -94,6 +100,9 @@ From top to bottom:
 
 Bottom tabs: **Home · Activity · Account**.
 
+![The customer home screen](images/customer-home.png)
+*Your home screen: request button, trade tiles and recent jobs.*
+
 ---
 
 ## 5. Requesting a tradie — step by step
@@ -103,9 +112,15 @@ Tap **⚡ Request help** (or a trade tile). The wizard has **4 steps** with a pr
 ### Step 1 — Service
 Pick the trade you need. Tap **Continue**.
 
+![Step 1 — pick a service](images/newjob-step1.png)
+*Step 1 — all twelve trades.*
+
 ### Step 2 — Details & photos
 1. Describe the issue (at least 5 characters). *Example: "My hot water cylinder is leaking in the garage."* The more detail, the faster the right tradie can help.
 2. **Add up to 4 photos** (optional but highly recommended): tap **📷 Camera** to take one or **🖼️ Gallery** to attach existing photos. Remove a photo with the small ✕ on its corner. Tradies see your photos before deciding — good photos get faster, better-matched responses.
+
+![Step 2 — describe the issue and add photos](images/newjob-step2.png)
+*Step 2 — description plus camera/gallery photo buttons.*
 
 ### Step 3 — Location
 Three ways to set the address:
@@ -114,12 +129,18 @@ Three ways to set the address:
 - **📍 Use my current location** — GPS pins your exact position.
 - **Type the address** — after 3 characters, live **address suggestions** appear (New Zealand addresses only). Pick one and you'll see **"✓ Location pinned — tradies see exact distance"**: your job now carries exact coordinates, which means accurate distance ranking, accurate ETAs and a working map.
 
+![Step 3 — live address suggestions](images/newjob-step3.png)
+*Step 3 — start typing and pick from live NZ address suggestions.*
+
 ### Step 4 — When & matching
 - **⚡ Help now** or **🗓️ Schedule for later**.
 - **How do you want to match?** — see section 6.
 - **⚠️ This is an emergency** — see section 7.
 
 Tap **⚡ Find me a tradie** (auto) or **👀 Browse tradies** (browse) to submit.
+
+![Step 4 — when and matching](images/newjob-step4.png)
+*Step 4 — urgency, matching mode and the emergency option.*
 
 > **Leaving mid-request?** The app warns you: *"Discard this request?"* so a half-filled form is never lost by accident.
 
@@ -210,6 +231,9 @@ The tracking screen also shows a **job summary**: total time, time on site, and 
 - **🏠 Properties** — landlord features: add properties, link tenants, see jobs at your properties. Covered fully in the *Property Manager & Landlord User Manual*.
 - **Biometric unlock** — fingerprint/face sign-in toggle.
 - **Log out** — signs out fully and stops notifications to this device.
+
+![The Account tab](images/customer-account.png)
+*The Account tab — profile, addresses, properties and security.*
 
 ---
 

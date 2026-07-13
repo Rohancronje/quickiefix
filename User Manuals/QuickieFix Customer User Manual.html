@@ -36,6 +36,14 @@
   td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
   tr:nth-child(even) td { background: #F7F9FD; }
   hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  .page img {
+    display: block; margin: 18px auto 6px; max-width: 280px; width: 100%;
+    border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(11,18,32,.10);
+  }
+  .page img[src*="portal"] { max-width: 640px; border-radius: 8px; }
+  .page img + em { display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
   li { margin: 3px 0; }
   .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
   @media print {
@@ -45,7 +53,7 @@
     blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     h2 { break-after: avoid; }
-    table, blockquote { break-inside: avoid; }
+    table, blockquote, .page img { break-inside: avoid; }
     a { color: inherit; }
   }
   @page { margin: 14mm 12mm; }
@@ -80,7 +88,7 @@
 </tr>
 <tr>
 <td><strong>Web app</strong></td>
-<td><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></td>
+<td><a href="https://quickiefix-app.web.app">https://quickiefix-app.web.app</a></td>
 </tr>
 <tr>
 <td><strong>Website</strong></td>
@@ -128,7 +136,7 @@
 <li>Open <strong>QuickieFix</strong>.</li>
 </ol>
 <h3>Web (laptop or desktop)</h3>
-<p>Open <strong><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></strong> in any modern browser. The web app mirrors the phone app.</p>
+<p>Open <strong><a href="https://quickiefix-app.web.app">https://quickiefix-app.web.app</a></strong> in any modern browser. The web app mirrors the phone app.</p>
 <h3>Creating your account</h3>
 <ol>
 <li>On the welcome screen (&quot;<strong>Get trusted help fast.</strong>&quot;), tap <strong>🔍 I need a tradie</strong>.</li>
@@ -136,6 +144,8 @@
 <li>Tap <strong>Create account</strong>. You&#39;re in — no approval wait for customers.</li>
 </ol>
 <p>Already registered? Tap <strong>Already have an account? Log in</strong>.</p>
+<p><img src="images/app-welcome.png" alt="The welcome screen">
+<em>The welcome screen — start here.</em></p>
 <hr>
 <h2>3. Signing in, security and biometrics</h2>
 <ul>
@@ -144,6 +154,8 @@
 <li><strong>Fingerprint / face unlock:</strong> turn on <strong>Biometric unlock</strong> in your <strong>Account</strong> tab. From then on, opening the app shows a lock screen — one scan and you&#39;re back in, no password typing. You can always tap <strong>Use password instead</strong>.</li>
 <li>Briefly hopping to another app (e.g. Maps) and back within a minute never signs you out.</li>
 </ul>
+<p><img src="images/app-login.png" alt="The login screen">
+<em>The login screen — with sign-up and tradie links below.</em></p>
 <hr>
 <h2>4. Your home screen</h2>
 <p>From top to bottom:</p>
@@ -188,16 +200,22 @@
 </tr>
 </tbody></table>
 <p>Bottom tabs: <strong>Home · Activity · Account</strong>.</p>
+<p><img src="images/customer-home.png" alt="The customer home screen">
+<em>Your home screen: request button, trade tiles and recent jobs.</em></p>
 <hr>
 <h2>5. Requesting a tradie — step by step</h2>
 <p>Tap <strong>⚡ Request help</strong> (or a trade tile). The wizard has <strong>4 steps</strong> with a progress bar.</p>
 <h3>Step 1 — Service</h3>
 <p>Pick the trade you need. Tap <strong>Continue</strong>.</p>
+<p><img src="images/newjob-step1.png" alt="Step 1 — pick a service">
+<em>Step 1 — all twelve trades.</em></p>
 <h3>Step 2 — Details &amp; photos</h3>
 <ol>
 <li>Describe the issue (at least 5 characters). <em>Example: &quot;My hot water cylinder is leaking in the garage.&quot;</em> The more detail, the faster the right tradie can help.</li>
 <li><strong>Add up to 4 photos</strong> (optional but highly recommended): tap <strong>📷 Camera</strong> to take one or <strong>🖼️ Gallery</strong> to attach existing photos. Remove a photo with the small ✕ on its corner. Tradies see your photos before deciding — good photos get faster, better-matched responses.</li>
 </ol>
+<p><img src="images/newjob-step2.png" alt="Step 2 — describe the issue and add photos">
+<em>Step 2 — description plus camera/gallery photo buttons.</em></p>
 <h3>Step 3 — Location</h3>
 <p>Three ways to set the address:</p>
 <ul>
@@ -205,6 +223,8 @@
 <li><strong>📍 Use my current location</strong> — GPS pins your exact position.</li>
 <li><strong>Type the address</strong> — after 3 characters, live <strong>address suggestions</strong> appear (New Zealand addresses only). Pick one and you&#39;ll see <strong>&quot;✓ Location pinned — tradies see exact distance&quot;</strong>: your job now carries exact coordinates, which means accurate distance ranking, accurate ETAs and a working map.</li>
 </ul>
+<p><img src="images/newjob-step3.png" alt="Step 3 — live address suggestions">
+<em>Step 3 — start typing and pick from live NZ address suggestions.</em></p>
 <h3>Step 4 — When &amp; matching</h3>
 <ul>
 <li><strong>⚡ Help now</strong> or <strong>🗓️ Schedule for later</strong>.</li>
@@ -212,6 +232,8 @@
 <li><strong>⚠️ This is an emergency</strong> — see section 7.</li>
 </ul>
 <p>Tap <strong>⚡ Find me a tradie</strong> (auto) or <strong>👀 Browse tradies</strong> (browse) to submit.</p>
+<p><img src="images/newjob-step4.png" alt="Step 4 — when and matching">
+<em>Step 4 — urgency, matching mode and the emergency option.</em></p>
 <blockquote>
 <p><strong>Leaving mid-request?</strong> The app warns you: <em>&quot;Discard this request?&quot;</em> so a half-filled form is never lost by accident.</p>
 </blockquote>
@@ -314,6 +336,8 @@
 <li><strong>Biometric unlock</strong> — fingerprint/face sign-in toggle.</li>
 <li><strong>Log out</strong> — signs out fully and stops notifications to this device.</li>
 </ul>
+<p><img src="images/customer-account.png" alt="The Account tab">
+<em>The Account tab — profile, addresses, properties and security.</em></p>
 <hr>
 <h2>13. Notifications and emails you&#39;ll receive</h2>
 <table>

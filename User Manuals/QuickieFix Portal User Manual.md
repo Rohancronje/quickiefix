@@ -51,6 +51,9 @@ The portal serves two audiences from the same login page — your email decides 
 
 **Returning?** **Sign in** with email and password.
 
+![The Business Portal sign-in page](images/portal-login.png)
+*The Business Portal sign-in page.*
+
 ---
 
 # Part B — Company admin portal

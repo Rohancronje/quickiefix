@@ -47,6 +47,10 @@ The lifecycle of a seat: **issued → claimed → validated → (removed)**. You
 ## 2. Creating your company
 
 1. Open the **Business Portal**: **https://quickiefix-portal.web.app**
+
+![The Business Portal sign-in page](images/portal-login.png)
+*The Business Portal — create your company here.*
+
 2. Click **"Create your company"**.
 3. Enter: **Company name**, **Your name**, **Email**, **Password** (min 6 characters).
 4. Click **Create company**.

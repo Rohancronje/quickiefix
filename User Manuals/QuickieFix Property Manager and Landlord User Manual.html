@@ -36,6 +36,14 @@
   td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
   tr:nth-child(even) td { background: #F7F9FD; }
   hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  .page img {
+    display: block; margin: 18px auto 6px; max-width: 280px; width: 100%;
+    border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(11,18,32,.10);
+  }
+  .page img[src*="portal"] { max-width: 640px; border-radius: 8px; }
+  .page img + em { display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
   li { margin: 3px 0; }
   .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
   @media print {
@@ -45,7 +53,7 @@
     blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     h2 { break-after: avoid; }
-    table, blockquote { break-inside: avoid; }
+    table, blockquote, .page img { break-inside: avoid; }
     a { color: inherit; }
   }
   @page { margin: 14mm 12mm; }
@@ -80,7 +88,7 @@
 </tr>
 <tr>
 <td><strong>Web app</strong></td>
-<td><a href="https://quickiefix-2ea2a.web.app">https://quickiefix-2ea2a.web.app</a></td>
+<td><a href="https://quickiefix-app.web.app">https://quickiefix-app.web.app</a></td>
 </tr>
 <tr>
 <td><strong>Document version</strong></td>
@@ -123,6 +131,8 @@
 <li>Create a standard account: <strong>🔍 I need a tradie</strong> → name, email, password. There is no separate &quot;landlord account&quot; — property features live inside every customer account.</li>
 <li>Open the <strong>Account</strong> tab. Everything property-related happens in the <strong>🏠 Properties</strong> section.</li>
 </ol>
+<p><img src="images/customer-account.png" alt="The Account tab with the Properties section">
+<em>The Account tab — the 🏠 Properties section is your property hub.</em></p>
 <hr>
 <h2>3. Adding your properties</h2>
 <p>In <strong>Account → 🏠 Properties</strong>:</p>

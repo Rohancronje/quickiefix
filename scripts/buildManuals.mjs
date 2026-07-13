@@ -48,6 +48,14 @@ const template = (title, body) => `<!doctype html>
   td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
   tr:nth-child(even) td { background: #F7F9FD; }
   hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  .page img {
+    display: block; margin: 18px auto 6px; max-width: 280px; width: 100%;
+    border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(11,18,32,.10);
+  }
+  .page img[src*="portal"] { max-width: 640px; border-radius: 8px; }
+  .page img + em { display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 18px; }
   li { margin: 3px 0; }
   .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
   @media print {
@@ -57,7 +65,7 @@ const template = (title, body) => `<!doctype html>
     blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     h2 { break-after: avoid; }
-    table, blockquote { break-inside: avoid; }
+    table, blockquote, .page img { break-inside: avoid; }
     a { color: inherit; }
   }
   @page { margin: 14mm 12mm; }

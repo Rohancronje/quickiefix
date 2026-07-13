@@ -7,7 +7,7 @@
 | **Applies to** | QuickieFix mobile app v1.2.0 (Android) and the web app |
 | **Audience** | Tradies — sole traders and company-tagged team members |
 | **Get the app** | https://quickiefix.store/download |
-| **Web app** | https://quickiefix-2ea2a.web.app |
+| **Web app** | https://quickiefix-app.web.app |
 | **Document version** | 1.0 · July 2026 |
 
 ---
@@ -98,6 +98,9 @@ Top to bottom:
 | **💳 This month** | Fees, free credits, billable total (section 14) |
 
 A loud **amber banner** also drops over any screen when a new request lands — with a buzz and a chime.
+
+![The tradie dashboard](images/tradie-dashboard.png)
+*The dashboard: availability switch, summary stats, performance banner and the month's money panel.*
 
 ---
 
