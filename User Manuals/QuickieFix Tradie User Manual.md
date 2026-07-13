@@ -79,6 +79,9 @@ Your account is **⏳ pending until an admin verifies your details** — you'll 
 - **Company** — claim a seat code if you work for a business (section 15).
 - **Biometric unlock** toggle.
 
+![The Profile tab](images/tradie-profile.png)
+*The Profile tab — approval status, company, rate card and qualifications.*
+
 ---
 
 ## 5. Your dashboard
@@ -181,6 +184,9 @@ The **Timesheets** tab is your automatic job log:
 - Every completed job with date, customer, address, **total time, on-site time** and your rating.
 - Summary totals at the top.
 - **⬇️ Export as CSV** — take your records into Excel, your accountant, or your own system.
+
+![The Timesheets tab](images/tradie-timesheets.png)
+*Timesheets — every completed job, logged and exportable.*
 
 ---
 
