@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 
 // Same Firebase project as the mobile app. Web config values are not secret.
 export const firebaseConfig = {
@@ -20,3 +21,4 @@ export const auth = getAuth(app);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
+export const functions = getFunctions(app);

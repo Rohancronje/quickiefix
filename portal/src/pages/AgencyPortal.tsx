@@ -8,9 +8,17 @@ import {
   removeAgencyLink,
   unlinkTenant,
 } from '../agencyApi';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../auth';
 import { confirmDialog } from '../components/confirm';
+import { functions } from '../firebase';
 import { Agency, AgencyLink, Property } from '../types';
+
+const KIND_LABEL: Record<AgencyLink['kind'], string> = {
+  tradie: 'Individual tradie',
+  company: 'Trade company (covers their team)',
+  tenant: 'Tenant',
+};
 
 const LINK_CHIP: Record<AgencyLink['status'], string> = {
   pending: 'co-chip-amber',
@@ -31,6 +39,10 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const [busy, setBusy] = useState(false);
   // Per-property tenant email inputs
   const [tenantEmail, setTenantEmail] = useState<Record<string, string>>({});
+  // Email invites (app link + agency code)
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteKind, setInviteKind] = useState<'tenant' | 'tradie'>('tenant');
+  const [inviting, setInviting] = useState(false);
 
   const flash = (m: string) => {
     setToast(m);
@@ -49,11 +61,15 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   }, [refresh]);
 
   const approve = async (l: AgencyLink) => {
+    const message =
+      l.kind === 'tenant'
+        ? 'Confirms them as your tenant. Then add them to their property below — their repair requests will route to your approved tradies.'
+        : `${l.kind === 'company' ? `Covers their ${l.scope === 'employees' ? 'employees (contractors excluded)' : 'whole team'}. ` : ''}Jobs at your properties will dispatch to them, on your agency's commercial terms.`;
     if (
-      !(await confirmDialog(`Approve ${l.memberName} for your panel?`, {
-        message: `${l.kind === 'company' ? 'This covers their whole team. ' : ''}Jobs at your properties will dispatch to them, on your agency's commercial terms.`,
-        confirmLabel: 'Approve',
-      }))
+      !(await confirmDialog(
+        `${l.kind === 'tenant' ? 'Confirm' : 'Approve'} ${l.memberName}?`,
+        { message, confirmLabel: l.kind === 'tenant' ? 'Confirm tenant' : 'Approve' },
+      ))
     )
       return;
     try {
@@ -112,6 +128,20 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     flash('Agent code copied');
   };
 
+  const sendInvite = async () => {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      await httpsCallable(functions, 'sendAgencyInvite')({ email: inviteEmail, kind: inviteKind });
+      setInviteEmail('');
+      flash(`Invite sent to ${inviteEmail.trim()} ✓`);
+    } catch (e) {
+      flash(`Could not send: ${(e as Error).message}`);
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const pending = links.filter((l) => l.status === 'pending');
   const approved = links.filter((l) => l.status === 'approved');
 
@@ -144,9 +174,40 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
           <button className="co-btn co-btn-ghost co-btn-sm" onClick={copyCode}>Copy</button>
         </div>
         <p className="co-sub" style={{ fontSize: 13, marginTop: 8 }}>
-          Give this code to tradies (they enter it in the app under Profile → Property agents) or to
-          trade companies (portal → Settings). Approve them below — jobs at your properties then
-          dispatch only to your approved panel, with rates handled by your own agreements.
+          Tradies enter it in the app (Profile → Property agents), trade companies in the portal
+          (Settings), tenants in the app (Account → Property manager). Approve them below — jobs at
+          your properties then dispatch only to your approved panel, with rates handled by your own
+          agreements.
+        </p>
+
+        {/* Email invite: app link + code + role-specific instructions. */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            className="co-input"
+            style={{ flex: '1 1 220px' }}
+            placeholder="name@email.com"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+          />
+          <select
+            className="co-input"
+            style={{ width: 150 }}
+            value={inviteKind}
+            onChange={(e) => setInviteKind(e.target.value as 'tenant' | 'tradie')}
+          >
+            <option value="tenant">Tenant</option>
+            <option value="tradie">Tradie / company</option>
+          </select>
+          <button
+            className="co-btn co-btn-primary co-btn-sm"
+            disabled={inviting || !inviteEmail.trim()}
+            onClick={sendInvite}
+          >
+            {inviting ? 'Sending…' : '✉️ Send invite'}
+          </button>
+        </div>
+        <p className="co-sub" style={{ fontSize: 12, marginTop: 6 }}>
+          The invite email carries the app download link, your code, and step-by-step instructions.
         </p>
       </div>
 
@@ -163,7 +224,9 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600 }}>{l.memberName}</div>
                   <div className="co-sub" style={{ fontSize: 12 }}>
-                    {l.kind === 'company' ? 'Trade company (covers their whole team)' : 'Individual tradie'}
+                    {KIND_LABEL[l.kind]}
+                    {l.kind === 'company' && l.scope === 'employees' ? ' · employees only' : ''}
+                    {l.memberEmail ? ` · ${l.memberEmail}` : ''}
                   </div>
                 </div>
                 <button className="co-btn co-btn-primary co-btn-sm" onClick={() => approve(l)}>Approve</button>
@@ -185,7 +248,10 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 600 }}>{l.memberName}</div>
                 <div className="co-sub" style={{ fontSize: 12 }}>
-                  {l.kind === 'company' ? 'Trade company' : 'Tradie'}
+                  {KIND_LABEL[l.kind]}
+                  {l.kind === 'company' && l.scope === 'employees' ? ' · employees only' : ''}
+                  {l.memberEmail ? ` · ${l.memberEmail}` : ''}
+                  {l.kind === 'tenant' ? ' — add them to their property below' : ''}
                 </div>
               </div>
               <span className={`co-chip ${LINK_CHIP[l.status]}`}>approved</span>

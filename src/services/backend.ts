@@ -189,7 +189,7 @@ export interface Backend {
   /** A tradie OR tenant enters an agency code → pending membership (the
    *  agency approves). Returns the agency name for the confirmation UI. */
   requestAgencyLink(
-    member: { id: string; name: string },
+    member: { id: string; name: string; email?: string },
     code: string,
     kind: 'tradie' | 'tenant',
   ): Promise<string>;

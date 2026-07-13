@@ -42,6 +42,7 @@ import {
   AppUser,
   BillingDetails,
   Engagement,
+  JobSource,
   Company,
   CompanyTag,
   Customer,
@@ -329,7 +330,9 @@ export class FirestoreBackend implements Backend {
         : await this.getAvailableTradies(input.trade, input.location);
 
     // Agency property → restrict to the approved panel: linked tradies, plus
-    // every tradie of a linked company. Other locations stay open-market.
+    // tradies of a linked company (respecting the company's scope choice —
+    // 'employees' excludes contractors). Other locations stay open-market.
+    let ownPanelIds: string[] | undefined;
     if (property?.agencyId) {
       const linksSnap = await getDocs(
         query(collection(this.db, 'agencyLinks'), where('agencyId', '==', property.agencyId)),
@@ -338,10 +341,18 @@ export class FirestoreBackend implements Backend {
         .map((d) => d.data() as AgencyLink)
         .filter((l) => l.status === 'approved');
       const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
-      const companyIds = new Set(approved.filter((l) => l.kind === 'company').map((l) => l.memberId));
-      candidates = candidates.filter(
-        (c) => tradieIds.has(c.tradie.id) || (c.tradie.companyId != null && companyIds.has(c.tradie.companyId)),
+      const companyScope = new Map(
+        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
       );
+      candidates = candidates.filter((c) => {
+        if (tradieIds.has(c.tradie.id)) return true;
+        if (c.tradie.companyId == null) return false;
+        const scope = companyScope.get(c.tradie.companyId);
+        if (!scope) return false;
+        return scope === 'all' || c.tradie.engagement !== 'contractor';
+      });
+      // Record who holds their OWN membership — decides sourcedVia at accept.
+      ownPanelIds = candidates.filter((c) => tradieIds.has(c.tradie.id)).map((c) => c.tradie.id);
     }
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
@@ -359,7 +370,7 @@ export class FirestoreBackend implements Backend {
       assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      dispatch: { candidateIds, startedAt: startAt },
+      dispatch: { candidateIds, startedAt: startAt, ...(ownPanelIds ? { ownPanelIds } : {}) },
       interestedTradies: [],
       declinedBy: [],
       ...propertyStamp,
@@ -620,23 +631,37 @@ export class FirestoreBackend implements Backend {
       }
 
       // Read the company (if any) before any writes, to stamp + snapshot rates.
-      const company =
-        tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
-      const rateCard = (company as Company | undefined)?.rateCard ?? tradie.rateCard;
+      // How did this tradie get access to this job? Contractors carry the
+      // company badge ONLY on company-sourced work (jobs unlocked by the
+      // company's agency-panel membership); their open-market and own-panel
+      // jobs stay under their own brand and rates. Employees are always the
+      // company. sourcedVia is stamped for reporting + month-end billing.
+      const sourcedVia: JobSource = job.agencyId
+        ? job.dispatch?.ownPanelIds?.includes(tradieId)
+          ? 'own_panel'
+          : 'company_panel'
+        : 'open_market';
+      const companySnap = tradie.companyId
+        ? await tx.get(this.companyRef(tradie.companyId))
+        : null;
+      const company = companySnap?.exists() ? (companySnap.data() as Company) : undefined;
+      const useCompany =
+        !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
+      const rateCard = useCompany ? (company?.rateCard ?? tradie.rateCard) : tradie.rateCard;
       const now = Date.now();
 
-      const stamp: Partial<Job> = {};
-      if (company) {
+      const stamp: Partial<Job> = { sourcedVia };
+      if (useCompany && company) {
         stamp.companyId = tradie.companyId;
-        stamp.companyName = (company as Company).name;
+        stamp.companyName = company.name;
       }
       // Agency jobs: no rate snapshot — panel members bill on the agency's
       // own commercial terms, so rates never show anywhere for these jobs.
       if (rateCard && !job.agencyId) {
         stamp.rateSnapshot = {
           rateCard,
-          source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
-          ...(company ? { companyName: (company as Company).name } : {}),
+          source: useCompany && company?.rateCard ? 'company' : 'personal',
+          ...(useCompany && company ? { companyName: company.name } : {}),
           capturedAt: now,
         };
       }
@@ -681,7 +706,7 @@ export class FirestoreBackend implements Backend {
   /* --------------------------------------------------- property agencies -- */
 
   async requestAgencyLink(
-    member: { id: string; name: string },
+    member: { id: string; name: string; email?: string },
     code: string,
     kind: 'tradie' | 'tenant',
   ): Promise<string> {
@@ -713,6 +738,7 @@ export class FirestoreBackend implements Backend {
       kind,
       memberId: member.id,
       memberName: member.name,
+      ...(member.email ? { memberEmail: member.email } : {}),
       status: 'pending',
       requestedAt: Date.now(),
     } satisfies AgencyLink);
@@ -831,23 +857,37 @@ export class FirestoreBackend implements Backend {
         throw new Error('Finish your current job before taking another.');
       }
 
-      const company =
-        tradie.companyId && (await tx.get(this.companyRef(tradie.companyId))).data();
-      const rateCard = (company as Company | undefined)?.rateCard ?? tradie.rateCard;
+      // How did this tradie get access to this job? Contractors carry the
+      // company badge ONLY on company-sourced work (jobs unlocked by the
+      // company's agency-panel membership); their open-market and own-panel
+      // jobs stay under their own brand and rates. Employees are always the
+      // company. sourcedVia is stamped for reporting + month-end billing.
+      const sourcedVia: JobSource = job.agencyId
+        ? job.dispatch?.ownPanelIds?.includes(tradieId)
+          ? 'own_panel'
+          : 'company_panel'
+        : 'open_market';
+      const companySnap = tradie.companyId
+        ? await tx.get(this.companyRef(tradie.companyId))
+        : null;
+      const company = companySnap?.exists() ? (companySnap.data() as Company) : undefined;
+      const useCompany =
+        !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
+      const rateCard = useCompany ? (company?.rateCard ?? tradie.rateCard) : tradie.rateCard;
       const now = Date.now();
 
-      const stamp: Partial<Job> = {};
-      if (company) {
+      const stamp: Partial<Job> = { sourcedVia };
+      if (useCompany && company) {
         stamp.companyId = tradie.companyId;
-        stamp.companyName = (company as Company).name;
+        stamp.companyName = company.name;
       }
       // Agency jobs: no rate snapshot — panel members bill on the agency's
       // own commercial terms, so rates never show anywhere for these jobs.
       if (rateCard && !job.agencyId) {
         stamp.rateSnapshot = {
           rateCard,
-          source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
-          ...(company ? { companyName: (company as Company).name } : {}),
+          source: useCompany && company?.rateCard ? 'company' : 'personal',
+          ...(useCompany && company ? { companyName: company.name } : {}),
           capturedAt: now,
         };
       }

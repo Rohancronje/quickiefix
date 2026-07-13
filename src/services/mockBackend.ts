@@ -15,6 +15,7 @@ import {
   Company,
   CompanyTag,
   Engagement,
+  JobSource,
   Complaint,
   Customer,
   FeeLineItem,
@@ -339,15 +340,23 @@ class MockBackend implements Backend {
       mode === 'choose' || startAt > now
         ? this.inAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
+    let ownPanelIds: string[] | undefined;
     if (property?.agencyId) {
       const approved = Object.values(this.db.agencyLinks).filter(
         (l) => l.agencyId === property.agencyId && l.status === 'approved',
       );
       const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
-      const companyIds = new Set(approved.filter((l) => l.kind === 'company').map((l) => l.memberId));
-      candidates = candidates.filter(
-        (c) => tradieIds.has(c.tradie.id) || (c.tradie.companyId != null && companyIds.has(c.tradie.companyId)),
+      const companyScope = new Map(
+        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
       );
+      candidates = candidates.filter((c) => {
+        if (tradieIds.has(c.tradie.id)) return true;
+        if (c.tradie.companyId == null) return false;
+        const scope = companyScope.get(c.tradie.companyId);
+        if (!scope) return false;
+        return scope === 'all' || c.tradie.engagement !== 'contractor';
+      });
+      ownPanelIds = candidates.filter((c) => tradieIds.has(c.tradie.id)).map((c) => c.tradie.id);
     }
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
@@ -365,7 +374,7 @@ class MockBackend implements Backend {
       assignmentMode: mode,
       status: 'searching',
       timestamps: { createdAt: now, searchingAt: now },
-      dispatch: { candidateIds, startedAt: startAt },
+      dispatch: { candidateIds, startedAt: startAt, ...(ownPanelIds ? { ownPanelIds } : {}) },
       interestedTradies: [],
       declinedBy: [],
     };
@@ -581,22 +590,10 @@ class MockBackend implements Backend {
     job.timestamps.acceptedAt = Date.now();
     job.timestamps.confirmedAt = Date.now();
 
-    // Stamp company + rate snapshot from the tradie's state at acceptance (§6.1).
-    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
-    if (company) {
-      job.companyId = company.id;
-      job.companyName = company.name;
-    }
-    const rateCard = company?.rateCard ?? tradie.rateCard;
-    // Agency jobs: rates never show — panel members bill on agency terms.
-    if (rateCard && !job.agencyId) {
-      job.rateSnapshot = {
-        rateCard,
-        source: company?.rateCard ? 'company' : 'personal',
-        companyName: company?.name,
-        capturedAt: Date.now(),
-      };
-    }
+    // Stamp company + rate snapshot from the tradie's state at acceptance
+    // (§6.1). Contractors carry the company badge ONLY on company-sourced
+    // work; employees always do.
+    this.stampAcceptance(job, tradie);
 
     tradie.status = 'job_accepted';
     tradie.jobsAccepted += 1;
@@ -629,7 +626,7 @@ class MockBackend implements Backend {
   /* --------------------------------------------------- property agencies -- */
 
   async requestAgencyLink(
-    member: { id: string; name: string },
+    member: { id: string; name: string; email?: string },
     code: string,
     kind: 'tradie' | 'tenant',
   ): Promise<string> {
@@ -655,6 +652,7 @@ class MockBackend implements Backend {
       kind,
       memberId: member.id,
       memberName: member.name,
+      memberEmail: member.email,
       status: 'pending',
       requestedAt: Date.now(),
     };
@@ -695,6 +693,20 @@ class MockBackend implements Backend {
     this.db.agencies[id] = agency;
     this.commit();
     return agency;
+  }
+
+  /** Test/demo helper: retype a link (e.g. into a company link with scope). */
+  async setAgencyLinkKind(
+    linkId: string,
+    kind: AgencyLink['kind'],
+    scope?: AgencyLink['scope'],
+  ): Promise<void> {
+    await this.ensureLoaded();
+    const link = this.db.agencyLinks[linkId];
+    if (!link) return;
+    link.kind = kind;
+    if (scope) link.scope = scope;
+    this.commit();
   }
 
   /** Test/demo helper: approve/remove a panel link (mirrors the portal). */
@@ -794,21 +806,7 @@ class MockBackend implements Backend {
     job.timestamps.acceptedAt = now;
     job.timestamps.confirmedAt = now;
 
-    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
-    if (company) {
-      job.companyId = company.id;
-      job.companyName = company.name;
-    }
-    const rateCard = company?.rateCard ?? tradie.rateCard;
-    // Agency jobs: rates never show — panel members bill on agency terms.
-    if (rateCard && !job.agencyId) {
-      job.rateSnapshot = {
-        rateCard,
-        source: company?.rateCard ? 'company' : 'personal',
-        companyName: company?.name,
-        capturedAt: now,
-      };
-    }
+    this.stampAcceptance(job, tradie);
 
     tradie.status = 'job_accepted';
     tradie.jobsAccepted += 1;
@@ -1246,6 +1244,34 @@ class MockBackend implements Backend {
       }
     }
     this.commit();
+  }
+
+  /** Company/rate stamping at acceptance, sourcing-aware: contractors carry
+   *  the company badge only on company-sourced (company-panel) jobs. */
+  private stampAcceptance(job: Job, tradie: Tradie): void {
+    const sourcedVia: JobSource = job.agencyId
+      ? job.dispatch?.ownPanelIds?.includes(tradie.id)
+        ? 'own_panel'
+        : 'company_panel'
+      : 'open_market';
+    job.sourcedVia = sourcedVia;
+    const company = tradie.companyId ? this.db.companies[tradie.companyId] : undefined;
+    const useCompany =
+      !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
+    if (useCompany && company) {
+      job.companyId = company.id;
+      job.companyName = company.name;
+    }
+    const rateCard = useCompany ? (company?.rateCard ?? tradie.rateCard) : tradie.rateCard;
+    // Agency jobs: rates never show — panel members bill on agency terms.
+    if (rateCard && !job.agencyId) {
+      job.rateSnapshot = {
+        rateCard,
+        source: useCompany && company?.rateCard ? 'company' : 'personal',
+        companyName: useCompany ? company?.name : undefined,
+        capturedAt: Date.now(),
+      };
+    }
   }
 
   /** Restore an ex-employee's own identity when they leave / are removed. */

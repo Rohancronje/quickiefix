@@ -281,6 +281,82 @@ describe('workflow guards', () => {
     expect(now.companyName).toBe('North Shore Trades'); // "Contractor for …"
   });
 
+  it('contractors keep their own brand on open-market jobs; company badge only on company-sourced panel jobs', async () => {
+    const cust = await newCustomer();
+    const contractor = await readyTradie({ trade: 'plumber' });
+    await mockBackend.setTradieNzbn(contractor.id, '9429-OWN');
+    const company = await mockBackend.createCompany({
+      name: 'North Shore Trades',
+      adminUserId: 'boss_3',
+      adminEmail: 'a@nst.co.nz',
+      nzbn: '9429-NST',
+    });
+    const tag = await mockBackend.issueTag(company.id, { name: 'T R', email: contractor.email });
+    await mockBackend.claimTag(tag.code, contractor.id, 'contractor');
+    await mockBackend.validateTag(tag.id);
+
+    // OPEN MARKET: no company stamp — the platform sourced this, not NST.
+    const open = await job(cust, { trade: 'plumber' });
+    const openAccepted = await mockBackend.acceptJob(open.id, contractor.id);
+    expect(openAccepted.sourcedVia).toBe('open_market');
+    expect(openAccepted.companyId).toBeUndefined();
+    expect(openAccepted.rateSnapshot?.source).toBe('personal'); // own rates
+    await mockBackend.cancelJob(open.id, 'customer');
+
+    // COMPANY-SOURCED: agency panel held by the COMPANY (employees-only scope
+    // would exclude them, so use 'all').
+    const agency = await mockBackend.createAgencyForTest('Harbour PM', 'ag_admin_2');
+    const prop = await mockBackend.createProperty(
+      { id: 'ag_admin_2', name: 'Harbour PM' },
+      { address: '2 Dock St, Auckland', ...AK },
+    );
+    await mockBackend.setPropertyAgency(prop.id, agency);
+    // company joins the panel with scope 'all' (link written directly for test)
+    const linkName = await mockBackend.requestAgencyLink(
+      { id: company.id, name: company.name },
+      agency.code,
+      'tradie', // kind is irrelevant for the filter test; use helper below instead
+    );
+    expect(linkName).toBe('Harbour PM');
+    // flip that link to a company-kind approved link
+    const links = await once<AgencyLink[]>((cb) => mockBackend.subscribeMyAgencyLinks(company.id, cb));
+    await mockBackend.setAgencyLinkStatus(links[0].id, 'approved');
+    await mockBackend.setAgencyLinkKind(links[0].id, 'company', 'all');
+
+    const panelJob = await job(cust, { trade: 'plumber', propertyId: prop.id });
+    expect(panelJob.dispatch?.candidateIds).toContain(contractor.id); // via company
+    const panelAccepted = await mockBackend.acceptJob(panelJob.id, contractor.id);
+    expect(panelAccepted.sourcedVia).toBe('company_panel');
+    expect(panelAccepted.companyName).toBe('North Shore Trades'); // company badge ON
+  });
+
+  it("company panels scoped to 'employees' exclude contractors from dispatch", async () => {
+    const cust = await newCustomer();
+    const contractor = await readyTradie({ trade: 'plumber' });
+    const company = await mockBackend.createCompany({
+      name: 'NST 2',
+      adminUserId: 'boss_4',
+      adminEmail: 'b@nst.co.nz',
+    });
+    const tag = await mockBackend.issueTag(company.id, { name: 'T R', email: contractor.email });
+    await mockBackend.claimTag(tag.code, contractor.id, 'contractor');
+    await mockBackend.validateTag(tag.id);
+
+    const agency = await mockBackend.createAgencyForTest('Bay PM', 'ag_admin_3');
+    const prop = await mockBackend.createProperty(
+      { id: 'ag_admin_3', name: 'Bay PM' },
+      { address: '3 Bay Rd, Auckland', ...AK },
+    );
+    await mockBackend.setPropertyAgency(prop.id, agency);
+    await mockBackend.requestAgencyLink({ id: company.id, name: company.name }, agency.code, 'tradie');
+    const links = await once<AgencyLink[]>((cb) => mockBackend.subscribeMyAgencyLinks(company.id, cb));
+    await mockBackend.setAgencyLinkStatus(links[0].id, 'approved');
+    await mockBackend.setAgencyLinkKind(links[0].id, 'company', 'employees');
+
+    const j = await job(cust, { trade: 'plumber', propertyId: prop.id });
+    expect(j.dispatch?.candidateIds).not.toContain(contractor.id); // contractor excluded
+  });
+
   it('cancelling stamps who cancelled (drives the push to the other party)', async () => {
     const cust = await newCustomer();
     await readyTradie();

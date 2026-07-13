@@ -28,6 +28,7 @@ export function Settings() {
   // Property-agency panels this company belongs to (or has requested).
   const [agencyLinks, setAgencyLinks] = useState<AgencyLink[]>([]);
   const [agencyCode, setAgencyCode] = useState('');
+  const [agencyScope, setAgencyScope] = useState<'all' | 'employees'>('all');
   const [joiningAgency, setJoiningAgency] = useState(false);
   useEffect(() => {
     if (company) void listCompanyAgencyLinks(company.id).then(setAgencyLinks);
@@ -37,7 +38,7 @@ export function Settings() {
     if (!company || !agencyCode.trim()) return;
     try {
       setJoiningAgency(true);
-      const name = await requestCompanyAgencyLink(company, agencyCode);
+      const name = await requestCompanyAgencyLink(company, agencyCode, agencyScope);
       setAgencyCode('');
       setAgencyLinks(await listCompanyAgencyLinks(company.id));
       flash(`Request sent to ${name} — pending their approval`);
@@ -217,6 +218,24 @@ export function Settings() {
             </span>
           </div>
         ))}
+        <div style={{ display: 'flex', gap: 14, margin: '10px 0 4px', fontSize: 13 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="radio"
+              checked={agencyScope === 'all'}
+              onChange={() => setAgencyScope('all')}
+            />
+            Whole team
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="radio"
+              checked={agencyScope === 'employees'}
+              onChange={() => setAgencyScope('employees')}
+            />
+            Employees only (no contractors)
+          </label>
+        </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
           <input
             className="co-input"

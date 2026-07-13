@@ -244,6 +244,8 @@ export interface AgencyLink {
   kind: 'tradie' | 'company' | 'tenant';
   memberId: string; // tradieId, companyId or customerId
   memberName: string;
+  /** Tenants: shown to the agency so they can add them to a property. */
+  memberEmail?: string;
   /** Company links only: which of their tradies the panel covers. */
   scope?: 'all' | 'employees';
   status: 'pending' | 'approved' | 'removed';
@@ -310,7 +312,14 @@ export interface JobTimestamps {
 export interface JobDispatch {
   candidateIds: string[];
   startedAt: number;
+  /** Agency jobs: candidates whose access comes from their OWN panel link
+   *  (vs via their company's link) — decides sourcedVia at accept time. */
+  ownPanelIds?: string[];
 }
+
+/** How the accepting tradie got access to this job — recorded at accept.
+ *  Drives contractor branding + who they invoice (see Engagement). */
+export type JobSource = 'open_market' | 'own_panel' | 'company_panel';
 
 export interface Rating {
   stars: number; // 1..5
@@ -374,6 +383,8 @@ export interface Job {
   companyName?: string;
   /** Rate card in force at acceptance — the invoice-dispute baseline (§0). */
   rateSnapshot?: RateSnapshot;
+  /** How the accepting tradie got access (stamped at accept). */
+  sourcedVia?: JobSource;
   /** Property this job is at, and the landlord as payer-of-record (§2). */
   propertyId?: string;
   landlordId?: string;

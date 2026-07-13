@@ -572,6 +572,66 @@ exports.onSupportTicket = onDocumentCreated(
   },
 );
 
+/**
+ * Property-agency invite: emails a tenant / tradie / trade company the app
+ * download link + the agency code, with role-specific instructions. Caller
+ * must be the agency admin.
+ */
+exports.sendAgencyInvite = onCall(
+  { secrets: [BREVO_API_KEY], cors: true },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+    const email = String(request.data?.email || '').trim().toLowerCase();
+    const kind = request.data?.kind === 'tenant' ? 'tenant' : 'tradie';
+    if (!email || email.length > 320) throw new HttpsError('invalid-argument', 'A valid email is required.');
+    const db = admin.firestore();
+    const agencies = await db.collection('agencies').where('adminUserId', '==', uid).get();
+    if (agencies.empty) throw new HttpsError('permission-denied', 'Only a property agency admin can send invites.');
+    const agency = agencies.docs[0].data();
+    const isTenant = kind === 'tenant';
+    const steps = isTenant
+      ? `<ol style="color:#5A6478;line-height:1.9">
+           <li>Download the QuickieFix app below and create a <b>customer</b> account.</li>
+           <li>Open <b>Account → 🏢 Property manager</b> and enter the code.</li>
+           <li>${agency.name} confirms you and adds you to your property — repairs are then one tap away.</li>
+         </ol>`
+      : `<ol style="color:#5A6478;line-height:1.9">
+           <li><b>Sole tradie?</b> Download the app, sign up as a tradie, then open <b>Profile → 🏢 Property agents</b> and enter the code.</li>
+           <li><b>Trade company?</b> Sign in at <a href="https://quickiefix-portal.web.app">quickiefix-portal.web.app</a> and enter the code under <b>Settings → Property agents</b> — you choose whether it covers your whole team or employees only.</li>
+           <li>${agency.name} approves you, and jobs at their managed properties dispatch to you.</li>
+         </ol>`;
+    await brevoSend({
+      to: email,
+      toName: email,
+      subject: isTenant
+        ? `${agency.name} invites you to QuickieFix`
+        : `${agency.name} wants you on their approved tradie panel`,
+      html: `
+        <h2 style="margin:0 0 8px">${isTenant ? `Repairs, sorted — with ${agency.name}` : `Join ${agency.name}'s approved panel`}</h2>
+        <p style="color:#5A6478">${
+          isTenant
+            ? `${agency.name} manages your property with QuickieFix: report an issue in the app and a verified, approved tradie is dispatched — no phone calls, no waiting.`
+            : `${agency.name} uses QuickieFix to route work at their managed properties to their approved tradies. Join the panel to receive those jobs.`
+        }</p>
+        <div style="text-align:center;margin:18px 0">
+          <div style="color:#5A6478;font-size:13px;margin-bottom:6px">Your ${agency.name} code</div>
+          <div style="display:inline-block;background:#F1F4FA;border-radius:10px;padding:12px 26px;
+                      font-family:monospace;font-size:22px;font-weight:800;letter-spacing:2px">${agency.code}</div>
+        </div>
+        ${steps}
+        <div style="text-align:center;margin:24px 0 8px">
+          <a href="https://quickiefix.store/download"
+             style="display:inline-block;background:#FFB020;color:#0B1220;font-weight:800;
+                    text-decoration:none;padding:15px 30px;border-radius:12px;font-size:15px">
+            📲 Download the QuickieFix app
+          </a>
+        </div>`,
+    });
+    return { ok: true };
+  },
+);
+
 exports.onJobCompletionRecord = onDocumentUpdated(
   { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
   async (event) => {

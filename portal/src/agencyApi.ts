@@ -79,9 +79,14 @@ export async function removeAgencyLink(linkId: string): Promise<void> {
   });
 }
 
-/** Company admin joins an agency panel with the agent code (covers their
- *  whole validated roster). Pending until the agency approves. */
-export async function requestCompanyAgencyLink(company: Company, code: string): Promise<string> {
+/** Company admin joins an agency panel with the agent code. `scope` decides
+ *  who it covers: the whole roster, or employees only (no contractors).
+ *  Pending until the agency approves. */
+export async function requestCompanyAgencyLink(
+  company: Company,
+  code: string,
+  scope: 'all' | 'employees',
+): Promise<string> {
   const clean = code.trim().toUpperCase();
   const agencySnap = await getDocs(query(collection(db, 'agencies'), where('code', '==', clean)));
   if (agencySnap.empty) throw new Error('No property agency matches that code.');
@@ -107,6 +112,7 @@ export async function requestCompanyAgencyLink(company: Company, code: string): 
     kind: 'company',
     memberId: company.id,
     memberName: company.name,
+    scope,
     status: 'pending',
     requestedAt: Date.now(),
   };

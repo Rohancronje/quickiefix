@@ -221,9 +221,12 @@ export interface AgencyLink {
   id: string;
   agencyId: string;
   agencyName: string;
-  kind: 'tradie' | 'company';
+  kind: 'tradie' | 'company' | 'tenant';
   memberId: string;
   memberName: string;
+  memberEmail?: string;
+  /** Company links only: whole team or employees-only (no contractors). */
+  scope?: 'all' | 'employees';
   status: AgencyLinkStatus;
   requestedAt: number;
   approvedAt?: number;

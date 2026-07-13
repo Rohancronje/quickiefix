@@ -1,3 +1,4 @@
+import { TenantAgencyCard } from '../../../src/components/TenantAgencyCard';
 import { SupportCard } from '../../../src/components/SupportCard';
 import { appAlert } from '../../../src/components/AppAlert';
 import React, { useState } from 'react';
@@ -71,6 +72,9 @@ export default function CustomerAccount() {
       </Card>
 
       <PropertiesSection customerId={customer.id} customerName={`${customer.firstName} ${customer.lastName}`} />
+
+      {/* Property manager link (tenant side of the agency model) */}
+      <TenantAgencyCard user={customer} />
 
       {/* Help & support - tickets reach the back office + ops email */}
       <SupportCard user={customer} />
