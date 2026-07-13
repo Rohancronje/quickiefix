@@ -2,7 +2,7 @@
   "expo": {
     "name": "QuickieFix",
     "slug": "QuickieFix",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "scheme": "quickiefix",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -23,6 +23,11 @@
     },
     "android": {
       "package": "app.quickiefix",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCIO-Hhe8_XwSb6j2rjDX-PTu_nicEW7S0"
+        }
+      },
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#0B1220",

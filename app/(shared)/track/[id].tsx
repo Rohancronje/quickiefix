@@ -333,9 +333,14 @@ export default function TrackJob() {
           </Card>
         )}
 
-        {/* Job location preview (renders only on builds that include maps) */}
+        {/* Job location preview (renders only on builds that include maps).
+            While the tradie is en route, their live phone position appears as
+            a second (amber) marker moving toward the property. */}
         {['confirmed', 'travelling', 'on_site'].includes(job.status) && (
-          <JobMap location={job.location} />
+          <JobMap
+            location={job.location}
+            tradie={job.status === 'travelling' ? job.tradieLocation ?? null : null}
+          />
         )}
 
         {/* Request details */}

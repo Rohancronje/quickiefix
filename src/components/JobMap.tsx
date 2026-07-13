@@ -9,7 +9,7 @@ import React from 'react';
 import { Platform, Pressable, StyleSheet, TurboModuleRegistry, View } from 'react-native';
 import { openInMaps } from '../lib/maps';
 import { colors, radius, spacing } from '../theme';
-import { Location } from '../types';
+import { GeoPoint, Location } from '../types';
 import { Txt } from './ui';
 
 type RNMaps = typeof import('react-native-maps');
@@ -32,24 +32,38 @@ function maps(): RNMaps | null {
   }
 }
 
-export function JobMap({ location }: { location: Location }) {
+export function JobMap({
+  location,
+  tradie,
+}: {
+  location: Location;
+  /** Live tradie position (en route) — shown as a second marker, with the map
+   *  framed to keep both the job and the moving dot in view (Uber-style). */
+  tradie?: GeoPoint | null;
+}) {
   const rnMaps = maps();
   if (!rnMaps || location.latitude == null || location.longitude == null) return null;
 
   const MapView = rnMaps.default;
   const { Marker } = rnMaps;
-  const region = {
-    latitude: location.latitude,
-    longitude: location.longitude,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  };
+  const jobPoint = { latitude: location.latitude, longitude: location.longitude };
+  // Frame the region: just the job pin, or both pins with padding when live.
+  const region = tradie
+    ? {
+        latitude: (jobPoint.latitude + tradie.latitude) / 2,
+        longitude: (jobPoint.longitude + tradie.longitude) / 2,
+        latitudeDelta: Math.max(Math.abs(jobPoint.latitude - tradie.latitude) * 1.8, 0.01),
+        longitudeDelta: Math.max(Math.abs(jobPoint.longitude - tradie.longitude) * 1.8, 0.01),
+      }
+    : { ...jobPoint, latitudeDelta: 0.01, longitudeDelta: 0.01 };
 
   return (
     <Pressable onPress={() => openInMaps(location)} accessibilityLabel="Open job location in maps">
       <View style={styles.wrap} pointerEvents="box-only">
         <MapView
           style={styles.map}
+          // key remount when the live dot moves — region is initial-only.
+          key={tradie ? `${tradie.latitude.toFixed(4)},${tradie.longitude.toFixed(4)}` : 'static'}
           initialRegion={region}
           scrollEnabled={false}
           zoomEnabled={false}
@@ -57,7 +71,14 @@ export function JobMap({ location }: { location: Location }) {
           pitchEnabled={false}
           toolbarEnabled={false}
         >
-          <Marker coordinate={{ latitude: location.latitude, longitude: location.longitude }} />
+          <Marker coordinate={jobPoint} />
+          {tradie && (
+            <Marker
+              coordinate={{ latitude: tradie.latitude, longitude: tradie.longitude }}
+              pinColor="#FFB020"
+              title="Your tradie"
+            />
+          )}
         </MapView>
         <View style={styles.hint}>
           <Txt variant="caption" color={colors.white} style={{ fontWeight: '700' }}>
