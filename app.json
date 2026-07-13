@@ -81,7 +81,8 @@
         }
       ],
       "expo-status-bar",
-      "expo-audio"
+      "expo-audio",
+      "expo-font"
     ],
     "extra": {
       "router": {},

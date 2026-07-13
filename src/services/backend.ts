@@ -84,6 +84,18 @@ export interface TradieCandidate {
   etaMinutes: number;
 }
 
+/** Live "proof of supply" shown before a customer commits (home hero + step 4). */
+export interface SupplySnapshot {
+  /** Available, approved tradies right now (all trades). */
+  count: number;
+  /** ETA of the nearest available pro — only when coordinates are known. */
+  nearestEtaMinutes?: number;
+  /** Cheapest call-out fee among available pros (cents). */
+  fromCalloutCents?: number;
+  /** Cheapest hourly rate among available pros (cents) — fallback display. */
+  fromHourlyCents?: number;
+}
+
 /** A tradie's involvement in `choose`-mode jobs, split for the dashboard. */
 export interface ChooseFeed {
   /** Jobs where the customer picked THIS tradie — awaiting their accept/decline. */
@@ -125,6 +137,10 @@ export interface Backend {
     location: Location,
     cb: (tradies: TradieCandidate[]) => void,
   ): Unsubscribe;
+  /** Live supply proof for the home screen: how many verified pros are
+   *  available right now (all trades), the nearest ETA when coordinates are
+   *  known, and the lowest call-out/hourly on offer. */
+  subscribeSupply(location: GeoPoint | undefined, cb: (s: SupplySnapshot) => void): Unsubscribe;
   /** Create a job and open wave dispatch. The requester can be a customer OR a
    *  tradie booking help; the ranked candidate pool is snapshotted here. */
   createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;

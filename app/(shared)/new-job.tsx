@@ -16,9 +16,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddressField } from '../../src/components/AddressField';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
-import { TRADES } from '../../src/constants';
+import { formatMoney, TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
-import { useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { formatWhen } from '../../src/lib/format';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
@@ -97,6 +97,33 @@ export default function NewJob() {
     urgency === 'scheduled' && timeOptions.some((t) => t.hour === schedHour)
       ? slotTime(schedDay, schedHour)
       : null;
+
+  // Live match preview for the final step: who's actually available for this
+  // trade near this address, right now.
+  const preview = useAvailableTradies(step === 3 ? trade ?? undefined : undefined, jobLocation);
+  const nearestPro = preview[0];
+  const nearestEta =
+    nearestPro && coords ? nearestPro.etaMinutes : undefined; // ETA needs real coordinates
+  const cheapestCallout = preview.reduce<number | null>(
+    (min, c) =>
+      c.tradie.rateCard?.calloutFeeCents != null && (min == null || c.tradie.rateCard.calloutFeeCents < min)
+        ? c.tradie.rateCard.calloutFeeCents
+        : min,
+    null,
+  );
+  const cheapestHourly = preview.reduce<number | null>(
+    (min, c) =>
+      c.tradie.rateCard?.hourlyRateCents != null && (min == null || c.tradie.rateCard.hourlyRateCents < min)
+        ? c.tradie.rateCard.hourlyRateCents
+        : min,
+    null,
+  );
+  const previewFromPrice =
+    cheapestCallout != null
+      ? { label: 'Call-out from', value: formatMoney(cheapestCallout) }
+      : cheapestHourly != null
+        ? { label: 'Hourly from', value: `${formatMoney(cheapestHourly)}/hr` }
+        : null;
 
   const canNext = (): boolean => {
     switch (step) {
@@ -393,6 +420,47 @@ export default function NewJob() {
 
           {step === 3 && (
             <Step title="When do you need this done?">
+              {/* Live proof before commit: ETA, from-price and the nearest
+                  matched pro — no more blind "find me a tradie". */}
+              {preview.length > 0 && (
+                <View style={styles.previewCard}>
+                  <Txt variant="label" color={colors.success}>
+                    ✅ {preview.length} verified {preview.length === 1 ? 'pro' : 'pros'} available now
+                  </Txt>
+                  <View style={styles.previewStats}>
+                    {nearestEta != null && (
+                      <View style={{ flex: 1 }}>
+                        <Txt variant="caption" color={colors.textMuted}>
+                          Nearest arrives in
+                        </Txt>
+                        <Txt variant="heading">~{nearestEta} min</Txt>
+                      </View>
+                    )}
+                    {previewFromPrice && (
+                      <View style={{ flex: 1 }}>
+                        <Txt variant="caption" color={colors.textMuted}>
+                          {previewFromPrice.label}
+                        </Txt>
+                        <Txt variant="heading">{previewFromPrice.value}</Txt>
+                      </View>
+                    )}
+                  </View>
+                  {nearestPro && (
+                    <Txt variant="caption" color={colors.textMuted}>
+                      {nearestPro.tradie.businessName}
+                      {nearestPro.tradie.ratingCount > 0
+                        ? ` · ⭐ ${nearestPro.tradie.ratingAvg.toFixed(1)} (${nearestPro.tradie.ratingCount})`
+                        : ''}
+                      {` · ${nearestPro.tradie.completedJobs} jobs`}
+                      {nearestPro.tradie.qualifications.length > 0 ? ' · ✓ Licensed' : ''}
+                    </Txt>
+                  )}
+                  <Txt variant="caption" color={colors.textFaint}>
+                    Rates lock in upfront — no quotes, no surprises.
+                  </Txt>
+                </View>
+              )}
+
               <Pressable
                 style={[styles.option, urgency === 'now' && styles.optionActive]}
                 onPress={() => setUrgency('now')}
@@ -547,12 +615,18 @@ export default function NewJob() {
           <Button
             title={
               step === STEPS.length - 1
-                ? effectiveMode === 'choose'
-                  ? 'Browse tradies'
-                  : 'Find me a tradie'
-                : 'Continue'
+                ? canNext()
+                  ? effectiveMode === 'choose'
+                    ? 'Browse tradies'
+                    : urgency === 'now' && nearestEta != null
+                      ? `Find me a tradie · ~${nearestEta} min`
+                      : 'Find me a tradie'
+                  : 'Pick a time slot to continue'
+                : canNext()
+                  ? 'Continue'
+                  : ['Pick a trade to continue', 'Add a few details to continue', 'Enter the job address'][step]
             }
-            icon={step === STEPS.length - 1 ? (effectiveMode === 'choose' ? '👀' : '⚡') : undefined}
+            icon={step === STEPS.length - 1 && canNext() ? (effectiveMode === 'choose' ? '👀' : '⚡') : undefined}
             disabled={!canNext()}
             loading={submitting}
             onPress={next}
@@ -601,6 +675,13 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxxl },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  previewCard: {
+    backgroundColor: colors.successSoft,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  previewStats: { flexDirection: 'row', gap: spacing.lg },
   orRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   orLine: { flex: 1, height: 1, backgroundColor: colors.line },
   option: {

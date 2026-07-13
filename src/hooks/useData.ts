@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { backend, ChooseFeed, JobOffer, TradieCandidate } from '../services';
+import { backend, ChooseFeed, JobOffer, SupplySnapshot, TradieCandidate } from '../services';
 import { FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
 
 /** A single user (live) — used to render tradie profiles to customers. */
@@ -83,6 +83,20 @@ export function useChooseFeed(tradieId: string | undefined): ChooseFeed {
     return backend.subscribeChooseFeed(tradieId, setFeed);
   }, [tradieId]);
   return feed;
+}
+
+/** Live proof of supply — count / nearest ETA / from-price (home hero, step 4). */
+export function useSupply(location?: { latitude?: number; longitude?: number }): SupplySnapshot {
+  const [supply, setSupply] = useState<SupplySnapshot>({ count: 0 });
+  const lat = location?.latitude;
+  const lng = location?.longitude;
+  useEffect(() => {
+    return backend.subscribeSupply(
+      lat != null && lng != null ? { latitude: lat, longitude: lng } : undefined,
+      setSupply,
+    );
+  }, [lat, lng]);
+  return supply;
 }
 
 /** Live list of available tradies for a trade near a location (browse list). */

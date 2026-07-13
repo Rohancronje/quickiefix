@@ -67,6 +67,7 @@ import {
   CustomerRegistration,
   JobOffer,
   NewJobInput,
+  SupplySnapshot,
   TradieCandidate,
   TradieRegistration,
   Unsubscribe,
@@ -381,6 +382,40 @@ export class FirestoreBackend implements Backend {
       candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  subscribeSupply(location: GeoPoint | undefined, cb: (s: SupplySnapshot) => void): Unsubscribe {
+    return onSnapshot(
+      query(collection(this.db, 'users'), where('status', '==', 'available')),
+      (snap) => {
+        let count = 0;
+        let nearestKm: number | null = null;
+        let fromCallout: number | null = null;
+        let fromHourly: number | null = null;
+        for (const d of snap.docs) {
+          const u = d.data() as AppUser;
+          if (u.role !== 'tradie' || u.approval !== 'approved' || u.paymentHold) continue;
+          count++;
+          if (location && u.baseLocation) {
+            const km = distanceKm(u.baseLocation, location);
+            if (nearestKm == null || km < nearestKm) nearestKm = km;
+          }
+          const rc = u.rateCard;
+          if (rc?.calloutFeeCents != null && (fromCallout == null || rc.calloutFeeCents < fromCallout)) {
+            fromCallout = rc.calloutFeeCents;
+          }
+          if (rc?.hourlyRateCents != null && (fromHourly == null || rc.hourlyRateCents < fromHourly)) {
+            fromHourly = rc.hourlyRateCents;
+          }
+        }
+        cb({
+          count,
+          nearestEtaMinutes: nearestKm != null ? estimateEtaMinutes(nearestKm) : undefined,
+          fromCalloutCents: fromCallout ?? undefined,
+          fromHourlyCents: fromHourly ?? undefined,
+        });
+      },
+    );
   }
 
   /** Approved, matching-trade tradies in the area REGARDLESS of availability

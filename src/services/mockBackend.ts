@@ -36,6 +36,7 @@ import {
   CustomerRegistration,
   JobOffer,
   NewJobInput,
+  SupplySnapshot,
   TradieCandidate,
   TradieRegistration,
   Unsubscribe,
@@ -423,6 +424,37 @@ class MockBackend implements Backend {
       candidates.push({ tradie: u, distanceKm: km, etaMinutes: estimateEtaMinutes(km) });
     }
     return candidates.sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  subscribeSupply(location: GeoPoint | undefined, cb: (s: SupplySnapshot) => void): Unsubscribe {
+    return this.subscribe(() => {
+      let count = 0;
+      let nearestKm: number | null = null;
+      let fromCallout: number | null = null;
+      let fromHourly: number | null = null;
+      for (const u of Object.values(this.db.users)) {
+        if (u.role !== 'tradie' || u.approval !== 'approved' || u.paymentHold) continue;
+        if (u.status !== 'available') continue;
+        count++;
+        if (location && u.baseLocation) {
+          const km = distanceKm(u.baseLocation, location);
+          if (nearestKm == null || km < nearestKm) nearestKm = km;
+        }
+        const rc = u.rateCard;
+        if (rc?.calloutFeeCents != null && (fromCallout == null || rc.calloutFeeCents < fromCallout)) {
+          fromCallout = rc.calloutFeeCents;
+        }
+        if (rc?.hourlyRateCents != null && (fromHourly == null || rc.hourlyRateCents < fromHourly)) {
+          fromHourly = rc.hourlyRateCents;
+        }
+      }
+      return {
+        count,
+        nearestEtaMinutes: nearestKm != null ? estimateEtaMinutes(nearestKm) : undefined,
+        fromCalloutCents: fromCallout ?? undefined,
+        fromHourlyCents: fromHourly ?? undefined,
+      };
+    }, cb);
   }
 
   subscribeAvailableTradies(

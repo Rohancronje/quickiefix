@@ -4,9 +4,9 @@ import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from '
 import { Screen } from '../../../src/components/Screen';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, EmptyState, Txt } from '../../../src/components/ui';
-import { TRADES, tradeMeta } from '../../../src/constants';
+import { formatMoney, TRADES, tradeMeta } from '../../../src/constants';
 import { useCustomer } from '../../../src/context/AuthContext';
-import { useCustomerJobs } from '../../../src/hooks/useData';
+import { useCustomerJobs, useSupply } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
 import { greeting } from '../../../src/lib/greeting';
 import { backend } from '../../../src/services';
@@ -36,6 +36,29 @@ export default function CustomerHome() {
   const primary = active[0]; // jobs are newest-first
   const others = active.slice(1);
   const recent = jobs.filter((j) => !ACTIVE.includes(j.status)).slice(0, 3);
+
+  // Live proof of supply — anchored to the saved home address when it has
+  // coordinates (ETA needs a reference point; the count works without one).
+  const supply = useSupply(
+    customer.homeAddress?.latitude != null && customer.homeAddress?.longitude != null
+      ? { latitude: customer.homeAddress.latitude, longitude: customer.homeAddress.longitude }
+      : undefined,
+  );
+  const fromPrice =
+    supply.fromCalloutCents != null
+      ? `call-out from ${formatMoney(supply.fromCalloutCents)}`
+      : supply.fromHourlyCents != null
+        ? `from ${formatMoney(supply.fromHourlyCents)}/hr`
+        : null;
+  const supplyLine =
+    supply.count > 0
+      ? [
+          supply.nearestEtaMinutes != null ? `Nearest verified pro ~${supply.nearestEtaMinutes} min away` : 'Verified pros ready now',
+          fromPrice,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : null;
 
   const startJob = (trade?: string) =>
     router.push(trade ? { pathname: '/new-job', params: { trade } } : '/new-job');
@@ -123,15 +146,28 @@ export default function CustomerHome() {
         </Card>
       )}
 
-      {/* Primary CTA */}
+      {/* Primary CTA — with live proof of supply, so the promise ("fast,
+          verified, priced upfront") is on the screen where users decide. */}
       <Card style={styles.cta}>
+        {supply.count > 0 && (
+          <View style={styles.livePill}>
+            <View style={styles.liveDot} />
+            <Txt variant="caption" color={colors.success} style={{ fontWeight: '700' }}>
+              {supply.count} verified {supply.count === 1 ? 'tradie' : 'tradies'} near you now
+            </Txt>
+          </View>
+        )}
         <Txt variant="heading" color={colors.white}>
           {primary ? 'Need something else?' : 'Need a hand right now?'}
         </Txt>
         <Txt variant="caption" color={colors.onNavyMuted} style={{ marginBottom: spacing.sm }}>
-          We'll dispatch the nearest verified tradie to you.
+          {supplyLine ?? "We'll dispatch the nearest verified tradie to you."}
         </Txt>
-        <Button title="Request help" icon="⚡" onPress={() => startJob()} />
+        <Button
+          title={supply.nearestEtaMinutes != null ? `Request help · ~${supply.nearestEtaMinutes} min` : 'Request help'}
+          icon="⚡"
+          onPress={() => startJob()}
+        />
       </Card>
 
       {/* Any additional active jobs */}
@@ -228,6 +264,18 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
   cta: { backgroundColor: colors.navy, gap: spacing.xs },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(31,180,113,0.15)',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    marginBottom: 2,
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
   resume: { backgroundColor: colors.navy, gap: spacing.xs, borderWidth: 1, borderColor: colors.amber },
   resumeActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   resumeGhost: { backgroundColor: colors.navyCard, borderColor: colors.navyLine },

@@ -70,16 +70,20 @@ export function Button({
   style,
   ...rest
 }: ButtonProps) {
+  // One brand accent: amber owns the primary action. Supporting actions are
+  // neutral (outlined) so two loud colours never fight on one screen.
   const palette: Record<BtnKind, { bg: string; fg: string; border?: string }> = {
     primary: { bg: colors.amber, fg: colors.navy },
-    secondary: { bg: colors.blue, fg: colors.white },
+    secondary: { bg: colors.surfaceAlt, fg: colors.text, border: colors.line },
     success: { bg: colors.success, fg: colors.white },
     danger: { bg: colors.danger, fg: colors.white },
     ghost: { bg: 'transparent', fg: colors.text, border: colors.line },
   };
   const p = palette[kind];
-  const fg = textColor ?? p.fg;
   const isDisabled = disabled || loading;
+  // Disabled reads as "not yet", not "broken": clearly-inactive grey, never a
+  // washed-out version of the live colour.
+  const fg = isDisabled && !loading ? colors.textFaint : (textColor ?? p.fg);
 
   return (
     <Pressable
@@ -92,7 +96,10 @@ export function Button({
         p.border ? { borderWidth: 1.5, borderColor: p.border } : null,
         fullWidth && { alignSelf: 'stretch' },
         (state as { pressed: boolean }).pressed && { opacity: 0.85, transform: [{ scale: 0.985 }] },
-        isDisabled && { opacity: 0.5 },
+        isDisabled && !loading
+          ? { backgroundColor: colors.surfaceAlt, borderWidth: 1.5, borderColor: colors.line }
+          : null,
+        loading && { opacity: 0.7 },
         typeof style === 'function' ? style(state) : style,
       ]}
     >

@@ -1,3 +1,5 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
@@ -138,6 +140,9 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  // Register the icon font explicitly — on native it's bundled (no-op), but the
+  // WEB build otherwise renders the tab bar as empty glyph boxes.
+  useFonts(Ionicons.font);
   return (
     <ErrorBoundary>
       <SafeAreaProvider>
