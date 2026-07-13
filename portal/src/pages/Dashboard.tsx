@@ -62,21 +62,86 @@ export function Dashboard() {
     { label: 'Time on site', value: formatDuration(totalOnSite), Icon: IconClock },
   ];
 
+  // Activation checklist: a brand-new company sees a path to first value, not
+  // four dead zeros. The metrics dashboard unlocks on the first completed job.
+  const hasRateCard = company?.rateCard?.hourlyRateCents != null;
+  const steps = [
+    { label: 'Create company account', done: true },
+    {
+      label: 'Add your first tradie',
+      sub: 'Invite pros so jobs can be routed to your team',
+      done: rows.length > 0,
+      action: { label: 'Add tradie', to: '/team' },
+    },
+    {
+      label: 'Set your rate card',
+      sub: 'Required to go live — customers see these rates',
+      done: hasRateCard,
+      action: { label: 'Set rates', to: '/settings' },
+    },
+    {
+      label: 'Land your first job',
+      sub: 'Your tradies just go Available in the app — dispatch does the rest',
+      done: totalJobs > 0,
+    },
+  ];
+  const doneCount = steps.filter((s) => s.done).length;
+  const currentIdx = steps.findIndex((s) => !s.done);
+  const activated = totalJobs > 0;
+
   return (
     <>
-      <section className="co-band">
-        <div className="co-kpi-grid">
-          {kpis.map((k) => (
-            <div className="co-kpi" key={k.label}>
-              <span className="co-kpi-chip">
-                <k.Icon size={16} />
-              </span>
-              <div className="co-kpi-label">{k.label}</div>
-              <div className="co-kpi-value">{k.value}</div>
+      {activated ? (
+        <section className="co-band">
+          <div className="co-kpi-grid">
+            {kpis.map((k) => (
+              <div className="co-kpi" key={k.label}>
+                <span className="co-kpi-chip">
+                  <k.Icon size={16} />
+                </span>
+                <div className="co-kpi-label">{k.label}</div>
+                <div className="co-kpi-value">{k.value}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="co-band">
+          <div className="co-card">
+            <div className="co-setup-head">
+              <span className="co-card-title">Get your team live</span>
+              <span className="co-setup-count">{doneCount} of 4 done</span>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="co-setup-bar">
+              <div className="co-setup-bar-fill" style={{ width: `${(doneCount / 4) * 100}%` }} />
+            </div>
+            <div className="co-setup-steps">
+              {steps.map((s, i) => (
+                <div
+                  key={s.label}
+                  className={`co-setup-step ${s.done ? 'done' : ''} ${i === currentIdx ? 'current' : ''}`}
+                >
+                  <span className={`co-setup-num ${s.done ? 'done' : ''} ${i === currentIdx ? 'current' : ''}`}>
+                    {s.done ? <IconCheck size={13} /> : i + 1}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div className={`co-setup-label ${s.done ? 'done' : ''}`}>{s.label}</div>
+                    {i === currentIdx && s.sub && <div className="co-setup-sub">{s.sub}</div>}
+                  </div>
+                  {i === currentIdx && s.action && (
+                    <button className="co-btn co-btn-dark co-btn-sm" onClick={() => nav(s.action.to)}>
+                      {s.action.label} <IconArrowRight size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="co-setup-foot">
+              Your performance dashboard unlocks the moment your first job completes.
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="co-band">
         <div className="co-card flush">

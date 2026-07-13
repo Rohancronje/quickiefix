@@ -764,3 +764,24 @@ tr:last-child td { border-bottom: none; }
   background: var(--navy-900); color: #fff; padding: 12px 20px; border-radius: 10px;
   font-weight: 500; font-size: 13.5px; box-shadow: 0 12px 40px rgba(16, 24, 40, 0.25); z-index: 50;
 }
+
+/* ---- Setup checklist (company activation) ---- */
+.co-setup-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.co-setup-count { font-size: 12px; font-weight: 700; color: var(--amber-500); }
+.co-setup-bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+.co-setup-bar-fill { height: 100%; background: var(--amber-500); border-radius: 3px; transition: width .3s ease; }
+.co-setup-steps { display: flex; flex-direction: column; gap: 6px; }
+.co-setup-step { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; }
+.co-setup-step.current { background: #fff7e6; border: 1px solid #f2dfae; }
+.co-setup-num {
+  width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 700; background: var(--line); color: var(--ink-600); flex: none;
+}
+.co-setup-num.done { background: #1fb471; color: #fff; }
+.co-setup-num.current { background: var(--amber-500); color: var(--navy-700); }
+.co-setup-label { font-size: 13.5px; font-weight: 600; color: var(--ink-900); }
+.co-setup-label.done { text-decoration: line-through; color: var(--ink-600); }
+.co-setup-sub { font-size: 12px; color: var(--ink-600); margin-top: 1px; }
+.co-setup-foot { margin-top: 14px; font-size: 12px; color: var(--ink-600); }
+.co-btn-dark { background: var(--navy-700); color: #fff; }
+.co-btn-dark:hover:not(:disabled) { background: #0f1c33; }
