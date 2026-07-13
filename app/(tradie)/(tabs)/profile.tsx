@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import { Screen } from '../../../src/components/Screen';
 import { BiometricToggle } from '../../../src/components/BiometricToggle';
@@ -8,9 +8,117 @@ import { formatMoney, tradeMeta } from '../../../src/constants';
 import { useAuth, useTradie } from '../../../src/context/AuthContext';
 import { backend, resetDemoData } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
-import { RateCard } from '../../../src/types';
+import { AgencyLink, Engagement, RateCard } from '../../../src/types';
 
 const RADIUS_OPTIONS = [5, 10, 15, 25];
+
+/**
+ * Property-agent panels: enter an agency's code to request a spot on their
+ * approved list. Pending until the AGENCY confirms (they know who they
+ * invited). Jobs at their managed properties then dispatch to you.
+ */
+function AgencyPanelCard({ tradieId, tradieName }: { tradieId: string; tradieName: string }) {
+  const [links, setLinks] = useState<AgencyLink[]>([]);
+  const [agencyCode, setAgencyCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => backend.subscribeMyAgencyLinks(tradieId, setLinks), [tradieId]);
+
+  const join = async () => {
+    setError(null);
+    if (!agencyCode.trim()) return;
+    try {
+      setBusy(true);
+      const agencyName = await backend.requestAgencyLink(
+        { id: tradieId, name: tradieName },
+        agencyCode,
+      );
+      setAgencyCode('');
+      Alert.alert(
+        'Request sent',
+        `${agencyName} has been asked to add you to their approved panel. You'll appear for their properties once they confirm.`,
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card style={{ gap: spacing.sm }}>
+      <Txt variant="label">🏢 Property agents</Txt>
+      {links.length === 0 && (
+        <Txt variant="caption" color={colors.textMuted}>
+          Work with a property manager? Enter their agent code to join their approved panel — jobs
+          at their properties come straight to you.
+        </Txt>
+      )}
+      {links.map((l) => (
+        <View key={l.id} style={agencyStyles.row}>
+          <View style={{ flex: 1 }}>
+            <Txt variant="label">{l.agencyName}</Txt>
+          </View>
+          <View
+            style={[
+              agencyStyles.pill,
+              { backgroundColor: l.status === 'approved' ? colors.successSoft : colors.warningSoft },
+            ]}
+          >
+            <Txt
+              variant="caption"
+              color={l.status === 'approved' ? colors.success : colors.warning}
+              style={{ fontWeight: '700' }}
+            >
+              {l.status === 'approved' ? '✓ Approved' : '⏳ Pending'}
+            </Txt>
+          </View>
+        </View>
+      ))}
+      <Field
+        placeholder="Agent code (e.g. QF-AG-7K2P)"
+        autoCapitalize="characters"
+        value={agencyCode}
+        onChangeText={setAgencyCode}
+        error={error ?? undefined}
+      />
+      <Button title="Join panel" small loading={busy} onPress={join} />
+    </Card>
+  );
+}
+
+const agencyStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  pill: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: 3 },
+});
+
+/** Independent tradies must carry their own NZBN — shown until one is saved. */
+function NzbnPromptCard({ tradieId }: { tradieId: string }) {
+  const [nzbn, setNzbn] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!nzbn.trim()) return;
+    setSaving(true);
+    await backend.setTradieNzbn(tradieId, nzbn).catch(() => {});
+    setSaving(false);
+  };
+
+  return (
+    <Card style={{ gap: spacing.sm, borderColor: colors.warning, borderWidth: 1 }}>
+      <Txt variant="label" color={colors.warning}>
+        ⚠️ Add your NZBN
+      </Txt>
+      <Txt variant="caption" color={colors.textMuted}>
+        You're trading independently, so invoices need your own NZBN. Enter it here — or join a
+        company with their seat code instead.
+      </Txt>
+      <Field placeholder="9429…" value={nzbn} onChangeText={setNzbn} keyboardType="numeric" />
+      <Button title="Save NZBN" small loading={saving} onPress={save} />
+    </Card>
+  );
+}
 
 export default function TradieProfile() {
   const tradie = useTradie();
@@ -23,17 +131,31 @@ export default function TradieProfile() {
   const validated = !!tradie.companyId;
   const claimedPending = !!tradie.activeTagId && !tradie.companyId;
 
-  const claimTag = async () => {
+  const claimTag = () => {
     setJoinError(null);
     const c = code.trim().toUpperCase();
     if (!c) return;
+    // Employee vs contractor changes identity + billing: employees trade
+    // under the company's name/NZBN; contractors keep their own business.
+    Alert.alert(
+      'How do you work with them?',
+      'Employees appear under their personal name with the company NZBN. Contractors keep their own business name and NZBN, and invoice the company.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: "I'm a contractor", onPress: () => doClaim(c, 'contractor') },
+        { text: "I'm an employee", onPress: () => doClaim(c, 'employee') },
+      ],
+    );
+  };
+
+  const doClaim = async (c: string, engagement: Engagement) => {
     try {
       setJoining(true);
-      const company = await backend.claimTag(c, tradie.id);
+      const company = await backend.claimTag(c, tradie.id, engagement);
       setCode('');
       Alert.alert(
         'Code accepted',
-        `You've claimed a seat with ${company.name}. It shows as pending until QuickieFix confirms your details.`,
+        `You've claimed a ${engagement} seat with ${company.name}. It shows as pending until ${company.name} confirms you.`,
       );
     } catch (e) {
       setJoinError((e as Error).message);
@@ -145,6 +267,13 @@ export default function TradieProfile() {
           </>
         )}
       </Card>
+
+      {/* Independent tradies need their own NZBN (employees trade under the
+          company's — so leaving a company prompts this). */}
+      {!tradie.companyId && !tradie.nzbn && <NzbnPromptCard tradieId={tradie.id} />}
+
+      {/* Property agents — approved-panel memberships */}
+      <AgencyPanelCard tradieId={tradie.id} tradieName={tradie.businessName} />
 
       {/* Rate card */}
       <RateCardCard tradie={tradie} validated={validated} />

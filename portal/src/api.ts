@@ -36,7 +36,9 @@ export async function signUpCompany(
   adminName: string,
   email: string,
   password: string,
+  nzbn: string,
 ): Promise<Company> {
+  if (!nzbn.trim()) throw new Error('An NZBN is required for a trade company.');
   const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
   const uid = cred.user.uid;
   const company: Company = {
@@ -44,6 +46,7 @@ export async function signUpCompany(
     name: companyName.trim(),
     adminUserId: uid,
     adminEmail: email.trim(),
+    nzbn: nzbn.trim(),
     createdAt: Date.now(),
   };
   await setDoc(doc(db, 'companies', company.id), company);
@@ -141,10 +144,29 @@ export async function confirmClaimedTag(tagId: string): Promise<void> {
     if (!snap.exists()) return;
     const tag = snap.data() as CompanyTag;
     if (tag.status !== 'claimed' || !tag.claimedByUserId) return;
+    const userRef = doc(db, 'users', tag.claimedByUserId);
+    const userSnap = await tx.get(userRef);
+    const companySnap = await tx.get(doc(db, 'companies', tag.companyId));
+    const user = userSnap.exists() ? (userSnap.data() as Tradie) : null;
+    const company = companySnap.exists() ? (companySnap.data() as Company) : null;
+    const engagement = tag.engagement ?? 'employee';
+
     tx.update(tagRef, { status: 'validated', validatedAt: Date.now() });
-    tx.update(doc(db, 'users', tag.claimedByUserId), {
+    // Employees trade under the company: personal name + the company's NZBN
+    // (their own identity is stored and restored when they leave).
+    // Contractors keep their own business name and NZBN.
+    tx.update(userRef, {
       companyId: tag.companyId,
       companyName: tag.companyName,
+      engagement,
+      ...(engagement === 'employee' && user
+        ? {
+            prevBusinessName: user.businessName,
+            ...(user.nzbn ? { prevNzbn: user.nzbn } : {}),
+            businessName: `${user.firstName} ${user.lastName}`,
+            ...(company?.nzbn ? { nzbn: company.nzbn } : {}),
+          }
+        : {}),
     });
   });
 }
@@ -155,16 +177,30 @@ export async function removeTag(tagId: string): Promise<void> {
     const snap = await tx.get(tagRef);
     if (!snap.exists()) return;
     const tag = snap.data() as CompanyTag;
+    const userRef = tag.claimedByUserId ? doc(db, 'users', tag.claimedByUserId) : null;
+    const userSnap = userRef ? await tx.get(userRef) : null;
+    const user = userSnap?.exists() ? (userSnap.data() as Tradie) : null;
     tx.update(tagRef, {
       status: 'removed',
       removedAt: Date.now(),
       removedBy: 'company',
     });
-    if (tag.claimedByUserId) {
-      tx.update(doc(db, 'users', tag.claimedByUserId), {
+    if (userRef) {
+      tx.update(userRef, {
         activeTagId: deleteField(),
         companyId: deleteField(),
         companyName: deleteField(),
+        engagement: deleteField(),
+        // Ex-employees get their own identity back; the company NZBN leaves
+        // with the company (the app prompts them for their own).
+        ...(user?.engagement === 'employee'
+          ? {
+              businessName: user.prevBusinessName ?? user.businessName,
+              nzbn: user.prevNzbn ?? deleteField(),
+              prevBusinessName: deleteField(),
+              prevNzbn: deleteField(),
+            }
+          : {}),
       });
     }
   });

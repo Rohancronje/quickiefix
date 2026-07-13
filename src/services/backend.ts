@@ -9,10 +9,12 @@
  * real-time listeners, so the dispatch flow already behaves like production.
  */
 import {
+  AgencyLink,
   AppUser,
   AssignmentMode,
   BillingDetails,
   Company,
+  Engagement,
   CompanyTag,
   Customer,
   FeeLineItem,
@@ -175,6 +177,13 @@ export interface Backend {
   /** Assigned tradie can't make it: hand the job back to dispatch (job returns
    *  to searching with this tradie excluded; the customer is notified). */
   releaseJob(jobId: string, tradieId: string): Promise<void>;
+
+  // ---- Property agencies (approved-panel model) ----
+  /** Tradie enters an agency code → pending panel membership (the agency
+   *  approves). Returns the agency name for the confirmation UI. */
+  requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string>;
+  /** A tradie's agency panel memberships (pending + approved), live. */
+  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe;
   startTravelling(jobId: string): Promise<void>;
   arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
   completeJob(jobId: string): Promise<void>;
@@ -213,7 +222,12 @@ export interface Backend {
   /** Preview a tag by its code (to show the company before claiming). */
   getTagByCode(code: string): Promise<CompanyTag | null>;
   /** Tradie claims a code — binds the tag (status → claimed), not yet validated. */
-  claimTag(code: string, tradieId: string): Promise<Company>;
+  /** Claim a company seat. `engagement` declares employee vs contractor —
+   *  the company verifies it when confirming the claim. */
+  claimTag(code: string, tradieId: string, engagement: Engagement): Promise<Company>;
+  /** Independent tradies must carry their own NZBN (prompted after leaving a
+   *  company, since employees trade under the company's number). */
+  setTradieNzbn(tradieId: string, nzbn: string): Promise<void>;
   /** Platform admin confirms the seat details match → validated (green, locked). */
   validateTag(tagId: string): Promise<void>;
   /** Remove a tag (company admin or platform override); tradie reverts to personal. */

@@ -40,6 +40,8 @@ export interface CompanyTag {
   issuedToName: string;
   issuedToEmail: string;
   issuedToPhone?: string;
+  /** Declared by the tradie at claim time; the company verifies on confirm. */
+  engagement?: 'employee' | 'contractor';
   status: CompanyTagStatus;
   createdAt: number;
   expiresAt: number; // createdAt + 14 days in ms
@@ -72,6 +74,10 @@ export interface Tradie {
   paymentHold?: boolean;
   rateCard?: RateCard;
   activeTagId?: string;
+  engagement?: 'employee' | 'contractor';
+  nzbn?: string;
+  prevBusinessName?: string;
+  prevNzbn?: string;
 }
 
 export type FeeStatus = 'waived_credit' | 'pending' | 'invoiced' | 'paid';
@@ -179,3 +185,48 @@ export const TRADE_LABELS: Record<string, string> = {
 };
 
 export const tradeLabel = (key: string) => TRADE_LABELS[key] ?? key;
+
+/* ---------------------------------------------------- property agencies --- */
+
+export interface Property {
+  id: string;
+  landlordId: string;
+  landlordName: string;
+  label?: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  tenantIds: string[];
+  tenantEmails: string[];
+  createdAt: number;
+  agencyId?: string;
+  agencyName?: string;
+}
+
+export type AgencyLinkStatus = 'pending' | 'approved' | 'removed';
+
+export interface Agency {
+  id: string;
+  name: string;
+  adminUserId: string;
+  adminEmail: string;
+  code: string; // e.g. QF-AG-7K2P
+  createdAt: number;
+}
+
+export interface AgencyLink {
+  id: string;
+  agencyId: string;
+  agencyName: string;
+  kind: 'tradie' | 'company';
+  memberId: string;
+  memberName: string;
+  status: AgencyLinkStatus;
+  requestedAt: number;
+  approvedAt?: number;
+  removedAt?: number;
+}
+
+/** Employment model: employees trade under the company NZBN + personal name;
+    contractors keep their own business + NZBN and invoice the company. */
+export type Engagement = 'employee' | 'contractor';

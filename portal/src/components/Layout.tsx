@@ -2,6 +2,7 @@ import React, { type ComponentType, type SVGProps } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import {
+  IconBilling,
   IconBriefcase,
   IconCompanies,
   IconLogout,
@@ -14,12 +15,14 @@ type SvgIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
 const NAV: { path: string; label: string; Icon: SvgIcon }[] = [
   { path: '/', label: 'Dashboard', Icon: IconOverview },
   { path: '/team', label: 'My Tradies', Icon: IconTradies },
+  { path: '/timesheets', label: 'Timesheets', Icon: IconBilling },
   { path: '/settings', label: 'Settings', Icon: IconBriefcase },
 ];
 
 const TITLES: Record<string, string> = {
   '/': 'Dashboard',
   '/team': 'My Tradies',
+  '/timesheets': 'Timesheets',
   '/settings': 'Settings',
 };
 

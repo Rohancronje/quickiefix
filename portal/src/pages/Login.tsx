@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useAuth } from '../auth';
 
 export function Login() {
-  const { login, signup } = useAuth();
+  const { login, signup, signupAgency } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [kind, setKind] = useState<'company' | 'agency'>('company');
   const [companyName, setCompanyName] = useState('');
+  const [nzbn, setNzbn] = useState('');
   const [adminName, setAdminName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,7 +21,9 @@ export function Login() {
       if (mode === 'signup') {
         if (!companyName.trim() || !adminName.trim()) throw new Error('Fill in all fields.');
         if (password.length < 6) throw new Error('Password must be at least 6 characters.');
-        await signup(companyName, adminName, email, password);
+        if (kind === 'company' && !nzbn.trim()) throw new Error('An NZBN is required for a trade company.');
+        if (kind === 'agency') await signupAgency(companyName, adminName, email, password);
+        else await signup(companyName, adminName, email, password, nzbn);
       } else {
         await login(email, password);
       }
@@ -38,26 +42,61 @@ export function Login() {
         <div className="co-auth-sub">Business Portal</div>
 
         <h2 className="co-auth-title">
-          {mode === 'login' ? 'Welcome back' : 'Create your company'}
+          {mode === 'login'
+            ? 'Welcome back'
+            : kind === 'agency'
+              ? 'Create your agency'
+              : 'Create your company'}
         </h2>
         <p className="co-auth-lead">
           {mode === 'login'
-            ? 'Sign in to manage your tradies.'
-            : 'Set up your business to manage and invite tradies.'}
+            ? 'Sign in to manage your business.'
+            : kind === 'agency'
+              ? 'Manage your properties, tenants and approved tradie panel.'
+              : 'Set up your business to manage and invite tradies.'}
         </p>
 
         <form onSubmit={submit} className="co-stack">
           {mode === 'signup' && (
             <>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className={`co-btn co-btn-sm ${kind === 'company' ? 'co-btn-primary' : 'co-btn-ghost'}`}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={() => setKind('company')}
+                >
+                  🧰 Trade company
+                </button>
+                <button
+                  type="button"
+                  className={`co-btn co-btn-sm ${kind === 'agency' ? 'co-btn-primary' : 'co-btn-ghost'}`}
+                  style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={() => setKind('agency')}
+                >
+                  🏢 Property agency
+                </button>
+              </div>
               <div className="co-field">
-                <label>Company name</label>
+                <label>{kind === 'agency' ? 'Agency name' : 'Company name'}</label>
                 <input
                   className="co-input"
-                  placeholder="Your Business Ltd"
+                  placeholder={kind === 'agency' ? 'Harbour Property Management' : 'Your Business Ltd'}
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                 />
               </div>
+              {kind === 'company' && (
+                <div className="co-field">
+                  <label>NZBN (required)</label>
+                  <input
+                    className="co-input"
+                    placeholder="9429…"
+                    value={nzbn}
+                    onChange={(e) => setNzbn(e.target.value)}
+                  />
+                </div>
+              )}
               <div className="co-field">
                 <label>Your name</label>
                 <input
@@ -98,7 +137,7 @@ export function Login() {
             disabled={busy}
             type="submit"
           >
-            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create company'}
+            {busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : kind === 'agency' ? 'Create agency' : 'Create company'}
           </button>
         </form>
 

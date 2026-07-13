@@ -129,6 +129,12 @@ export type CompanyTagStatus = 'issued' | 'claimed' | 'validated' | 'removed';
  * named tradie; the tradie claims it; a platform admin validates the name/email/
  * phone match; only the company (or a platform admin) can remove it.
  */
+/** How a tradie works under a company: employees trade under the company's
+ *  NZBN and their personal name; contractors keep their own business + NZBN
+ *  and invoice the company. Chosen by the tradie at claim time, verified by
+ *  the company at confirmation. */
+export type Engagement = 'employee' | 'contractor';
+
 export interface CompanyTag {
   id: string;
   companyId: string;
@@ -137,6 +143,8 @@ export interface CompanyTag {
   issuedToName: string;
   issuedToEmail: string;
   issuedToPhone?: string;
+  /** Declared by the tradie when claiming; the company verifies on confirm. */
+  engagement?: Engagement;
   status: CompanyTagStatus;
   createdAt: number;
   expiresAt: number; // unclaimed codes expire 14 days after issue
@@ -159,6 +167,12 @@ export interface Tradie extends BaseUser {
   companyName?: string;
   /** The company tag this tradie has claimed (any status). Null = independent. */
   activeTagId?: string;
+  /** Employee or contractor, set when the company confirms the seat. */
+  engagement?: Engagement;
+  /** Pre-company identity, restored when they leave / are revoked. Employees
+   *  trade under the company NZBN and their personal name while tagged. */
+  prevBusinessName?: string;
+  prevNzbn?: string;
   /** Personal rate card (used when not tagged, or while a claim is unvalidated). */
   rateCard?: RateCard;
   businessType?: string;
@@ -203,6 +217,37 @@ export interface Property {
   tenantIds: string[];
   tenantEmails: string[];
   createdAt: number;
+  /** Managed by a property agency: jobs here dispatch ONLY to the agency's
+   *  approved tradie panel, and rates are hidden (agency terms apply). */
+  agencyId?: string;
+  agencyName?: string;
+}
+
+/** A property agency (portal account). The `code` links tradies/companies to
+ *  the agency's approved panel — the demand-side twin of company seat tags. */
+export interface Agency {
+  id: string;
+  name: string;
+  adminUserId: string;
+  adminEmail: string;
+  code: string; // e.g. QF-AG-7K2P
+  createdAt: number;
+}
+
+/** A tradie's or company's membership of an agency panel. Created pending by
+ *  the member entering the agency code; the AGENCY approves (they know who
+ *  they invited). */
+export interface AgencyLink {
+  id: string;
+  agencyId: string;
+  agencyName: string;
+  kind: 'tradie' | 'company';
+  memberId: string; // tradieId or companyId
+  memberName: string;
+  status: 'pending' | 'approved' | 'removed';
+  requestedAt: number;
+  approvedAt?: number;
+  removedAt?: number;
 }
 
 export type UrgencyType = 'now' | 'scheduled';
@@ -232,6 +277,7 @@ export interface InterestedTradie {
   baseLocation?: GeoPoint;
   rateCard?: RateCard;
   companyName?: string;
+  engagement?: Engagement;
   /** true when they opted in while unavailable (busy) rather than being live-available. */
   wasBusy?: boolean;
   expressedAt: number;
@@ -330,6 +376,10 @@ export interface Job {
   propertyId?: string;
   landlordId?: string;
   landlordName?: string;
+  /** Job at an agency-managed property: dispatch is panel-only and rates are
+   *  hidden throughout (the agency's commercial terms apply off-platform). */
+  agencyId?: string;
+  agencyName?: string;
 
   // Tradies who were offered this job and declined
   declinedBy: string[];
@@ -409,6 +459,8 @@ export interface TimesheetRow {
   customerName: string;
   address: string;
   trade: TradeCategory;
+  /** Company the job was worked under — contractors bill this company. */
+  companyName?: string;
   status: JobStatus;
   acceptedAt?: number;
   startedAt?: number; // on site

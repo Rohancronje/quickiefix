@@ -10,6 +10,7 @@ export function toTimesheetRow(job: Job): TimesheetRow {
     customerName: job.customerName,
     address: job.location.address,
     trade: job.trade,
+    companyName: job.companyName, // "contracted to" — who the tradie bills
     status: job.status,
     acceptedAt,
     startedAt: onSiteAt,
@@ -25,6 +26,7 @@ const CSV_HEADERS = [
   'Customer',
   'Address',
   'Trade',
+  'Contracted to',
   'Status',
   'Accepted',
   'Started',
@@ -50,6 +52,7 @@ export function jobsToCsv(jobs: Job[]): string {
         r.customerName,
         r.address,
         tradeMeta(r.trade).label,
+        r.companyName ?? '',
         r.status,
         formatDateTime(r.acceptedAt),
         formatDateTime(r.startedAt),

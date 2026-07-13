@@ -85,20 +85,38 @@ export async function listPendingTags(): Promise<CompanyTag[]> {
     .sort((a, b) => (a.claimedAt ?? a.createdAt) - (b.claimedAt ?? b.createdAt));
 }
 
-/** Approve a claimed tag: mark validated and bind the tradie to the company. */
+/** Approve a claimed tag: mark validated and bind the tradie to the company.
+ *  Employees trade under the company NZBN + personal name; contractors keep
+ *  their own business identity. */
 export async function validateTag(tagId: string): Promise<void> {
   await runTransaction(db, async (tx) => {
     const tagRef = doc(db, 'companyTags', tagId);
     const snap = await tx.get(tagRef);
     if (!snap.exists()) return;
     const tag = snap.data() as CompanyTag;
+    if (!tag.claimedByUserId) return;
+    const userRef = doc(db, 'users', tag.claimedByUserId);
+    const userSnap = await tx.get(userRef);
+    const companySnap = await tx.get(doc(db, 'companies', tag.companyId));
+    const user = userSnap.exists()
+      ? (userSnap.data() as { businessName: string; firstName: string; lastName: string; nzbn?: string })
+      : null;
+    const company = companySnap.exists() ? (companySnap.data() as { nzbn?: string }) : null;
+    const engagement = tag.engagement ?? 'employee';
     tx.update(tagRef, { status: 'validated', validatedAt: Date.now() });
-    if (tag.claimedByUserId) {
-      tx.update(doc(db, 'users', tag.claimedByUserId), {
-        companyId: tag.companyId,
-        companyName: tag.companyName,
-      });
-    }
+    tx.update(userRef, {
+      companyId: tag.companyId,
+      companyName: tag.companyName,
+      engagement,
+      ...(engagement === 'employee' && user
+        ? {
+            prevBusinessName: user.businessName,
+            ...(user.nzbn ? { prevNzbn: user.nzbn } : {}),
+            businessName: `${user.firstName} ${user.lastName}`,
+            ...(company?.nzbn ? { nzbn: company.nzbn } : {}),
+          }
+        : {}),
+    });
   });
 }
 

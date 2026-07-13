@@ -98,9 +98,17 @@ export default function NewJob() {
       ? slotTime(schedDay, schedHour)
       : null;
 
+  // Agency-managed property: dispatch is panel-only and rates are hidden, so
+  // the open-market preview would mislead — skip it for those jobs.
+  const selectedProperty = properties.find((p) => p.id === propertyId);
+  const isAgencyJob = selectedProperty?.agencyId != null;
+
   // Live match preview for the final step: who's actually available for this
   // trade near this address, right now.
-  const preview = useAvailableTradies(step === 3 ? trade ?? undefined : undefined, jobLocation);
+  const preview = useAvailableTradies(
+    step === 3 && !isAgencyJob ? trade ?? undefined : undefined,
+    jobLocation,
+  );
   const nearestPro = preview[0];
   const nearestEta =
     nearestPro && coords ? nearestPro.etaMinutes : undefined; // ETA needs real coordinates
@@ -420,9 +428,23 @@ export default function NewJob() {
 
           {step === 3 && (
             <Step title="When do you need this done?">
+              {/* Agency property: the agency's approved panel handles this job
+                  on agency terms — no open-market preview or rates. */}
+              {isAgencyJob && (
+                <View style={[styles.previewCard, { backgroundColor: colors.infoSoft }]}>
+                  <Txt variant="label" color={colors.blue}>
+                    🏢 Managed property — {selectedProperty?.agencyName ?? 'your property agency'}
+                  </Txt>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    This request goes to the agency's approved tradies. Rates are covered by the
+                    agency's agreement.
+                  </Txt>
+                </View>
+              )}
+
               {/* Live proof before commit: ETA, from-price and the nearest
                   matched pro — no more blind "find me a tradie". */}
-              {preview.length > 0 && (
+              {!isAgencyJob && preview.length > 0 && (
                 <View style={styles.previewCard}>
                   <Txt variant="label" color={colors.success}>
                     ✅ {preview.length} verified {preview.length === 1 ? 'pro' : 'pros'} available now

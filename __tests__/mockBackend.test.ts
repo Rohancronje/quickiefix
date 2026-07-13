@@ -1,7 +1,7 @@
 import { mockBackend } from '../src/services/mockBackend';
 import { ChooseFeed, JobOffer, TradieCandidate, Unsubscribe } from '../src/services/backend';
 import { waveEligible } from '../src/lib/dispatch';
-import { Customer, FeeLineItem, Job, Tradie, TradeCategory } from '../src/types';
+import { AgencyLink, Customer, FeeLineItem, Job, Tradie, TradeCategory } from '../src/types';
 
 const AK = { latitude: -36.79, longitude: 174.76 };
 let seq = 0;
@@ -194,6 +194,90 @@ describe('workflow guards', () => {
     await mockBackend.setTradieStatus(t.id, 'offline');
     await mockBackend.completeJob(j.id);
     expect((await mockBackend.getTradie(t.id))!.status).toBe('offline');
+  });
+
+  it('agency properties dispatch panel-only with rates hidden; other addresses stay open market', async () => {
+    const cust = await newCustomer();
+    const onPanel = await readyTradie({ trade: 'plumber' });
+    const offPanel = await readyTradie({ trade: 'plumber' });
+
+    // Agency with one managed property (customer is the tenant/requester).
+    const agency = await mockBackend.createAgencyForTest('Harbour PM', 'agency_admin_1');
+    const prop = await mockBackend.createProperty(
+      { id: 'agency_admin_1', name: 'Harbour PM' },
+      { address: '1 Dock St, Auckland', ...AK },
+    );
+    await mockBackend.setPropertyAgency(prop.id, agency);
+
+    // onPanel joins via the agent code; the agency approves.
+    const agencyName = await mockBackend.requestAgencyLink(
+      { id: onPanel.id, name: onPanel.businessName },
+      agency.code,
+    );
+    expect(agencyName).toBe('Harbour PM');
+    const links = await once<AgencyLink[]>((cb) => mockBackend.subscribeMyAgencyLinks(onPanel.id, cb));
+    await mockBackend.setAgencyLinkStatus(links[0].id, 'approved');
+
+    // Job AT the managed property: panel-only + agency stamp + no rate snapshot.
+    const j = await job(cust, { trade: 'plumber', propertyId: prop.id });
+    expect(j.agencyId).toBe(agency.id);
+    expect(j.dispatch?.candidateIds).toContain(onPanel.id);
+    expect(j.dispatch?.candidateIds).not.toContain(offPanel.id);
+    const accepted = await mockBackend.acceptJob(j.id, onPanel.id);
+    expect(accepted.rateSnapshot).toBeUndefined(); // rates hidden on agency jobs
+
+    // Same customer, DIFFERENT (non-portfolio) address: open market, rates back.
+    await mockBackend.cancelJob(j.id, 'customer');
+    const open = await job(cust, { trade: 'plumber' });
+    expect(open.agencyId).toBeUndefined();
+    expect(open.dispatch?.candidateIds).toContain(offPanel.id);
+    const openAccepted = await mockBackend.acceptJob(open.id, offPanel.id);
+    expect(openAccepted.rateSnapshot).toBeDefined();
+  });
+
+  it('employee seats seed the company NZBN + personal name, restored on removal', async () => {
+    const t = await readyTradie();
+    await mockBackend.setTradieNzbn(t.id, '9429-OWN');
+    const company = await mockBackend.createCompany({
+      name: 'North Shore Trades',
+      adminUserId: 'boss_1',
+      adminEmail: 'admin@nst.co.nz',
+      nzbn: '9429-NST',
+    });
+    const tag = await mockBackend.issueTag(company.id, { name: 'T R', email: t.email });
+
+    await mockBackend.claimTag(tag.code, t.id, 'employee');
+    await mockBackend.validateTag(tag.id);
+    let now = (await mockBackend.getTradie(t.id))!;
+    expect(now.businessName).toBe('T R'); // personal name while employed
+    expect(now.nzbn).toBe('9429-NST'); // company NZBN seeded
+    expect(now.engagement).toBe('employee');
+
+    await mockBackend.removeTag(tag.id, 'company');
+    now = (await mockBackend.getTradie(t.id))!;
+    expect(now.businessName).toBe('Biz'); // own identity restored
+    expect(now.nzbn).toBe('9429-OWN');
+    expect(now.companyId).toBeUndefined();
+  });
+
+  it('contractor seats keep the tradie business name and NZBN', async () => {
+    const t = await readyTradie();
+    await mockBackend.setTradieNzbn(t.id, '9429-OWN');
+    const company = await mockBackend.createCompany({
+      name: 'North Shore Trades',
+      adminUserId: 'boss_2',
+      adminEmail: 'admin@nst.co.nz',
+      nzbn: '9429-NST',
+    });
+    const tag = await mockBackend.issueTag(company.id, { name: 'T R', email: t.email });
+
+    await mockBackend.claimTag(tag.code, t.id, 'contractor');
+    await mockBackend.validateTag(tag.id);
+    const now = (await mockBackend.getTradie(t.id))!;
+    expect(now.businessName).toBe('Biz'); // keeps own business
+    expect(now.nzbn).toBe('9429-OWN'); // keeps own NZBN
+    expect(now.engagement).toBe('contractor');
+    expect(now.companyName).toBe('North Shore Trades'); // "Contractor for …"
   });
 
   it('cancelling stamps who cancelled (drives the push to the other party)', async () => {

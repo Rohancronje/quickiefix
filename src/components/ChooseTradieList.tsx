@@ -12,7 +12,7 @@ import { useAvailableTradies } from '../hooks/useData';
 import { distanceKm, estimateEtaMinutes, formatDistance } from '../lib/geo';
 import { backend } from '../services';
 import { colors, radius, spacing } from '../theme';
-import { Job } from '../types';
+import { Engagement, Job } from '../types';
 import { Button, Card, EmptyState, Txt } from './ui';
 
 interface Entry {
@@ -25,6 +25,7 @@ interface Entry {
   etaMinutes: number;
   hourlyCents?: number;
   companyName?: string;
+  engagement?: Engagement;
   badge: 'available' | 'responded';
 }
 
@@ -35,9 +36,13 @@ export function ChooseTradieList({ job }: { job: Job }) {
   const declined = new Set(job.declinedBy);
   const entries: Entry[] = [];
   const seen = new Set<string>();
+  // Agency-managed job: only the agency's approved panel (snapshotted into the
+  // dispatch pool at creation) may appear — and rates are hidden (agency terms).
+  const panel = job.agencyId ? new Set(job.dispatch?.candidateIds ?? []) : null;
 
   for (const c of available) {
     if (c.tradie.id === job.customerId || declined.has(c.tradie.id)) continue;
+    if (panel && !panel.has(c.tradie.id)) continue;
     seen.add(c.tradie.id);
     entries.push({
       id: c.tradie.id,
@@ -49,12 +54,14 @@ export function ChooseTradieList({ job }: { job: Job }) {
       etaMinutes: c.etaMinutes,
       hourlyCents: c.tradie.rateCard?.hourlyRateCents,
       companyName: c.tradie.companyName,
+      engagement: c.tradie.engagement,
       badge: 'available',
     });
   }
 
   for (const it of job.interestedTradies ?? []) {
     if (it.tradieId === job.customerId || declined.has(it.tradieId) || seen.has(it.tradieId)) continue;
+    if (panel && !panel.has(it.tradieId)) continue;
     seen.add(it.tradieId);
     let km = 0;
     if (it.baseLocation && job.location.latitude != null && job.location.longitude != null) {
@@ -73,6 +80,7 @@ export function ChooseTradieList({ job }: { job: Job }) {
       etaMinutes: estimateEtaMinutes(km),
       hourlyCents: it.rateCard?.hourlyRateCents,
       companyName: it.companyName,
+      engagement: it.engagement,
       badge: 'responded',
     });
   }
@@ -118,7 +126,7 @@ export function ChooseTradieList({ job }: { job: Job }) {
                 </Txt>
                 {e.companyName && (
                   <Txt variant="caption" color={colors.navy} numberOfLines={1} style={{ fontWeight: '700' }}>
-                    Member of {e.companyName}
+                    {e.engagement === 'contractor' ? 'Contractor for' : 'Member of'} {e.companyName}
                   </Txt>
                 )}
                 <Txt variant="caption" color={colors.textMuted}>
@@ -147,7 +155,11 @@ export function ChooseTradieList({ job }: { job: Job }) {
                 📍 {formatDistance(e.distanceKm)} · ~{e.etaMinutes} min
               </Txt>
               <Txt variant="caption" color={colors.text} style={{ fontWeight: '700' }}>
-                {e.hourlyCents != null ? `${formatMoney(e.hourlyCents)}/hr` : 'Rate on request'}
+                {job.agencyId
+                  ? '' // agency panel: rates are governed by the agency agreement
+                  : e.hourlyCents != null
+                    ? `${formatMoney(e.hourlyCents)}/hr`
+                    : 'Rate on request'}
               </Txt>
             </View>
 

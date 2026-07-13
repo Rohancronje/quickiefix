@@ -38,8 +38,11 @@ service cloud.firestore {
         ) ||
         isPlatformAdmin() ||
         (
+          // Company admin REMOVES their tradie: clears the tag binding and
+          // restores the tradie's own identity (name/NZBN for ex-employees).
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['companyId', 'companyName', 'activeTagId']) &&
+            .hasOnly(['companyId', 'companyName', 'activeTagId', 'engagement',
+                      'businessName', 'nzbn', 'prevBusinessName', 'prevNzbn']) &&
           resource.data.companyId != null &&
           get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid
         ) ||
@@ -47,8 +50,10 @@ service cloud.firestore {
           // Company admin CONFIRMS a claimed seat: may bind a tradie to their
           // own company ONLY via the claim chain — the tradie's active tag must
           // belong to this admin's company and be claimed by this tradie.
+          // Employee confirms also seed the company NZBN + personal name.
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['companyId', 'companyName']) &&
+            .hasOnly(['companyId', 'companyName', 'engagement',
+                      'businessName', 'nzbn', 'prevBusinessName', 'prevNzbn']) &&
           resource.data.activeTagId != null &&
           get(/databases/$(database)/documents/companyTags/$(resource.data.activeTagId)).data.claimedByUserId == userId &&
           get(/databases/$(database)/documents/companyTags/$(resource.data.activeTagId)).data.companyId == request.resource.data.companyId &&
@@ -100,6 +105,37 @@ service cloud.firestore {
         || (signedIn()
             && resource.data.status == 'issued'
             && request.resource.data.claimedByUserId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Property agencies (portal accounts). Readable by any signed-in user so
+    // tradies can resolve an agent code; only the agency admin manages it.
+    match /agencies/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.adminUserId == request.auth.uid;
+      allow update: if isPlatformAdmin() ||
+        (signedIn() && resource.data.adminUserId == request.auth.uid);
+      allow delete: if false;
+    }
+
+    // Agency panel links: a tradie (or company admin) requests with the agency
+    // code; ONLY the agency approves/removes. Members may create their own
+    // pending request and never anything else.
+    match /agencyLinks/{id} {
+      function agencyAdmin(agencyId) {
+        return get(/databases/$(database)/documents/agencies/$(agencyId)).data.adminUserId == request.auth.uid;
+      }
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.status == 'pending'
+        && (
+          // Tradie linking themselves…
+          (request.resource.data.kind == 'tradie' && request.resource.data.memberId == request.auth.uid) ||
+          // …or a company admin linking their own company.
+          (request.resource.data.kind == 'company' &&
+           get(/databases/$(database)/documents/companies/$(request.resource.data.memberId)).data.adminUserId == request.auth.uid)
+        );
+      allow update: if isPlatformAdmin() || (signedIn() && agencyAdmin(resource.data.agencyId));
       allow delete: if false;
     }
 

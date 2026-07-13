@@ -65,8 +65,13 @@ export default function Timesheets() {
                   </Txt>
                 </View>
                 <Txt variant="caption" color={colors.textMuted}>
-                  {row.customerName} · {row.address}
+                  Customer: {row.customerName} · {row.address}
                 </Txt>
+                {row.companyName && (
+                  <Txt variant="caption" color={colors.navy} style={{ fontWeight: '700' }}>
+                    Contracted to: {row.companyName}
+                  </Txt>
+                )}
                 <Divider spacingV={spacing.xs} />
                 <View style={styles.durations}>
                   <Micro label="Total" value={formatDuration(row.totalDurationMs)} />

@@ -22,7 +22,7 @@ export function TradieProfileCard({ tradie }: { tradie: Tradie }) {
           <Txt variant="heading">{tradie.businessName}</Txt>
           {tradie.companyName && (
             <Txt variant="caption" color={colors.navy} style={{ fontWeight: '700' }}>
-              Member of {tradie.companyName}
+              {tradie.engagement === 'contractor' ? 'Contractor for' : 'Member of'} {tradie.companyName}
             </Txt>
           )}
           <Txt variant="caption" color={colors.textMuted}>

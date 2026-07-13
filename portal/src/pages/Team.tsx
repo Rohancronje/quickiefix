@@ -108,10 +108,14 @@ export function Team() {
   // You issued the seat, you know the tradie — confirming the claim is yours.
   const confirmClaim = async (tag: CompanyTag) => {
     if (!company) return;
+    const engagement = tag.engagement ?? 'employee';
+    const detail =
+      engagement === 'contractor'
+        ? 'They declared themselves a CONTRACTOR: they keep their own business name and NZBN, and invoice you for their work.'
+        : `They declared themselves an EMPLOYEE: they'll appear under their personal name with ${company.name}'s NZBN.`;
     if (
       !confirm(
-        `Confirm ${tag.issuedToName} (${tag.issuedToEmail}) as part of ${company.name}? ` +
-          'Their jobs will carry your company name and rate card from now on.',
+        `Confirm ${tag.issuedToName} (${tag.issuedToEmail}) as part of ${company.name}?\n\n${detail}\n\nTheir jobs will carry your company name and rate card from now on.`,
       )
     )
       return;
@@ -402,7 +406,12 @@ export function Team() {
                     </div>
                   </td>
                   <td>
-                    <span className={`co-chip ${TAG_CHIP[tag.status]}`}>{tag.status}</span>
+                    <span className={`co-chip ${TAG_CHIP[tag.status]}`}>{tag.status}</span>{' '}
+                    {tag.engagement && tag.status !== 'issued' && (
+                      <span className={`co-chip ${tag.engagement === 'contractor' ? 'co-chip-blue' : 'co-chip-grey'}`}>
+                        {tag.engagement}
+                      </span>
+                    )}
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                     {tag.status !== 'removed' ? (

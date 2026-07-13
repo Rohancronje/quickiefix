@@ -37,8 +37,11 @@ import {
 import { httpsCallable } from 'firebase/functions';
 import { getDownloadURL, ref, uploadBytes, uploadString } from 'firebase/storage';
 import {
+  Agency,
+  AgencyLink,
   AppUser,
   BillingDetails,
+  Engagement,
   Company,
   CompanyTag,
   Customer,
@@ -296,25 +299,51 @@ export class FirestoreBackend implements Backend {
         ? input.scheduledFor
         : now;
 
+    // Stamp the property + landlord (payer-of-record) if this job is at one.
+    // Read it BEFORE building the candidate pool: agency-managed properties
+    // dispatch ONLY to the agency's approved panel.
+    let propertyStamp: Partial<Job> = {};
+    let property: Property | null = null;
+    if (input.propertyId) {
+      const pSnap = await getDoc(doc(this.db, 'properties', input.propertyId));
+      if (pSnap.exists()) {
+        property = pSnap.data() as Property;
+        propertyStamp = {
+          propertyId: property.id,
+          landlordId: property.landlordId,
+          landlordName: property.landlordName,
+          ...(property.agencyId
+            ? { agencyId: property.agencyId, agencyName: property.agencyName }
+            : {}),
+        };
+      }
+    }
+
     // Snapshot the ranked candidate pool now. For `auto` this is the wave
     // dispatch order (available only). For `choose` — and for scheduled jobs,
     // whose dispatch fires later — include busy/in-area tradies too, since
     // who's available will have changed by then. Exclude the requester.
-    const candidates =
+    let candidates =
       mode === 'choose' || startAt > now
         ? await this.getInAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
-    const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
-    // Stamp the property + landlord (payer-of-record) if this job is at one.
-    let propertyStamp: Partial<Job> = {};
-    if (input.propertyId) {
-      const pSnap = await getDoc(doc(this.db, 'properties', input.propertyId));
-      if (pSnap.exists()) {
-        const p = pSnap.data() as Property;
-        propertyStamp = { propertyId: p.id, landlordId: p.landlordId, landlordName: p.landlordName };
-      }
+    // Agency property → restrict to the approved panel: linked tradies, plus
+    // every tradie of a linked company. Other locations stay open-market.
+    if (property?.agencyId) {
+      const linksSnap = await getDocs(
+        query(collection(this.db, 'agencyLinks'), where('agencyId', '==', property.agencyId)),
+      );
+      const approved = linksSnap.docs
+        .map((d) => d.data() as AgencyLink)
+        .filter((l) => l.status === 'approved');
+      const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
+      const companyIds = new Set(approved.filter((l) => l.kind === 'company').map((l) => l.memberId));
+      candidates = candidates.filter(
+        (c) => tradieIds.has(c.tradie.id) || (c.tradie.companyId != null && companyIds.has(c.tradie.companyId)),
+      );
     }
+    const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
     const job: Job = {
       id: jobRef.id,
@@ -580,7 +609,9 @@ export class FirestoreBackend implements Backend {
         stamp.companyId = tradie.companyId;
         stamp.companyName = (company as Company).name;
       }
-      if (rateCard) {
+      // Agency jobs: no rate snapshot — panel members bill on the agency's
+      // own commercial terms, so rates never show anywhere for these jobs.
+      if (rateCard && !job.agencyId) {
         stamp.rateSnapshot = {
           rateCard,
           source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
@@ -624,6 +655,57 @@ export class FirestoreBackend implements Backend {
     await updateDoc(this.jobRef(jobId), {
       billing: { contactName: billing.contactName.trim(), contactEmail: billing.contactEmail.trim() },
     });
+  }
+
+  /* --------------------------------------------------- property agencies -- */
+
+  async requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string> {
+    const clean = code.trim().toUpperCase();
+    const snap = await getDocs(
+      query(collection(this.db, 'agencies'), where('code', '==', clean)),
+    );
+    if (snap.empty) throw new Error('No property agency matches that code. Double-check it with the agency.');
+    const agency = snap.docs[0].data() as Agency;
+    // Already linked/pending? Keep it idempotent and friendly.
+    const existing = await getDocs(
+      query(collection(this.db, 'agencyLinks'), where('memberId', '==', tradie.id)),
+    );
+    const dupe = existing.docs
+      .map((d) => d.data() as AgencyLink)
+      .find((l) => l.agencyId === agency.id && l.status !== 'removed');
+    if (dupe) {
+      throw new Error(
+        dupe.status === 'approved'
+          ? `You're already on ${agency.name}'s panel.`
+          : `Your request with ${agency.name} is already pending their approval.`,
+      );
+    }
+    const ref = doc(collection(this.db, 'agencyLinks'));
+    await setDoc(ref, {
+      id: ref.id,
+      agencyId: agency.id,
+      agencyName: agency.name,
+      kind: 'tradie',
+      memberId: tradie.id,
+      memberName: tradie.name,
+      status: 'pending',
+      requestedAt: Date.now(),
+    } satisfies AgencyLink);
+    return agency.name;
+  }
+
+  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe {
+    return onSnapshot(
+      query(collection(this.db, 'agencyLinks'), where('memberId', '==', tradieId)),
+      (snap) => {
+        cb(
+          snap.docs
+            .map((d) => d.data() as AgencyLink)
+            .filter((l) => l.status !== 'removed')
+            .sort((a, b) => b.requestedAt - a.requestedAt),
+        );
+      },
+    );
   }
 
   /** Live phone position of the assigned tradie en route (throttled by caller)
@@ -674,6 +756,7 @@ export class FirestoreBackend implements Backend {
         baseLocation: tradie.baseLocation,
         rateCard,
         companyName: (company as Company | undefined)?.name,
+        ...(tradie.engagement ? { engagement: tradie.engagement } : {}),
         wasBusy: tradie.status !== 'available',
         expressedAt: Date.now(),
       };
@@ -711,7 +794,9 @@ export class FirestoreBackend implements Backend {
         stamp.companyId = tradie.companyId;
         stamp.companyName = (company as Company).name;
       }
-      if (rateCard) {
+      // Agency jobs: no rate snapshot — panel members bill on the agency's
+      // own commercial terms, so rates never show anywhere for these jobs.
+      if (rateCard && !job.agencyId) {
         stamp.rateSnapshot = {
           rateCard,
           source: (company as Company | undefined)?.rateCard ? 'company' : 'personal',
@@ -1163,7 +1248,7 @@ export class FirestoreBackend implements Backend {
     return snap.empty ? null : (snap.docs[0].data() as CompanyTag);
   }
 
-  async claimTag(code: string, tradieId: string): Promise<Company> {
+  async claimTag(code: string, tradieId: string, engagement: Engagement): Promise<Company> {
     const snap = await getDocs(
       query(collection(this.db, 'companyTags'), where('code', '==', code.trim().toUpperCase())),
     );
@@ -1181,7 +1266,12 @@ export class FirestoreBackend implements Backend {
       }
       const companySnap = await tx.get(this.companyRef(tag.companyId));
       if (!companySnap.exists()) throw new Error('That company no longer exists.');
-      tx.update(tRef, { status: 'claimed', claimedByUserId: tradieId, claimedAt: Date.now() });
+      tx.update(tRef, {
+        status: 'claimed',
+        claimedByUserId: tradieId,
+        claimedAt: Date.now(),
+        engagement,
+      });
       tx.update(this.userRef(tradieId), { activeTagId: tag.id });
       return companySnap.data() as Company;
     });
@@ -1193,10 +1283,28 @@ export class FirestoreBackend implements Backend {
       if (!tagSnap.exists()) return;
       const tag = tagSnap.data() as CompanyTag;
       if (tag.status !== 'claimed' || !tag.claimedByUserId) return;
+      const userSnap = await tx.get(this.userRef(tag.claimedByUserId));
+      const companySnap = await tx.get(this.companyRef(tag.companyId));
+      const user = userSnap.exists() ? (userSnap.data() as Tradie) : null;
+      const company = companySnap.exists() ? (companySnap.data() as Company) : null;
+      const engagement: Engagement = tag.engagement ?? 'employee';
+
       tx.update(this.tagRef(tagId), { status: 'validated', validatedAt: Date.now() });
+      // Employees trade under the company: personal name + the COMPANY's NZBN
+      // (their own identity is stored and restored when they leave).
+      // Contractors keep their own business name and NZBN.
       tx.update(this.userRef(tag.claimedByUserId), {
         companyId: tag.companyId,
         companyName: tag.companyName,
+        engagement,
+        ...(engagement === 'employee' && user
+          ? {
+              prevBusinessName: user.businessName,
+              ...(user.nzbn ? { prevNzbn: user.nzbn } : {}),
+              businessName: `${user.firstName} ${user.lastName}`,
+              ...(company?.nzbn ? { nzbn: company.nzbn } : { nzbn: deleteField() }),
+            }
+          : {}),
       });
     });
   }
@@ -1211,6 +1319,8 @@ export class FirestoreBackend implements Backend {
       if (!tagSnap.exists()) return;
       const tag = tagSnap.data() as CompanyTag;
       if (tag.status === 'removed') return;
+      const userSnap = tag.claimedByUserId ? await tx.get(this.userRef(tag.claimedByUserId)) : null;
+      const user = userSnap?.exists() ? (userSnap.data() as Tradie) : null;
       tx.update(this.tagRef(tagId), {
         status: 'removed',
         removedAt: Date.now(),
@@ -1222,9 +1332,24 @@ export class FirestoreBackend implements Backend {
           activeTagId: deleteField(),
           companyId: deleteField(),
           companyName: deleteField(),
+          engagement: deleteField(),
+          // Ex-employees get their own identity back; the company NZBN goes
+          // with the company (they're prompted for their own if none stored).
+          ...(user?.engagement === 'employee'
+            ? {
+                businessName: user.prevBusinessName ?? user.businessName,
+                nzbn: user.prevNzbn ?? deleteField(),
+                prevBusinessName: deleteField(),
+                prevNzbn: deleteField(),
+              }
+            : {}),
         });
       }
     });
+  }
+
+  async setTradieNzbn(tradieId: string, nzbn: string): Promise<void> {
+    await updateDoc(this.userRef(tradieId), { nzbn: nzbn.trim() });
   }
 
   async leaveCompany(tradieId: string): Promise<void> {
@@ -1247,6 +1372,16 @@ export class FirestoreBackend implements Backend {
       activeTagId: deleteField(),
       companyId: deleteField(),
       companyName: deleteField(),
+      engagement: deleteField(),
+      // Ex-employees get their own identity back (see removeTag).
+      ...(t.engagement === 'employee'
+        ? {
+            businessName: t.prevBusinessName ?? t.businessName,
+            nzbn: t.prevNzbn ?? deleteField(),
+            prevBusinessName: deleteField(),
+            prevNzbn: deleteField(),
+          }
+        : {}),
     });
   }
 

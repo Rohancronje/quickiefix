@@ -8,10 +8,13 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Agency,
+  AgencyLink,
   AppUser,
   BillingDetails,
   Company,
   CompanyTag,
+  Engagement,
   Complaint,
   Customer,
   FeeLineItem,
@@ -57,6 +60,8 @@ interface DB {
   fees: Record<string, FeeLineItem>;
   properties: Record<string, Property>;
   messages: Record<string, Message>;
+  agencies: Record<string, Agency>;
+  agencyLinks: Record<string, AgencyLink>;
 }
 
 function seedDb(): DB {
@@ -80,6 +85,8 @@ function seedDb(): DB {
     fees: {},
     properties: {},
     messages: {},
+    agencies: {},
+    agencyLinks: {},
   };
 }
 
@@ -108,6 +115,8 @@ class MockBackend implements Backend {
               fees: parsed.fees ?? {},
               properties: parsed.properties ?? {},
               messages: parsed.messages ?? {},
+              agencies: parsed.agencies ?? {},
+              agencyLinks: parsed.agencyLinks ?? {},
             };
           } else await this.persist();
         } catch {
@@ -321,12 +330,25 @@ class MockBackend implements Backend {
         ? input.scheduledFor
         : now;
 
+    // Agency-managed property? Read it first — dispatch is panel-only there.
+    const property = input.propertyId ? this.db.properties[input.propertyId] : undefined;
+
     // Snapshot the ranked candidate pool now. `choose` (and scheduled jobs,
     // which dispatch later) also include busy/in-area tradies.
-    const candidates =
+    let candidates =
       mode === 'choose' || startAt > now
         ? this.inAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
+    if (property?.agencyId) {
+      const approved = Object.values(this.db.agencyLinks).filter(
+        (l) => l.agencyId === property.agencyId && l.status === 'approved',
+      );
+      const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
+      const companyIds = new Set(approved.filter((l) => l.kind === 'company').map((l) => l.memberId));
+      candidates = candidates.filter(
+        (c) => tradieIds.has(c.tradie.id) || (c.tradie.companyId != null && companyIds.has(c.tradie.companyId)),
+      );
+    }
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
     const job: Job = {
@@ -348,11 +370,14 @@ class MockBackend implements Backend {
       declinedBy: [],
     };
     // Stamp the property + landlord (payer-of-record) if this job is at one.
-    const property = input.propertyId ? this.db.properties[input.propertyId] : undefined;
     if (property) {
       job.propertyId = property.id;
       job.landlordId = property.landlordId;
       job.landlordName = property.landlordName;
+      if (property.agencyId) {
+        job.agencyId = property.agencyId;
+        job.agencyName = property.agencyName;
+      }
     }
     this.db.jobs[job.id] = job;
     this.commit();
@@ -541,7 +566,8 @@ class MockBackend implements Backend {
       job.companyName = company.name;
     }
     const rateCard = company?.rateCard ?? tradie.rateCard;
-    if (rateCard) {
+    // Agency jobs: rates never show — panel members bill on agency terms.
+    if (rateCard && !job.agencyId) {
       job.rateSnapshot = {
         rateCard,
         source: company?.rateCard ? 'company' : 'personal',
@@ -576,6 +602,86 @@ class MockBackend implements Backend {
       // The mock mirrors the Cloud Function: deterministic code on completion.
       this.commit();
     }
+  }
+
+  /* --------------------------------------------------- property agencies -- */
+
+  async requestAgencyLink(tradie: { id: string; name: string }, code: string): Promise<string> {
+    await this.ensureLoaded();
+    const clean = code.trim().toUpperCase();
+    const agency = Object.values(this.db.agencies).find((a) => a.code === clean);
+    if (!agency) throw new Error('No property agency matches that code. Double-check it with the agency.');
+    const dupe = Object.values(this.db.agencyLinks).find(
+      (l) => l.agencyId === agency.id && l.memberId === tradie.id && l.status !== 'removed',
+    );
+    if (dupe) {
+      throw new Error(
+        dupe.status === 'approved'
+          ? `You're already on ${agency.name}'s panel.`
+          : `Your request with ${agency.name} is already pending their approval.`,
+      );
+    }
+    const id = uid('alink_');
+    this.db.agencyLinks[id] = {
+      id,
+      agencyId: agency.id,
+      agencyName: agency.name,
+      kind: 'tradie',
+      memberId: tradie.id,
+      memberName: tradie.name,
+      status: 'pending',
+      requestedAt: Date.now(),
+    };
+    this.commit();
+    return agency.name;
+  }
+
+  subscribeMyAgencyLinks(tradieId: string, cb: (links: AgencyLink[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.agencyLinks)
+          .filter((l) => l.memberId === tradieId && l.status !== 'removed')
+          .sort((a, b) => b.requestedAt - a.requestedAt),
+      cb,
+    );
+  }
+
+  /** Test/demo helper: create an agency (mirrors the portal signup). */
+  async createAgencyForTest(name: string, adminUserId: string): Promise<Agency> {
+    await this.ensureLoaded();
+    const id = uid('agency_');
+    const agency: Agency = {
+      id,
+      name,
+      adminUserId,
+      adminEmail: `${id}@test.dev`,
+      code: `QF-AG-${id.slice(-4).toUpperCase()}`,
+      createdAt: Date.now(),
+    };
+    this.db.agencies[id] = agency;
+    this.commit();
+    return agency;
+  }
+
+  /** Test/demo helper: approve/remove a panel link (mirrors the portal). */
+  async setAgencyLinkStatus(linkId: string, status: AgencyLink['status']): Promise<void> {
+    await this.ensureLoaded();
+    const link = this.db.agencyLinks[linkId];
+    if (!link) return;
+    link.status = status;
+    if (status === 'approved') link.approvedAt = Date.now();
+    if (status === 'removed') link.removedAt = Date.now();
+    this.commit();
+  }
+
+  /** Test/demo helper: mark a property as agency-managed. */
+  async setPropertyAgency(propertyId: string, agency: Agency): Promise<void> {
+    await this.ensureLoaded();
+    const p = this.db.properties[propertyId];
+    if (!p) return;
+    p.agencyId = agency.id;
+    p.agencyName = agency.name;
+    this.commit();
   }
 
   async setJobTradieLocation(jobId: string, point: GeoPoint): Promise<void> {
@@ -621,6 +727,7 @@ class MockBackend implements Backend {
       baseLocation: tradie.baseLocation,
       rateCard: company?.rateCard ?? tradie.rateCard,
       companyName: company?.name,
+      engagement: tradie.engagement,
       wasBusy: tradie.status !== 'available',
       expressedAt: Date.now(),
     });
@@ -659,7 +766,8 @@ class MockBackend implements Backend {
       job.companyName = company.name;
     }
     const rateCard = company?.rateCard ?? tradie.rateCard;
-    if (rateCard) {
+    // Agency jobs: rates never show — panel members bill on agency terms.
+    if (rateCard && !job.agencyId) {
       job.rateSnapshot = {
         rateCard,
         source: company?.rateCard ? 'company' : 'personal',
@@ -984,6 +1092,7 @@ class MockBackend implements Backend {
     adminUserId: string;
     adminEmail: string;
     rateCard?: RateCard;
+    nzbn?: string;
   }): Promise<Company> {
     await this.ensureLoaded();
     const company: Company = {
@@ -993,6 +1102,7 @@ class MockBackend implements Backend {
       adminEmail: input.adminEmail,
       createdAt: Date.now(),
       rateCard: input.rateCard,
+      nzbn: input.nzbn,
       sharedCredits: 0,
       status: input.rateCard ? 'active' : 'setup',
     };
@@ -1058,7 +1168,7 @@ class MockBackend implements Backend {
     return Object.values(this.db.tags).find((t) => t.code === norm) ?? null;
   }
 
-  async claimTag(code: string, tradieId: string): Promise<Company> {
+  async claimTag(code: string, tradieId: string, engagement: Engagement): Promise<Company> {
     await this.ensureLoaded();
     const tag = Object.values(this.db.tags).find((t) => t.code === code.trim().toUpperCase());
     if (!tag) throw new Error('That code is not valid.');
@@ -1073,6 +1183,7 @@ class MockBackend implements Backend {
     tag.status = 'claimed';
     tag.claimedByUserId = tradieId;
     tag.claimedAt = Date.now();
+    tag.engagement = engagement;
     t.activeTagId = tag.id;
     this.commit();
     return company;
@@ -1085,11 +1196,34 @@ class MockBackend implements Backend {
     tag.status = 'validated';
     tag.validatedAt = Date.now();
     const t = this.db.users[tag.claimedByUserId];
+    const company = this.db.companies[tag.companyId];
     if (t && t.role === 'tradie') {
       t.companyId = tag.companyId;
       t.companyName = tag.companyName;
+      t.engagement = tag.engagement ?? 'employee';
+      // Employees trade under the company: personal name + company NZBN.
+      // Contractors keep their own business name and NZBN.
+      if (t.engagement === 'employee') {
+        t.prevBusinessName = t.businessName;
+        if (t.nzbn) t.prevNzbn = t.nzbn;
+        t.businessName = `${t.firstName} ${t.lastName}`;
+        if (company?.nzbn) t.nzbn = company.nzbn;
+        else delete t.nzbn;
+      }
     }
     this.commit();
+  }
+
+  /** Restore an ex-employee's own identity when they leave / are removed. */
+  private restoreIdentity(t: Tradie): void {
+    if (t.engagement === 'employee') {
+      t.businessName = t.prevBusinessName ?? t.businessName;
+      if (t.prevNzbn) t.nzbn = t.prevNzbn;
+      else delete t.nzbn; // prompted to add their own
+      delete t.prevBusinessName;
+      delete t.prevNzbn;
+    }
+    delete t.engagement;
   }
 
   async removeTag(
@@ -1108,6 +1242,7 @@ class MockBackend implements Backend {
     if (tradieId) {
       const t = this.db.users[tradieId];
       if (t && t.role === 'tradie') {
+        this.restoreIdentity(t);
         delete t.activeTagId;
         delete t.companyId;
         delete t.companyName;
@@ -1130,10 +1265,20 @@ class MockBackend implements Backend {
       tag.removedAt = Date.now();
       tag.removedBy = 'self';
     }
+    this.restoreIdentity(t);
     delete t.activeTagId;
     delete t.companyId;
     delete t.companyName;
     this.commit();
+  }
+
+  async setTradieNzbn(tradieId: string, nzbn: string): Promise<void> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
+    if (t && t.role === 'tradie') {
+      t.nzbn = nzbn.trim();
+      this.commit();
+    }
   }
 
   async setTradieRateCard(tradieId: string, rateCard: RateCard): Promise<void> {
