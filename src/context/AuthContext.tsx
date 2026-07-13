@@ -14,7 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  *  to LOGIN (no network wait) instead of the first-run welcome pitch. */
 const HAD_SESSION_KEY = 'quickiefix.hadSession.v1';
 import { AppUser, Customer, Tradie } from '../types';
-import { biometricUnlock, isBiolockEnabled } from '../lib/biometrics';
+import { biometricUnlock, isBiolockEnabled, wasRecentlyUnlocked } from '../lib/biometrics';
 import { getPushToken } from '../lib/push';
 import {
   backend,
@@ -93,7 +93,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Biometric path needs the restored session to lock behind the prompt.
       const u = await getSessionUser();
       if (u) {
-        setLocked(true);
+        // Android sometimes recreates the whole app around the biometric sheet
+        // (looks like a "refresh" right after scanning). A scan from seconds
+        // ago still counts — don't demand a second one.
+        setLocked(!(await wasRecentlyUnlocked()));
         bind(u);
       } else {
         if (hadSession === '1') setSessionEnded(true);
@@ -104,9 +107,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubRef.current?.();
   }, [bind]);
 
+  const backgroundedAt = useRef<number | null>(null);
+
   const unlock = useCallback(async () => {
     const ok = await biometricUnlock('Unlock QuickieFix');
-    if (ok) setLocked(false);
+    if (ok) {
+      // The OS sheet can background the app while it's up — that time doesn't
+      // count as "away", or the re-lock below would demand a second scan.
+      backgroundedAt.current = null;
+      setLocked(false);
+    }
     return ok;
   }, []);
 
@@ -116,7 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // "closed" process), end the session the same way: biometric users re-lock,
   // everyone else is signed out to the login screen. The grace window means
   // quickly hopping to Maps and back never logs a tradie out.
-  const backgroundedAt = useRef<number | null>(null);
   useEffect(() => {
     const BG_GRACE_MS = 60_000;
     const sub = AppState.addEventListener('change', (state) => {
@@ -130,7 +139,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!user || away < BG_GRACE_MS) return;
       void (async () => {
         if (await isBiolockEnabled()) {
-          setLocked(true);
+          // A scan seconds ago still counts (the sheet itself backgrounds the
+          // app on some devices) — don't chain straight into a second prompt.
+          if (!(await wasRecentlyUnlocked())) setLocked(true);
         } else {
           // Session-end (not explicit logout): keep the push token so an
           // available tradie keeps receiving job offers.
