@@ -13,12 +13,19 @@ import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import { useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration } from '../../../src/lib/format';
-import { distanceKm } from '../../../src/lib/geo';
+import { distanceKm, formatDistance } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
 import { openInMaps } from '../../../src/lib/maps';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
 import { Job, Rating } from '../../../src/types';
+
+/** Suburb/city portion of an address (street stripped) for pre-assignment
+ *  privacy — candidates see the area, not the door number. */
+function areaLabel(address: string): string {
+  const parts = address.split(',').map((s) => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(1).join(', ') : 'Nearby';
+}
 
 export default function TradieJob() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -93,6 +100,11 @@ export default function TradieJob() {
   const isMine = job.tradieId === tradie.id;
   const isChoose = job.assignmentMode === 'choose';
   const chosenMe = isChoose && job.selectedTradieId === tradie.id;
+  // Rough distance for the pre-assignment area line.
+  const approxKm =
+    tradie.baseLocation && jobCoords
+      ? distanceKm(tradie.baseLocation, { latitude: jobCoords.latitude, longitude: jobCoords.longitude })
+      : null;
   const alreadyInterested = (job.interestedTradies ?? []).some((t) => t.tradieId === tradie.id);
   const acceptJob = async () => {
     // The accept transaction takes a moment — without this guard a double-tap
@@ -149,23 +161,44 @@ export default function TradieJob() {
           <Txt variant="body" color={colors.textMuted}>
             {job.description}
           </Txt>
-          {/* Embedded map preview (renders only on builds that include maps). */}
-          <JobMap location={job.location} />
+          {isMine ? (
+            <>
+              {/* Embedded map preview (renders only on builds that include maps). */}
+              <JobMap location={job.location} />
 
-          {/* Job location — tap to navigate (Google Maps / Apple Maps / Waze). */}
-          <Pressable style={styles.mapsRow} onPress={() => openInMaps(job.location)}>
-            <View style={{ flex: 1 }}>
-              <Txt variant="caption" color={colors.textMuted}>
-                Job location
-              </Txt>
-              <Txt variant="label" color={colors.blue}>
-                📍 {job.location.address}
-              </Txt>
+              {/* Job location — tap to navigate (Google Maps / Apple Maps / Waze). */}
+              <Pressable style={styles.mapsRow} onPress={() => openInMaps(job.location)}>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    Job location
+                  </Txt>
+                  <Txt variant="label" color={colors.blue}>
+                    📍 {job.location.address}
+                  </Txt>
+                </View>
+                <Txt variant="caption" color={colors.blue} style={{ fontWeight: '800' }}>
+                  Open in maps ↗
+                </Txt>
+              </Pressable>
+            </>
+          ) : (
+            /* Privacy: candidates see the AREA + distance only — the exact
+               address and map unlock once the job is assigned to them. */
+            <View style={styles.mapsRow}>
+              <View style={{ flex: 1 }}>
+                <Txt variant="caption" color={colors.textMuted}>
+                  Area
+                </Txt>
+                <Txt variant="label">
+                  📍 {areaLabel(job.location.address)}
+                  {approxKm != null ? ` · ~${formatDistance(approxKm)} from you` : ''}
+                </Txt>
+                <Txt variant="caption" color={colors.textFaint}>
+                  Exact address is shown once the job is yours.
+                </Txt>
+              </View>
             </View>
-            <Txt variant="caption" color={colors.blue} style={{ fontWeight: '800' }}>
-              Open in maps ↗
-            </Txt>
-          </Pressable>
+          )}
           {job.photos.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', gap: spacing.sm }}>

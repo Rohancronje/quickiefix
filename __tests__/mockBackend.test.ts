@@ -1,5 +1,5 @@
 import { mockBackend } from '../src/services/mockBackend';
-import { ChooseFeed, TradieCandidate, Unsubscribe } from '../src/services/backend';
+import { ChooseFeed, JobOffer, TradieCandidate, Unsubscribe } from '../src/services/backend';
 import { Customer, FeeLineItem, Job, Tradie, TradeCategory } from '../src/types';
 
 const AK = { latitude: -36.79, longitude: 174.76 };
@@ -124,6 +124,18 @@ describe('workflow guards', () => {
     await mockBackend.cancelJob(j.id, 'customer');
     const again = await job(cust, { trade: 'plumber' });
     expect(again.status).toBe('searching');
+  });
+
+  it('choose jobs never appear as acceptable offers — candidates get a choose request instead', async () => {
+    const cust = await newCustomer();
+    const avail = await readyTradie();
+    const j = await job(cust, { assignmentMode: 'choose' });
+
+    const offers = await once<JobOffer[]>((cb) => mockBackend.subscribeJobOffers(avail.id, cb));
+    expect(offers.some((o) => o.job.id === j.id)).toBe(false);
+
+    const feed = await once<ChooseFeed>((cb) => mockBackend.subscribeChooseFeed(avail.id, cb));
+    expect(feed.requests.some((o) => o.job.id === j.id)).toBe(true);
   });
 
   it('secondary trades receive matching jobs (plumber with electrician secondary)', async () => {

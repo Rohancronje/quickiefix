@@ -650,11 +650,17 @@ const snip = (s, n = 90) => {
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 };
 
-/** Job details line shown on offer pushes: what + where. */
+/** Suburb/city part of an address (street stripped) — offer pushes go to
+ *  candidates who aren't assigned yet, so never leak the exact address. */
+function areaOnly(address) {
+  const parts = String(address || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return parts.length > 1 ? parts.slice(1).join(', ') : parts[0] || '';
+}
+
+/** Job details line shown on offer pushes: what + roughly where. */
 function jobPushBody(job) {
-  return [snip(job.description), job.location?.address ? `📍 ${snip(job.location.address, 60)}` : null]
-    .filter(Boolean)
-    .join('\n');
+  const area = areaOnly(job.location?.address);
+  return [snip(job.description), area ? `📍 ${snip(area, 60)}` : null].filter(Boolean).join('\n');
 }
 
 /** Send the offer push to `ids` that haven't been notified yet; record them. */

@@ -823,7 +823,7 @@ class MockBackend implements Backend {
           selected.push(toOffer(job));
           continue;
         }
-        if (tradie.status === 'available') continue; // available ones already listed
+        // Every candidate (available or busy) sees the request card.
         if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
         if (job.declinedBy.includes(tradieId)) continue;
         if ((job.interestedTradies ?? []).some((t) => t.tradieId === tradieId)) continue;
@@ -882,6 +882,9 @@ class MockBackend implements Backend {
     const offers: JobOffer[] = [];
     for (const job of Object.values(this.db.jobs)) {
       if (job.status !== 'searching') continue;
+      // Browse-and-choose jobs are NEVER acceptable offers — they surface
+      // through the choose feed ("customer is choosing") until picked.
+      if ((job.assignmentMode ?? 'auto') === 'choose') continue;
       if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
       if (job.declinedBy.includes(tradieId)) continue;
 

@@ -858,6 +858,9 @@ export class FirestoreBackend implements Backend {
       const offers: JobOffer[] = [];
       for (const job of candidateJobs) {
         if (job.status !== 'searching') continue;
+        // Browse-and-choose jobs are NEVER acceptable offers — they surface
+        // through the choose feed ("customer is choosing") until picked.
+        if ((job.assignmentMode ?? 'auto') === 'choose') continue;
         if (job.declinedBy.includes(tradieId)) continue;
         let km = 0;
         if (
@@ -932,9 +935,9 @@ export class FirestoreBackend implements Backend {
           selected.push(toOffer(job));
           continue;
         }
-        // Opt-in requests go only to BUSY tradies (available ones already show
-        // in the customer's browse list). Hide once declined or already opted in.
-        if (tradie.status === 'available') continue;
+        // Every candidate (available or busy) sees the request as a "customer
+        // is choosing" card — never an acceptable offer. Hide once declined or
+        // already opted in.
         if (!job.dispatch?.candidateIds.includes(tradieId)) continue;
         if (job.declinedBy.includes(tradieId)) continue;
         if ((job.interestedTradies ?? []).some((t) => t.tradieId === tradieId)) continue;
