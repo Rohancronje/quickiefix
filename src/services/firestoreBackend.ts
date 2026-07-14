@@ -63,6 +63,7 @@ import {
 import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { AgencyPanel, isOnPanel, panelFromLinks } from '../lib/panel';
 import { friendlyAuthError } from '../lib/authError';
 import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
@@ -335,25 +336,12 @@ export class FirestoreBackend implements Backend {
     // 'employees' excludes contractors). Other locations stay open-market.
     let ownPanelIds: string[] | undefined;
     if (property?.agencyId) {
-      const linksSnap = await getDocs(
-        query(collection(this.db, 'agencyLinks'), where('agencyId', '==', property.agencyId)),
-      );
-      const approved = linksSnap.docs
-        .map((d) => d.data() as AgencyLink)
-        .filter((l) => l.status === 'approved');
-      const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
-      const companyScope = new Map(
-        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
-      );
-      candidates = candidates.filter((c) => {
-        if (tradieIds.has(c.tradie.id)) return true;
-        if (c.tradie.companyId == null) return false;
-        const scope = companyScope.get(c.tradie.companyId);
-        if (!scope) return false;
-        return scope === 'all' || c.tradie.engagement !== 'contractor';
-      });
+      const panel = await this.getAgencyPanel(property.agencyId);
+      candidates = candidates.filter((c) => isOnPanel(c.tradie, panel));
       // Record who holds their OWN membership — decides sourcedVia at accept.
-      ownPanelIds = candidates.filter((c) => tradieIds.has(c.tradie.id)).map((c) => c.tradie.id);
+      ownPanelIds = candidates
+        .filter((c) => panel.tradieIds.includes(c.tradie.id))
+        .map((c) => c.tradie.id);
     }
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
@@ -705,6 +693,13 @@ export class FirestoreBackend implements Backend {
   }
 
   /* --------------------------------------------------- property agencies -- */
+
+  async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {
+    const snap = await getDocs(
+      query(collection(this.db, 'agencyLinks'), where('agencyId', '==', agencyId)),
+    );
+    return panelFromLinks(snap.docs.map((d) => d.data() as AgencyLink));
+  }
 
   async requestAgencyLink(
     member: { id: string; name: string; email?: string },
@@ -1358,7 +1353,10 @@ export class FirestoreBackend implements Backend {
         status: 'claimed',
         claimedByUserId: tradieId,
         claimedAt: Date.now(),
-        engagement,
+        // The company declares the engagement when issuing the seat — that
+        // tick is authoritative. The tradie's answer only fills the gap on
+        // older tags issued without one.
+        engagement: tag.engagement ?? engagement,
       });
       tx.update(this.userRef(tradieId), { activeTagId: tag.id });
       return companySnap.data() as Company;

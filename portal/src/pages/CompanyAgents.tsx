@@ -49,12 +49,27 @@ export function CompanyAgents() {
   return (
     <>
       <div className="co-card" style={{ marginBottom: 16, maxWidth: 720 }}>
-        <div className="co-sectionhead">Why panels matter</div>
+        <div className="co-sectionhead">What is this page?</div>
         <p className="co-help" style={{ fontSize: 13.5 }}>
-          Property agencies route ALL repairs at their managed portfolios to their approved panel —
-          recurring work your competitors never see. Ask your property-manager contacts for their
-          QuickieFix agent code, enter it below, and your team starts receiving those jobs the
-          moment they approve you.
+          Property management agencies (rental / real-estate managers) also use QuickieFix. When a
+          tenant at one of their rentals reports a repair, that job goes ONLY to tradies the agency
+          has approved — their &ldquo;panel&rdquo;. This page is where your company joins those
+          panels.
+        </p>
+        <ol className="co-help" style={{ fontSize: 13.5, lineHeight: 1.9, paddingLeft: 18, margin: '8px 0 0' }}>
+          <li>
+            A property agency you work with gives you their agent code (looks like{' '}
+            <span className="co-code">QF-AG-7K2P</span>).
+          </li>
+          <li>You enter it below and choose whether it covers your whole team or employees only.</li>
+          <li>
+            The agency approves you in their portal — from then on, repair jobs at their rental
+            properties dispatch straight to your tradies. Recurring work, no competition.
+          </li>
+        </ol>
+        <p className="co-help" style={{ fontSize: 13.5, marginTop: 8 }}>
+          No agency contacts yet? Nothing to do here — your team keeps getting open-market jobs as
+          normal. Panels are extra, exclusive work on top.
         </p>
       </div>
 

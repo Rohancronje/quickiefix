@@ -17,7 +17,7 @@ export const IMPORT_HEADERS = [
   'firstName',
   'lastName',
   'email',
-  'businessName',
+  'contractorBusinessName', // empty → employee; filled → contractor under that business
   'primaryTrade',
   'secondaryTrades',
   'yearsExperience',
@@ -26,9 +26,10 @@ export const IMPORT_HEADERS = [
 
 export const VALID_TRADES = Object.keys(TRADE_LABELS);
 
-/** Build the CSV template (opens in Excel) with a sample row. */
+/** Build the CSV template (opens in Excel): one contractor row, one employee
+ *  row (contractorBusinessName left empty). */
 export function templateCsv(): string {
-  const sample = [
+  const contractor = [
     'Mike',
     'Jones',
     'mike@example.com',
@@ -38,7 +39,8 @@ export function templateCsv(): string {
     '8',
     'PGDB-12345',
   ];
-  return `${IMPORT_HEADERS.join(',')}\n${sample.join(',')}\n`;
+  const employee = ['Sarah', 'Smith', 'sarah@example.com', '', 'electrician', '', '5', 'EWRB-6789'];
+  return `${IMPORT_HEADERS.join(',')}\n${contractor.join(',')}\n${employee.join(',')}\n`;
 }
 
 export function downloadTemplate() {
@@ -57,6 +59,8 @@ export interface ImportRow {
   firstName: string;
   lastName: string;
   email: string;
+  /** Empty contractorBusinessName in the sheet → employee. */
+  engagement: 'employee' | 'contractor';
   businessName: string;
   primaryTrade: string;
   secondaryTrades: string[];
@@ -109,11 +113,16 @@ export function parseImportCsv(text: string): ImportRow[] {
     };
     const email = get('email');
     const primary = normalizeTrade(get('primaryTrade'));
+    // contractorBusinessName filled → contractor under that business;
+    // empty → employee (personal name, company NZBN). Older sheets with a
+    // plain businessName column are read the same way.
+    const contractorBiz = get('contractorBusinessName') || get('businessName');
     const row: ImportRow = {
       firstName: get('firstName'),
       lastName: get('lastName'),
       email,
-      businessName: get('businessName') || `${get('firstName')} ${get('lastName')}`,
+      engagement: contractorBiz ? 'contractor' : 'employee',
+      businessName: contractorBiz || `${get('firstName')} ${get('lastName')}`,
       primaryTrade: primary ?? get('primaryTrade'),
       secondaryTrades: get('secondaryTrades')
         .split(/[;|]/)
@@ -178,6 +187,7 @@ export async function importTradies(
         code: generateTagCode(),
         issuedToName: `${r.firstName} ${r.lastName}`.trim(),
         issuedToEmail: r.email,
+        engagement: r.engagement,
         status: 'validated',
         createdAt: now,
         expiresAt: now + TAG_TTL_MS,
@@ -212,6 +222,10 @@ export async function importTradies(
         jobsAccepted: 0,
         companyId: company.id,
         companyName: company.name,
+        engagement: r.engagement,
+        // Employees trade under the company's NZBN; contractors add their own
+        // NZBN in the app.
+        ...(r.engagement === 'employee' && company.nzbn ? { nzbn: company.nzbn } : {}),
       });
       // Preferred: branded welcome email (Brevo) via Cloud Function.
       // Fallback: Firebase's free "set your password" email.

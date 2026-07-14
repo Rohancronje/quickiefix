@@ -20,7 +20,7 @@ import {
 } from '../importApi';
 import { useLive } from '../live';
 import { initials } from '../lib';
-import { CompanyTag, CompanyTagStatus, Tradie, tradeLabel } from '../types';
+import { CompanyTag, CompanyTagStatus, Engagement, Tradie, tradeLabel } from '../types';
 
 const TAG_CHIP: Record<CompanyTagStatus, string> = {
   issued: 'co-chip-amber',
@@ -50,6 +50,7 @@ export function Team() {
   const [seatName, setSeatName] = useState('');
   const [seatEmail, setSeatEmail] = useState('');
   const [seatPhone, setSeatPhone] = useState('');
+  const [seatEngagement, setSeatEngagement] = useState<Engagement>('employee');
   const [lastTag, setLastTag] = useState<CompanyTag | null>(null);
   // Spreadsheet import
   const [rows, setRows] = useState<ImportRow[] | null>(null);
@@ -89,11 +90,13 @@ export function Team() {
       name: seatName,
       email: seatEmail,
       phone: seatPhone || undefined,
+      engagement: seatEngagement,
     });
     setLastTag(tag);
     setSeatName('');
     setSeatEmail('');
     setSeatPhone('');
+    setSeatEngagement('employee');
     setBusy(false);
     flash('Seat added — share the code');
   };
@@ -128,8 +131,8 @@ export function Team() {
     const engagement = tag.engagement ?? 'employee';
     const detail =
       engagement === 'contractor'
-        ? 'They declared themselves a CONTRACTOR: they keep their own business name and NZBN, and invoice you for their work.'
-        : `They declared themselves an EMPLOYEE: they'll appear under their personal name with ${company.name}'s NZBN.`;
+        ? 'CONTRACTOR seat: they keep their own business name and NZBN, and invoice you for their work.'
+        : `EMPLOYEE seat: they'll appear under their personal name with ${company.name}'s NZBN.`;
     if (
       !(await confirmDialog(`Confirm ${tag.issuedToName} as part of ${company.name}?`, {
         message: `${tag.issuedToEmail}\n\n${detail}\n\nTheir jobs will carry your company name and rate card from now on.`,
@@ -254,6 +257,31 @@ export function Team() {
             />
           </div>
         </div>
+        {/* The company declares the engagement — it decides whose NZBN and
+            business name the tradie works under. */}
+        <div style={{ display: 'flex', gap: 16, marginBottom: 14, fontSize: 13.5 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="radio"
+              checked={seatEngagement === 'employee'}
+              onChange={() => setSeatEngagement('employee')}
+            />
+            Employed by {company?.name ?? 'us'}
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="radio"
+              checked={seatEngagement === 'contractor'}
+              onChange={() => setSeatEngagement('contractor')}
+            />
+            Contractor (own business &amp; NZBN)
+          </label>
+        </div>
+        <p className="co-help" style={{ marginTop: -6, marginBottom: 14 }}>
+          {seatEngagement === 'employee'
+            ? `They'll trade under their personal name with ${company?.name ?? 'your company'}'s NZBN.`
+            : 'They keep their own business name and NZBN, and invoice you for their work.'}
+        </p>
         <button
           className="co-btn co-btn-primary"
           disabled={busy || !seatName.trim() || !seatEmail.trim()}
@@ -295,7 +323,9 @@ export function Team() {
         <p className="co-help">
           Download the template, fill in your tradies, then upload it. Each tradie gets an account
           linked to {company?.name} (with a pre-validated tag) and an email to set their password.
-          Valid trades: <span className="co-sub">{VALID_TRADES.join(', ')}</span>.
+          Leave <b>contractorBusinessName</b> empty for employees (they trade under your NZBN);
+          fill it in for contractors (they keep their own business). Valid trades:{' '}
+          <span className="co-sub">{VALID_TRADES.join(', ')}</span>.
         </p>
 
         {!importing && !results && (

@@ -19,7 +19,8 @@ import { AddressField } from '../../src/components/AddressField';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { formatMoney, TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
-import { useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { isOnPanel } from '../../src/lib/panel';
 import { formatWhen } from '../../src/lib/format';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
@@ -99,17 +100,20 @@ export default function NewJob() {
       ? slotTime(schedDay, schedHour)
       : null;
 
-  // Agency-managed property: dispatch is panel-only and rates are hidden, so
-  // the open-market preview would mislead — skip it for those jobs.
+  // Agency-managed property: dispatch is panel-only and rates are hidden —
+  // the preview must show ONLY the agency's approved tradies, without prices.
   const selectedProperty = properties.find((p) => p.id === propertyId);
   const isAgencyJob = selectedProperty?.agencyId != null;
+  const panel = useAgencyPanel(isAgencyJob ? selectedProperty?.agencyId : undefined);
 
   // Live match preview for the final step: who's actually available for this
-  // trade near this address, right now.
-  const preview = useAvailableTradies(
-    step === 3 && !isAgencyJob ? trade ?? undefined : undefined,
-    jobLocation,
-  );
+  // trade near this address, right now. Panel-filtered for managed properties.
+  const openPreview = useAvailableTradies(step === 3 ? trade ?? undefined : undefined, jobLocation);
+  const preview = isAgencyJob
+    ? panel
+      ? openPreview.filter((c) => isOnPanel(c.tradie, panel))
+      : []
+    : openPreview;
   const nearestPro = preview[0];
   const nearestEta =
     nearestPro && coords ? nearestPro.etaMinutes : undefined; // ETA needs real coordinates
@@ -351,32 +355,69 @@ export default function NewJob() {
             <Step title="Where's the job?">
               {properties.length > 0 && (
                 <View style={{ gap: spacing.sm }}>
-                  <Txt variant="caption" color={colors.textMuted}>
-                    For one of your properties?
-                  </Txt>
-                  {properties.map((p) => (
-                    <Pressable
-                      key={p.id}
-                      style={[styles.option, propertyId === p.id && styles.optionActive]}
-                      onPress={() => {
-                        setPropertyId(p.id);
-                        setAddress(p.address);
-                        setCoords(
-                          p.latitude != null && p.longitude != null
-                            ? { latitude: p.latitude, longitude: p.longitude }
-                            : null,
-                        );
-                      }}
-                    >
-                      <Txt style={{ fontSize: 22 }}>🏠</Txt>
-                      <View style={{ flex: 1 }}>
-                        <Txt variant="label">{p.label || p.address}</Txt>
-                        <Txt variant="caption" color={colors.textMuted}>
-                          {p.landlordId === user?.id ? 'Your property' : `Managed by ${p.landlordName}`}
-                        </Txt>
-                      </View>
-                    </Pressable>
-                  ))}
+                  {/* Managed properties first: repairs there are the agency's
+                      responsibility — panel tradies, agency terms. */}
+                  {properties.some((p) => p.agencyId) && (
+                    <Txt variant="caption" color={colors.textMuted}>
+                      🏢 Use my managed property
+                    </Txt>
+                  )}
+                  {properties
+                    .filter((p) => p.agencyId)
+                    .map((p) => (
+                      <Pressable
+                        key={p.id}
+                        style={[styles.option, propertyId === p.id && styles.optionActive]}
+                        onPress={() => {
+                          setPropertyId(p.id);
+                          setAddress(p.address);
+                          setCoords(
+                            p.latitude != null && p.longitude != null
+                              ? { latitude: p.latitude, longitude: p.longitude }
+                              : null,
+                          );
+                        }}
+                      >
+                        <Txt style={{ fontSize: 22 }}>🏢</Txt>
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="label">{p.label || p.address}</Txt>
+                          <Txt variant="caption" color={colors.textMuted}>
+                            Managed by {p.agencyName ?? p.landlordName} · their approved tradies
+                            handle it
+                          </Txt>
+                        </View>
+                      </Pressable>
+                    ))}
+                  {properties.some((p) => !p.agencyId) && (
+                    <Txt variant="caption" color={colors.textMuted}>
+                      For one of your properties?
+                    </Txt>
+                  )}
+                  {properties
+                    .filter((p) => !p.agencyId)
+                    .map((p) => (
+                      <Pressable
+                        key={p.id}
+                        style={[styles.option, propertyId === p.id && styles.optionActive]}
+                        onPress={() => {
+                          setPropertyId(p.id);
+                          setAddress(p.address);
+                          setCoords(
+                            p.latitude != null && p.longitude != null
+                              ? { latitude: p.latitude, longitude: p.longitude }
+                              : null,
+                          );
+                        }}
+                      >
+                        <Txt style={{ fontSize: 22 }}>🏠</Txt>
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="label">{p.label || p.address}</Txt>
+                          <Txt variant="caption" color={colors.textMuted}>
+                            {p.landlordId === user?.id ? 'Your property' : `Managed by ${p.landlordName}`}
+                          </Txt>
+                        </View>
+                      </Pressable>
+                    ))}
                   <View style={styles.orRow}>
                     <View style={styles.orLine} />
                     <Txt variant="caption" color={colors.textFaint}>
@@ -430,16 +471,29 @@ export default function NewJob() {
           {step === 3 && (
             <Step title="When do you need this done?">
               {/* Agency property: the agency's approved panel handles this job
-                  on agency terms — no open-market preview or rates. */}
+                  on agency terms — panel-only preview, no rates. */}
               {isAgencyJob && (
                 <View style={[styles.previewCard, { backgroundColor: colors.infoSoft }]}>
                   <Txt variant="label" color={colors.blue}>
-                    🏢 Managed property — {selectedProperty?.agencyName ?? 'your property agency'}
+                    🏢 {selectedProperty?.label || selectedProperty?.address}
                   </Txt>
                   <Txt variant="caption" color={colors.textMuted}>
-                    This request goes to the agency's approved tradies. Rates are covered by the
-                    agency's agreement.
+                    Managed by {selectedProperty?.agencyName ?? 'your property agency'} — only
+                    their approved tradies get this request. Rates are covered by the agency's
+                    agreement.
                   </Txt>
+                  {preview.length > 0 ? (
+                    <Txt variant="caption" color={colors.success}>
+                      ✅ {preview.length} approved {preview.length === 1 ? 'tradie' : 'tradies'}{' '}
+                      available now
+                      {nearestEta != null ? ` · nearest ~${nearestEta} min away` : ''}
+                    </Txt>
+                  ) : (
+                    <Txt variant="caption" color={colors.textMuted}>
+                      None of the approved tradies are online right now — your request still goes
+                      out and they're notified the moment they're back.
+                    </Txt>
+                  )}
                 </View>
               )}
 

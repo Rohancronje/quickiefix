@@ -31,6 +31,7 @@ import {
 import { FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
+import { AgencyPanel, isOnPanel, panelFromLinks } from '../lib/panel';
 import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
 import { uid } from '../lib/id';
@@ -342,21 +343,11 @@ class MockBackend implements Backend {
         : await this.getAvailableTradies(input.trade, input.location);
     let ownPanelIds: string[] | undefined;
     if (property?.agencyId) {
-      const approved = Object.values(this.db.agencyLinks).filter(
-        (l) => l.agencyId === property.agencyId && l.status === 'approved',
-      );
-      const tradieIds = new Set(approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId));
-      const companyScope = new Map(
-        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
-      );
-      candidates = candidates.filter((c) => {
-        if (tradieIds.has(c.tradie.id)) return true;
-        if (c.tradie.companyId == null) return false;
-        const scope = companyScope.get(c.tradie.companyId);
-        if (!scope) return false;
-        return scope === 'all' || c.tradie.engagement !== 'contractor';
-      });
-      ownPanelIds = candidates.filter((c) => tradieIds.has(c.tradie.id)).map((c) => c.tradie.id);
+      const panel = await this.getAgencyPanel(property.agencyId);
+      candidates = candidates.filter((c) => isOnPanel(c.tradie, panel));
+      ownPanelIds = candidates
+        .filter((c) => panel.tradieIds.includes(c.tradie.id))
+        .map((c) => c.tradie.id);
     }
     const candidateIds = rankCandidates(candidates).filter((id) => id !== requester.id);
 
@@ -624,6 +615,12 @@ class MockBackend implements Backend {
   }
 
   /* --------------------------------------------------- property agencies -- */
+
+  async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {
+    return panelFromLinks(
+      Object.values(this.db.agencyLinks).filter((l) => l.agencyId === agencyId),
+    );
+  }
 
   async requestAgencyLink(
     member: { id: string; name: string; email?: string },
@@ -1215,7 +1212,9 @@ class MockBackend implements Backend {
     tag.status = 'claimed';
     tag.claimedByUserId = tradieId;
     tag.claimedAt = Date.now();
-    tag.engagement = engagement;
+    // Company's tick at issue time is authoritative; the tradie's answer only
+    // fills the gap on older tags issued without one.
+    tag.engagement = tag.engagement ?? engagement;
     t.activeTagId = tag.id;
     this.commit();
     return company;

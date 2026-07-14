@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { AgencyPanel } from '../lib/panel';
 import { backend, ChooseFeed, JobOffer, SupplySnapshot, TradieCandidate } from '../services';
 import { FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
 
@@ -23,6 +24,24 @@ export function useLandlordProperties(landlordId: string | undefined): Property[
     return backend.subscribeLandlordProperties(landlordId, setProps);
   }, [landlordId]);
   return props;
+}
+
+/** An agency's approved tradie panel — who may serve its properties. Used by
+ *  the request-flow preview so tenants only see agency-approved tradies. */
+export function useAgencyPanel(agencyId: string | undefined): AgencyPanel | null {
+  const [panel, setPanel] = useState<AgencyPanel | null>(null);
+  useEffect(() => {
+    setPanel(null);
+    if (!agencyId) return;
+    let live = true;
+    void backend.getAgencyPanel(agencyId).then((p) => {
+      if (live) setPanel(p);
+    });
+    return () => {
+      live = false;
+    };
+  }, [agencyId]);
+  return panel;
 }
 
 /** Properties a tenant is linked to (live). */

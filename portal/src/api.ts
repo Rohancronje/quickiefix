@@ -15,7 +15,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { Company, CompanyAdmin, CompanyTag, FeeLineItem, Job, RateCard, Tradie, TradieStats } from './types';
+import { Company, CompanyAdmin, CompanyTag, Engagement, FeeLineItem, Job, RateCard, Tradie, TradieStats } from './types';
 
 /* ---------------------------------------------------------- live queries --- */
 /* Query builders for useLive() — all narrow, account-scoped. */
@@ -113,7 +113,7 @@ export async function getMyCompany(uid: string): Promise<Company | null> {
 
 export async function issueTag(
   company: Company,
-  seat: { name: string; email: string; phone?: string },
+  seat: { name: string; email: string; phone?: string; engagement: Engagement },
 ): Promise<CompanyTag> {
   const ref = doc(collection(db, 'companyTags'));
   const now = Date.now();
@@ -124,6 +124,9 @@ export async function issueTag(
     code: generateTagCode(),
     issuedToName: seat.name.trim(),
     issuedToEmail: seat.email.trim(),
+    // Declared by the company at issue time: employees trade under the
+    // company NZBN + personal name, contractors keep their own business.
+    engagement: seat.engagement,
     status: 'issued',
     createdAt: now,
     expiresAt: now + TAG_TTL_MS,

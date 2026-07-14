@@ -31,6 +31,7 @@ import {
   TradieStatus,
   UrgencyType,
 } from '../types';
+import { AgencyPanel } from '../lib/panel';
 
 export type Unsubscribe = () => void;
 
@@ -186,6 +187,9 @@ export interface Backend {
   releaseJob(jobId: string, tradieId: string): Promise<void>;
 
   // ---- Property agencies (approved-panel model) ----
+  /** The agency's approved panel — who can serve jobs at its properties.
+   *  Powers the request-flow preview so customers only see approved tradies. */
+  getAgencyPanel(agencyId: string): Promise<AgencyPanel>;
   /** A tradie OR tenant enters an agency code → pending membership (the
    *  agency approves). Returns the agency name for the confirmation UI. */
   requestAgencyLink(
