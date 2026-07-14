@@ -68,6 +68,8 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const [label, setLabel] = useState('');
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [newTenantName, setNewTenantName] = useState('');
+  const [newTenantEmail, setNewTenantEmail] = useState('');
   const [busy, setBusy] = useState(false);
   // Per-property tenant email inputs
   const [tenantEmail, setTenantEmail] = useState<Record<string, string>>({});
@@ -175,14 +177,30 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
 
   const addProperty = async () => {
     if (!address.trim()) return;
+    const invitee = newTenantEmail.trim().toLowerCase();
     setBusy(true);
     try {
-      await addAgencyProperty(agency, { label, address, ...(coords ?? {}) });
+      await addAgencyProperty(agency, {
+        label,
+        address,
+        ...(coords ?? {}),
+        ...(invitee ? { invitedTenantEmail: invitee } : {}),
+      });
+      if (invitee) {
+        await httpsCallable(functions, 'sendAgencyInvite')({
+          email: invitee,
+          name: newTenantName.trim(),
+          kind: 'tenant',
+          propertyAddress: label.trim() || address.trim(),
+        });
+      }
       setLabel('');
       setAddress('');
       setCoords(null);
+      setNewTenantName('');
+      setNewTenantEmail('');
       await refresh();
-      flash('Property added ✓');
+      flash(invitee ? `Property added — invite sent to ${invitee} ✓` : 'Property added ✓');
     } catch (e) {
       flash(`Could not add: ${(e as Error).message}`);
     } finally {
@@ -282,6 +300,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
         if (row.tenantEmail) {
           await httpsCallable(functions, 'sendAgencyInvite')({
             email: row.tenantEmail,
+            name: row.tenantName ?? '',
             kind: 'tenant',
             propertyAddress: row.label || row.address,
           });
@@ -670,8 +689,35 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                       )}
                     </div>
                   </div>
+                  <div className="co-formrow cols-2" style={{ margin: '0 0 10px' }}>
+                    <div className="co-field">
+                      <label>Tenant name (optional)</label>
+                      <input
+                        className="co-input"
+                        placeholder="Jane Smith"
+                        value={newTenantName}
+                        onChange={(e) => setNewTenantName(e.target.value)}
+                      />
+                    </div>
+                    <div className="co-field">
+                      <label>Tenant email (optional)</label>
+                      <input
+                        className="co-input"
+                        type="email"
+                        placeholder="tenant@email.com"
+                        value={newTenantEmail}
+                        onChange={(e) => setNewTenantEmail(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {newTenantEmail.trim() && (
+                    <p className="co-help" style={{ marginBottom: 10 }}>
+                      They'll get the invite email (app link + your code) and auto-link to this
+                      property when they confirm.
+                    </p>
+                  )}
                   <button className="co-btn co-btn-primary co-btn-sm" disabled={busy || !address.trim()} onClick={addProperty}>
-                    Add property
+                    {busy ? 'Adding…' : newTenantEmail.trim() ? 'Add property & invite tenant' : 'Add property'}
                   </button>
                 </div>
 

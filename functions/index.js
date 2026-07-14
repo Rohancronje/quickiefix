@@ -591,6 +591,10 @@ exports.sendAgencyInvite = onCall(
     const agency = agencies.docs[0].data();
     const isTenant = kind === 'tenant';
     const propertyAddress = String(request.data?.propertyAddress || '').trim().slice(0, 200);
+    const inviteeName = String(request.data?.name || '')
+      .trim()
+      .slice(0, 80)
+      .replace(/[<>&"]/g, '');
     const steps = isTenant
       ? `<ol style="color:#5A6478;line-height:1.9">
            <li>Download the QuickieFix app below and create a <b>customer</b> account with this email.</li>
@@ -604,12 +608,12 @@ exports.sendAgencyInvite = onCall(
          </ol>`;
     await brevoSend({
       to: email,
-      toName: email,
+      toName: inviteeName || email,
       subject: isTenant
         ? `${agency.name} invites you to QuickieFix`
         : `${agency.name} wants you on their approved tradie panel`,
       html: `
-        <h2 style="margin:0 0 8px">${isTenant ? `Repairs, sorted — with ${agency.name}` : `Join ${agency.name}'s approved panel`}</h2>
+        <h2 style="margin:0 0 8px">${isTenant ? `${inviteeName ? `Hi ${inviteeName} — repairs` : 'Repairs'}, sorted — with ${agency.name}` : `Join ${agency.name}'s approved panel`}</h2>
         <p style="color:#5A6478">${
           isTenant
             ? `${agency.name} manages ${propertyAddress ? `your place at <b>${propertyAddress}</b>` : 'your property'} with QuickieFix: report an issue in the app and a verified, approved tradie is dispatched — no phone calls, no waiting.`
