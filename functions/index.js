@@ -637,6 +637,125 @@ exports.sendAgencyInvite = onCall(
   },
 );
 
+/* ---------------------------------------------------- agency job dispatch --- */
+// The property manager raises a job on a tenant's behalf ("the tenant called
+// us with a fault"). Runs with the Admin SDK: verifies the caller manages the
+// property, builds the panel-only candidate pool exactly like the app, and
+// stamps the TENANT as the customer — so tracking appears in the tenant's app.
+
+const havKm = (a, b) => {
+  const rad = Math.PI / 180;
+  const dLat = (b.latitude - a.latitude) * rad;
+  const dLng = (b.longitude - a.longitude) * rad;
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+};
+
+exports.createAgencyJob = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const db = admin.firestore();
+  const { propertyId, trade, description, tenantId, preferredTradieId } = request.data ?? {};
+  if (!propertyId || !trade || !String(description ?? '').trim()) {
+    throw new HttpsError('invalid-argument', 'Property, trade and a description are required.');
+  }
+  const propSnap = await db.collection('properties').doc(String(propertyId)).get();
+  if (!propSnap.exists) throw new HttpsError('not-found', 'Property not found.');
+  const prop = propSnap.data();
+  if (prop.landlordId !== uid) {
+    throw new HttpsError('permission-denied', 'You do not manage this property.');
+  }
+
+  // Customer of record: the chosen (or only) linked tenant — falls back to
+  // the manager themselves when the property has no tenant linked yet.
+  let customerId = uid;
+  let customerName = prop.landlordName;
+  const chosenTenant =
+    tenantId && (prop.tenantIds ?? []).includes(tenantId)
+      ? tenantId
+      : (prop.tenantIds ?? [])[0];
+  if (chosenTenant) {
+    const tSnap = await db.collection('users').doc(chosenTenant).get();
+    if (tSnap.exists) {
+      customerId = chosenTenant;
+      customerName = `${tSnap.data().firstName} ${tSnap.data().lastName}`;
+    }
+  }
+
+  // Approved panel for agency-managed properties (mirror of src/lib/panel.ts).
+  let panel = null;
+  if (prop.agencyId) {
+    const linksSnap = await db
+      .collection('agencyLinks')
+      .where('agencyId', '==', prop.agencyId)
+      .get();
+    const approved = linksSnap.docs.map((d) => d.data()).filter((l) => l.status === 'approved');
+    panel = {
+      tradieIds: approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId),
+      companyScope: Object.fromEntries(
+        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
+      ),
+    };
+  }
+  const onPanel = (t) => {
+    if (!panel) return true;
+    if (panel.tradieIds.includes(t.id)) return true;
+    if (t.companyId == null) return false;
+    const scope = panel.companyScope[t.companyId];
+    return !!scope && (scope === 'all' || t.engagement !== 'contractor');
+  };
+
+  // Candidate pool: mirror the app's available-tradie filter + distance rank.
+  const usersSnap = await db.collection('users').where('status', '==', 'available').get();
+  const here =
+    prop.latitude != null && prop.longitude != null
+      ? { latitude: prop.latitude, longitude: prop.longitude }
+      : null;
+  const candidates = usersSnap.docs
+    .map((d) => d.data())
+    .filter((u) => u.role === 'tradie' && u.approval === 'approved' && !u.paymentHold)
+    .filter((u) => [u.primaryTrade, ...(u.secondaryTrades ?? [])].includes(trade))
+    .filter(onPanel)
+    .map((u) => ({ u, km: here && u.baseLocation ? havKm(u.baseLocation, here) : 0 }))
+    .sort((a, b) => a.km - b.km || (b.u.ratingAvg ?? 0) - (a.u.ratingAvg ?? 0));
+
+  let candidateIds = candidates.map((c) => c.u.id).filter((id) => id !== customerId);
+  if (preferredTradieId && candidateIds.includes(preferredTradieId)) {
+    candidateIds = [preferredTradieId];
+  }
+  const ownPanelIds = panel
+    ? candidates.map((c) => c.u.id).filter((id) => panel.tradieIds.includes(id))
+    : undefined;
+
+  const now = Date.now();
+  const jobRef = db.collection('jobs').doc();
+  await jobRef.set({
+    id: jobRef.id,
+    customerId,
+    customerName,
+    trade,
+    description: String(description).trim().slice(0, 2000),
+    photos: [],
+    location: { address: prop.address, ...(here ?? {}) },
+    urgency: 'now',
+    isEmergency: false,
+    assignmentMode: 'auto',
+    status: 'searching',
+    timestamps: { createdAt: now, searchingAt: now },
+    dispatch: { candidateIds, startedAt: now, ...(ownPanelIds ? { ownPanelIds } : {}) },
+    interestedTradies: [],
+    declinedBy: [],
+    propertyId: propSnap.id,
+    landlordId: prop.landlordId,
+    landlordName: prop.landlordName,
+    ...(prop.agencyId ? { agencyId: prop.agencyId, agencyName: prop.agencyName } : {}),
+    raisedVia: 'agency_portal',
+  });
+  return { jobId: jobRef.id, candidateCount: candidateIds.length, customerName };
+});
+
 exports.onJobCompletionRecord = onDocumentUpdated(
   { document: 'jobs/{jobId}', secrets: [BREVO_API_KEY] },
   async (event) => {

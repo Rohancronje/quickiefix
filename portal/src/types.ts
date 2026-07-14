@@ -78,6 +78,7 @@ export interface Tradie {
   nzbn?: string;
   prevBusinessName?: string;
   prevNzbn?: string;
+  baseLocation?: { latitude: number; longitude: number };
 }
 
 export type FeeStatus = 'waived_credit' | 'pending' | 'invoiced' | 'paid';

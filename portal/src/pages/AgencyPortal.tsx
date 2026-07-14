@@ -33,12 +33,21 @@ import {
   IconTradies,
 } from '../backoffice/icons';
 import { SupportForm } from '../components/SupportForm';
+import { AgencyRequestHelp } from './AgencyRequestHelp';
 import { useLive } from '../live';
 import { updateAgencyName } from '../agencyApi';
 import { formatDate, formatDuration } from '../lib';
 import { Agency, AgencyLink, Job, Property, tradeLabel } from '../types';
 
-type Tab = 'dashboard' | 'jobs' | 'panel' | 'properties' | 'reports' | 'support' | 'settings';
+type Tab =
+  | 'dashboard'
+  | 'request'
+  | 'jobs'
+  | 'panel'
+  | 'properties'
+  | 'reports'
+  | 'support'
+  | 'settings';
 
 const KIND_LABEL: Record<AgencyLink['kind'], string> = {
   tradie: 'Individual tradie',
@@ -328,6 +337,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
 
   const NAV: { key: Tab; label: string; Icon: typeof IconOverview }[] = [
     { key: 'dashboard', label: 'Dashboard', Icon: IconOverview },
+    { key: 'request', label: 'Request help', Icon: IconCheck },
     { key: 'jobs', label: 'Jobs', Icon: IconActivity },
     { key: 'panel', label: 'Tradie panel', Icon: IconTradies },
     { key: 'properties', label: 'Properties', Icon: IconBriefcase },
@@ -466,6 +476,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
             {
               {
                 dashboard: `Welcome back, ${agency.name} 👋`,
+                request: 'Request help at a property',
                 jobs: 'Jobs at your properties',
                 panel: 'Tradie panel & invites',
                 properties: 'Properties & tenants',
@@ -867,6 +878,16 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                   ))}
                 </div>
               </>
+            )}
+
+            {/* --------------------------------------------- REQUEST HELP -- */}
+            {tab === 'request' && (
+              <AgencyRequestHelp
+                agency={agency}
+                properties={properties}
+                links={links}
+                onDispatched={() => setTab('jobs')}
+              />
             )}
 
             {/* ----------------------------------------------------- JOBS -- */}
