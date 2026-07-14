@@ -23,7 +23,7 @@ const NAV: { path: string; label: string; Icon: SvgIcon }[] = [
   { path: '/timesheets', label: 'Timesheets', Icon: IconClock },
   { path: '/reputation', label: 'Reputation', Icon: IconMetrics },
   { path: '/billing', label: 'Billing', Icon: IconBilling },
-  { path: '/agents', label: 'Property agents', Icon: IconCompanies },
+  { path: '/agents', label: 'Agency panels', Icon: IconCompanies },
   { path: '/support', label: 'Support', Icon: IconComplaint },
   { path: '/settings', label: 'Settings', Icon: IconBriefcase },
 ];
@@ -35,7 +35,7 @@ const TITLES: Record<string, string> = {
   '/timesheets': 'Timesheets',
   '/reputation': 'Reputation',
   '/billing': 'Billing & ROI',
-  '/agents': 'Property agents',
+  '/agents': 'Agency panels — repair work at managed rentals',
   '/support': 'Support',
   '/settings': 'Settings',
 };
