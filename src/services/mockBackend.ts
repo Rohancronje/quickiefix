@@ -370,7 +370,7 @@ class MockBackend implements Backend {
         ? this.inAreaTradies(input.trade, input.location)
         : await this.getAvailableTradies(input.trade, input.location);
     let ownPanelIds: string[] | undefined;
-    if (property?.agencyId) {
+    if (property?.agencyId && input.payer !== 'customer') {
       const panel = await this.getAgencyPanel(property.agencyId);
       candidates = candidates.filter((c) => isOnPanel(c.tradie, panel));
       ownPanelIds = candidates
@@ -403,8 +403,15 @@ class MockBackend implements Backend {
       job.landlordId = property.landlordId;
       job.landlordName = property.landlordName;
       if (property.agencyId) {
-        job.agencyId = property.agencyId;
-        job.agencyName = property.agencyName;
+        if (input.payer === 'customer') {
+          // Customer chose to pay themselves: normal open-market job, the
+          // agency keeps visibility via the property/landlord stamps only.
+          job.billTo = 'customer';
+        } else {
+          job.agencyId = property.agencyId;
+          job.agencyName = property.agencyName;
+          job.billTo = 'agency';
+        }
       }
     }
     this.db.jobs[job.id] = job;
@@ -656,6 +663,11 @@ class MockBackend implements Backend {
     if (location) u[field] = location;
     else delete u[field];
     this.commit();
+  }
+
+  async getAgency(agencyId: string): Promise<Agency | null> {
+    await this.ensureLoaded();
+    return this.db.agencies[agencyId] ?? null;
   }
 
   async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {

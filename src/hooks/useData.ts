@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AgencyPanel } from '../lib/panel';
 import { backend, ChooseFeed, JobOffer, SupplySnapshot, TradieCandidate } from '../services';
-import { FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
+import { Agency, FeeLineItem, Job, Location, Message, Property, TradeCategory } from '../types';
 
 /** A single user (live) — used to render tradie profiles to customers. */
 import { AppUser } from '../types';
@@ -24,6 +24,24 @@ export function useLandlordProperties(landlordId: string | undefined): Property[
     return backend.subscribeLandlordProperties(landlordId, setProps);
   }, [landlordId]);
   return props;
+}
+
+/** Public agency record — billing contact shown read-only when the agency
+ *  pays for a managed-property job. */
+export function useAgency(agencyId: string | undefined): Agency | null {
+  const [agency, setAgency] = useState<Agency | null>(null);
+  useEffect(() => {
+    setAgency(null);
+    if (!agencyId) return;
+    let live = true;
+    void backend.getAgency(agencyId).then((a) => {
+      if (live) setAgency(a);
+    });
+    return () => {
+      live = false;
+    };
+  }, [agencyId]);
+  return agency;
 }
 
 /** An agency's approved tradie panel — who may serve its properties. Used by

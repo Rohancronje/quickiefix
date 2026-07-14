@@ -9,6 +9,7 @@
  * real-time listeners, so the dispatch flow already behaves like production.
  */
 import {
+  Agency,
   AgencyLink,
   AppUser,
   AssignmentMode,
@@ -71,6 +72,10 @@ export interface NewJobInput {
   assignmentMode?: AssignmentMode;
   /** Property this job is at (stamps landlord as payer-of-record). */
   propertyId?: string;
+  /** Agency-managed properties only: who pays for the work. 'agency' (default)
+   *  routes to the approved panel with rates covered by the agency agreement;
+   *  'customer' makes it a normal open-market job the requester pays for. */
+  payer?: 'agency' | 'customer';
 }
 
 /** A job offer surfaced to a tradie, annotated with distance/eta. */
@@ -199,6 +204,9 @@ export interface Backend {
   /** The agency's approved panel — who can serve jobs at its properties.
    *  Powers the request-flow preview so customers only see approved tradies. */
   getAgencyPanel(agencyId: string): Promise<AgencyPanel>;
+  /** Public agency record (name + billing contact) — shown read-only when the
+   *  agency is the payer on a managed-property job. */
+  getAgency(agencyId: string): Promise<Agency | null>;
   /** A tradie OR tenant enters an agency code → pending membership (the
    *  agency approves). Returns the agency name for the confirmation UI. */
   requestAgencyLink(

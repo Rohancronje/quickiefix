@@ -319,13 +319,19 @@ export class FirestoreBackend implements Backend {
       const pSnap = await getDoc(doc(this.db, 'properties', input.propertyId));
       if (pSnap.exists()) {
         property = pSnap.data() as Property;
+        // Managed property + customer chose to pay themselves → normal
+        // open-market job: keep the property/landlord stamps for visibility,
+        // but no agency stamps (those drive panel-only dispatch + agency
+        // billing + hidden rates).
+        const agencyPays = !!property.agencyId && input.payer !== 'customer';
         propertyStamp = {
           propertyId: property.id,
           landlordId: property.landlordId,
           landlordName: property.landlordName,
-          ...(property.agencyId
-            ? { agencyId: property.agencyId, agencyName: property.agencyName }
+          ...(agencyPays
+            ? { agencyId: property.agencyId, agencyName: property.agencyName, billTo: 'agency' as const }
             : {}),
+          ...(property.agencyId && !agencyPays ? { billTo: 'customer' as const } : {}),
         };
       }
     }
@@ -343,7 +349,7 @@ export class FirestoreBackend implements Backend {
     // tradies of a linked company (respecting the company's scope choice —
     // 'employees' excludes contractors). Other locations stay open-market.
     let ownPanelIds: string[] | undefined;
-    if (property?.agencyId) {
+    if (property?.agencyId && input.payer !== 'customer') {
       const panel = await this.getAgencyPanel(property.agencyId);
       candidates = candidates.filter((c) => isOnPanel(c.tradie, panel));
       // Record who holds their OWN membership — decides sourcedVia at accept.
@@ -719,6 +725,11 @@ export class FirestoreBackend implements Backend {
   }
 
   /* --------------------------------------------------- property agencies -- */
+
+  async getAgency(agencyId: string): Promise<Agency | null> {
+    const snap = await getDoc(doc(this.db, 'agencies', agencyId));
+    return snap.exists() ? (snap.data() as Agency) : null;
+  }
 
   async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {
     const snap = await getDocs(

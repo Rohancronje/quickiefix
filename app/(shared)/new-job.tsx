@@ -19,7 +19,7 @@ import { AddressField } from '../../src/components/AddressField';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { formatMoney, TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
-import { useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { useAgency, useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { isOnPanel } from '../../src/lib/panel';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
@@ -63,11 +63,20 @@ export default function NewJob() {
     longitude: coords?.longitude,
   };
 
-  // Agency-managed property: dispatch is panel-only and rates are hidden —
-  // the preview must show ONLY the agency's approved tradies, without prices.
+  // Agency-managed property: the requester chooses WHO PAYS. Agency pays
+  // (default) → panel-only dispatch, rates hidden, agency billed. Customer
+  // pays → normal open-market job with rates shown.
   const selectedProperty = properties.find((p) => p.id === propertyId);
-  const isAgencyJob = selectedProperty?.agencyId != null;
+  const isManagedProperty = selectedProperty?.agencyId != null;
+  const [payer, setPayer] = useState<'agency' | 'customer'>('agency');
+  const isAgencyJob = isManagedProperty && payer === 'agency';
+  // Changing property resets the payer choice to the default (agency pays).
+  useEffect(() => {
+    setPayer('agency');
+  }, [propertyId]);
   const panel = useAgencyPanel(isAgencyJob ? selectedProperty?.agencyId : undefined);
+  // Billing contact for the read-only card when the agency pays.
+  const billingAgency = useAgency(isAgencyJob ? selectedProperty?.agencyId : undefined);
 
   // Live match preview for the final step: who's actually available for this
   // trade near this address, right now. Panel-filtered for managed properties.
@@ -180,6 +189,8 @@ export default function NewJob() {
           isEmergency,
           assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
+          // Only meaningful at managed properties: who pays for the work.
+          payer: isManagedProperty ? payer : undefined,
         },
       );
       router.replace({ pathname: '/track/[id]', params: { id: job.id } });
@@ -432,8 +443,42 @@ export default function NewJob() {
 
           {step === 3 && (
             <Step title="Ready to go — how do you want to match?">
-              {/* Agency property: the agency's approved panel handles this job
-                  on agency terms — panel-only preview, no rates. */}
+              {/* Managed property: the requester decides who pays. Agency pays
+                  → panel job on agency terms; customer pays → open market. */}
+              {isManagedProperty && (
+                <View style={{ gap: spacing.sm }}>
+                  <Txt variant="label">Who's paying for this job?</Txt>
+                  <Pressable
+                    style={[styles.option, payer === 'agency' && styles.optionActive]}
+                    onPress={() => setPayer('agency')}
+                  >
+                    <Txt style={{ fontSize: 24 }}>🏢</Txt>
+                    <View style={{ flex: 1 }}>
+                      <Txt variant="label">
+                        {selectedProperty?.agencyName ?? 'My property manager'} pays
+                      </Txt>
+                      <Txt variant="caption" color={colors.textMuted}>
+                        Goes to their approved tradies — costs covered by their agreement.
+                      </Txt>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.option, payer === 'customer' && styles.optionActive]}
+                    onPress={() => setPayer('customer')}
+                  >
+                    <Txt style={{ fontSize: 24 }}>👤</Txt>
+                    <View style={{ flex: 1 }}>
+                      <Txt variant="label">I'll pay myself</Txt>
+                      <Txt variant="caption" color={colors.textMuted}>
+                        Choose from all available tradies — rates shown upfront, you pay the
+                        tradie directly.
+                      </Txt>
+                    </View>
+                  </Pressable>
+                </View>
+              )}
+
+              {/* Agency pays: panel-only preview, no rates, locked billing. */}
               {isAgencyJob && (
                 <View style={[styles.previewCard, { backgroundColor: colors.infoSoft }]}>
                   <Txt variant="label" color={colors.blue}>
@@ -444,6 +489,27 @@ export default function NewJob() {
                     their approved tradies get this request. Rates are covered by the agency's
                     agreement.
                   </Txt>
+                  {/* Billing contact is the agency — fixed, not editable. */}
+                  <View
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: colors.line,
+                      paddingTop: spacing.sm,
+                      gap: 2,
+                    }}
+                  >
+                    <Txt variant="caption" color={colors.textMuted}>
+                      Billing contact (set by the property manager)
+                    </Txt>
+                    <Txt variant="label">
+                      {billingAgency?.name ?? selectedProperty?.agencyName ?? 'Property manager'}
+                    </Txt>
+                    {billingAgency?.adminEmail && (
+                      <Txt variant="caption" color={colors.textMuted}>
+                        {billingAgency.adminEmail} · 🔒 can't be changed
+                      </Txt>
+                    )}
+                  </View>
                   {preview.length > 0 ? (
                     <Txt variant="caption" color={colors.success}>
                       ✅ {preview.length} approved {preview.length === 1 ? 'tradie' : 'tradies'}{' '}

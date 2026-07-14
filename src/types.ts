@@ -396,6 +396,9 @@ export interface Job {
    *  hidden throughout (the agency's commercial terms apply off-platform). */
   agencyId?: string;
   agencyName?: string;
+  /** Who pays for the work at a managed property: the agency (panel job on
+   *  their terms) or the requesting customer (normal open-market job). */
+  billTo?: 'agency' | 'customer';
 
   // Tradies who were offered this job and declined
   declinedBy: string[];
