@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
 import {
+  allAgenciesQuery,
+  allAgencyLinksQuery,
   allCompaniesQuery,
   allComplaintsQuery,
   allFeesQuery,
   allJobsQuery,
+  allPropertiesQuery,
   allUsersQuery,
   isTradie,
   mapWaitlistDoc,
@@ -20,12 +23,15 @@ import { useAuth } from '../auth';
 import { useLive } from '../live';
 import { centsToDollars, formatDate, formatDuration, initials, stars } from '../lib';
 import {
+  Agency,
+  AgencyLink,
   Company,
   CompanyTag,
   Complaint,
   Customer,
   FeeLineItem,
   Job,
+  Property,
   Tradie,
   tradeLabel,
   WaitlistEntry,
@@ -54,6 +60,7 @@ type Tab =
   | 'tradies'
   | 'tags'
   | 'companies'
+  | 'agencies'
   | 'jobs'
   | 'customers'
   | 'waitlist'
@@ -81,6 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { key: 'tradies', label: 'Tradies', Icon: IconTradies },
       { key: 'companies', label: 'Companies', Icon: IconCompanies },
+      { key: 'agencies', label: 'Property agencies', Icon: IconCompanies },
       { key: 'customers', label: 'Customers', Icon: IconCustomers },
     ],
   },
@@ -99,6 +107,7 @@ const TAB_TITLES: Record<Tab, string> = {
   tradies: 'Tradies',
   tags: 'Tag queue',
   companies: 'Companies',
+  agencies: 'Property agencies',
   jobs: 'Jobs',
   customers: 'Customers',
   waitlist: 'Waitlist',
@@ -176,9 +185,12 @@ export function BackOffice() {
   const feesLive = useLive<FeeLineItem>('admin:fees', allFeesQuery);
   const pendingTagsLive = useLive<CompanyTag>('admin:pendingTags', pendingTagsQuery);
   const waitlistLive = useLive<WaitlistEntry>('admin:waitlist', waitlistQuery, mapWaitlistDoc);
+  const agenciesLive = useLive<Agency>('admin:agencies', allAgenciesQuery);
+  const propertiesLive = useLive<Property>('admin:properties', allPropertiesQuery);
+  const agencyLinksLive = useLive<AgencyLink>('admin:agencyLinks', allAgencyLinksQuery);
   const loading =
     !usersLive || !jobsLive || !complaintsLive || !companiesLive || !feesLive ||
-    !pendingTagsLive || !waitlistLive;
+    !pendingTagsLive || !waitlistLive || !agenciesLive || !propertiesLive || !agencyLinksLive;
 
   const users = usersLive ?? [];
   const companies = companiesLive ?? [];
@@ -338,6 +350,13 @@ export function BackOffice() {
             <TagQueue tags={pendingTags} users={users} onValidate={approveTag} />
           ) : tab === 'companies' ? (
             <Companies companies={companies} onUpdateCredits={updateSharedCredits} />
+          ) : tab === 'agencies' ? (
+            <Agencies
+              agencies={agenciesLive ?? []}
+              properties={propertiesLive ?? []}
+              links={agencyLinksLive ?? []}
+              jobs={jobs}
+            />
           ) : tab === 'jobs' ? (
             <Jobs jobs={jobs} />
           ) : tab === 'customers' ? (
@@ -805,6 +824,94 @@ function SharedCreditControl({
         <button className="btn btn-primary btn-sm" onClick={() => onUpdate(company, Number(val) || 0)}>
           Save
         </button>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------ Property agencies -- */
+
+function Agencies({
+  agencies,
+  properties,
+  links,
+  jobs,
+}: {
+  agencies: Agency[];
+  properties: Property[];
+  links: AgencyLink[];
+  jobs: Job[];
+}) {
+  const rows = [...agencies]
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((a) => {
+      const props = properties.filter(
+        (p) => p.agencyId === a.id || p.landlordId === a.adminUserId,
+      );
+      const aLinks = links.filter((l) => l.agencyId === a.id && l.status !== 'removed');
+      const panel = aLinks.filter((l) => l.kind !== 'tenant' && l.status === 'approved').length;
+      const pending = aLinks.filter((l) => l.status === 'pending').length;
+      const aJobs = jobs.filter((j) => j.agencyId === a.id);
+      return {
+        agency: a,
+        propertyCount: props.length,
+        tenantsLinked: props.reduce((s, p) => s + p.tenantIds.length, 0),
+        panel,
+        pending,
+        jobsTotal: aJobs.length,
+        jobsCompleted: aJobs.filter((j) => j.status === 'completed').length,
+      };
+    });
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      {rows.length === 0 ? (
+        <div className="empty">
+          <div className="e-ico">🏢</div>
+          <p>No property agencies yet.</p>
+        </div>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Agency</th>
+              <th>Admin</th>
+              <th>Code</th>
+              <th>Properties</th>
+              <th>Tenants linked</th>
+              <th>Panel</th>
+              <th>Jobs</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ agency: a, ...r }) => (
+              <tr key={a.id}>
+                <td style={{ fontWeight: 700 }}>{a.name}</td>
+                <td className="faint">{a.adminEmail}</td>
+                <td>
+                  <span className="badge badge-grey" style={{ fontFamily: 'monospace' }}>
+                    {a.code}
+                  </span>
+                </td>
+                <td style={{ fontWeight: 600 }}>{r.propertyCount}</td>
+                <td>{r.tenantsLinked}</td>
+                <td>
+                  {r.panel} approved
+                  {r.pending > 0 && (
+                    <span className="badge badge-amber" style={{ marginLeft: 6 }}>
+                      {r.pending} pending
+                    </span>
+                  )}
+                </td>
+                <td className="faint">
+                  {r.jobsCompleted}/{r.jobsTotal} done
+                </td>
+                <td className="faint">{formatDate(a.createdAt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

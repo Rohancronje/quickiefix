@@ -30,6 +30,9 @@ export const allFeesQuery = () => query(collection(db, 'feeLineItems'));
 export const pendingTagsQuery = () =>
   query(collection(db, 'companyTags'), where('status', '==', 'claimed'));
 export const waitlistQuery = () => query(collection(db, 'waitlist'));
+export const allAgenciesQuery = () => query(collection(db, 'agencies'));
+export const allPropertiesQuery = () => query(collection(db, 'properties'));
+export const allAgencyLinksQuery = () => query(collection(db, 'agencyLinks'));
 
 export function mapWaitlistDoc(docSnap: {
   id: string;
