@@ -92,12 +92,12 @@ const template = (title, body) => `<!doctype html>
 </head>
 <body>
   <div class="brandbar">
-    <img src="https://quickiefix.store/email-logo.png" alt="QuickieFix">
+    <img src="https://quickiefix.app/email-logo.png" alt="QuickieFix">
     <div class="word">Quickie<b>Fix</b> · User Manual</div>
   </div>
   <div class="page">
     ${body}
-    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.store</div>
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.app</div>
   </div>
 </body>
 </html>`;

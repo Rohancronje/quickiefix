@@ -6,9 +6,9 @@
 |---|---|
 | **Applies to** | QuickieFix mobile app v1.2.0 (Android) and the web app |
 | **Audience** | Customers requesting trade services |
-| **Get the app** | https://quickiefix.store/download |
+| **Get the app** | https://quickiefix.app/download |
 | **Web app** | https://quickiefix-app.web.app |
-| **Website** | https://quickiefix.store |
+| **Website** | https://quickiefix.app |
 | **Document version** | 1.0 · July 2026 |
 
 ---
@@ -50,7 +50,7 @@ Every tradie on the platform is admin-verified before they can receive a single 
 
 ### Android
 
-1. On your phone, open **https://quickiefix.store/download** — this always serves the newest version.
+1. On your phone, open **https://quickiefix.app/download** — this always serves the newest version.
 2. Tap the downloaded file and allow the installation when prompted.
 3. Open **QuickieFix**.
 
@@ -294,8 +294,8 @@ Fully closing the app ends the session by design. Enable **Biometric unlock** in
 The tradie invoices you directly. Your completion email contains the rates and your `QF-` confirmation code — quote it in any query.
 
 **The map isn't showing.**
-The embedded map needs app version 1.2.0 or later — update via https://quickiefix.store/download.
+The embedded map needs app version 1.2.0 or later — update via https://quickiefix.app/download.
 
 ---
 
-*QuickieFix · On-demand, verified tradies · quickiefix.store*
+*QuickieFix · On-demand, verified tradies · quickiefix.app*

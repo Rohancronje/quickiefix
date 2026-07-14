@@ -69,10 +69,10 @@ chips on the welcome screen):
 | Role       | Email                          |
 |------------|--------------------------------|
 | Customer   | `customer@quickiefix.store`      |
-| Electrician| `electrician@quickiefix.store`   |
-| Plumber    | `plumber@quickiefix.store`       |
-| Locksmith  | `locksmith@quickiefix.store`     |
-| Handyman   | `handyman@quickiefix.store`      |
+| Electrician| `electrician@quickiefix.app`   |
+| Plumber    | `plumber@quickiefix.app`       |
+| Locksmith  | `locksmith@quickiefix.app`     |
+| Handyman   | `handyman@quickiefix.app`      |
 
 > **Tip — try the full dispatch loop:** open the app twice (e.g. a phone as the
 > customer and the web build as a tradie). Request a job as the customer, then

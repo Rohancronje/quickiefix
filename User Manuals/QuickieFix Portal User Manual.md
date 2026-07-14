@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **Applies to** | QuickieFix Business Portal (web) |
-| **Portal URL** | https://quickiefix-portal.web.app |
+| **Portal URL** | https://portal.quickiefix.app |
 | **Audience** | Company admins · Platform (back-office) admins |
 | **Document version** | 1.0 · July 2026 |
 
@@ -38,7 +38,7 @@
 
 ## 1. Signing in and who sees what
 
-Open **https://quickiefix-portal.web.app** in any modern browser.
+Open **https://portal.quickiefix.app** in any modern browser.
 
 The portal serves two audiences from the same login page — your email decides where you land:
 
@@ -252,4 +252,4 @@ It's built for desktop browsers; it works on tablets. Day-to-day tradie work bel
 
 ---
 
-*QuickieFix · On-demand, verified tradies · quickiefix.store*
+*QuickieFix · On-demand, verified tradies · quickiefix.app*

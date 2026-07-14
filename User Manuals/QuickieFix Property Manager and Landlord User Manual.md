@@ -6,7 +6,7 @@
 |---|---|
 | **Applies to** | QuickieFix mobile app v1.2.0 (Android) and the web app |
 | **Audience** | Landlords, property managers and their tenants |
-| **Get the app** | https://quickiefix.store/download |
+| **Get the app** | https://quickiefix.app/download |
 | **Web app** | https://quickiefix-app.web.app |
 | **Document version** | 1.0 · July 2026 |
 
@@ -46,7 +46,7 @@ Tenants can raise issues themselves at properties you link them to — you stay 
 
 ## 2. Getting started
 
-1. Install the app from **https://quickiefix.store/download** (or use the web app).
+1. Install the app from **https://quickiefix.app/download** (or use the web app).
 2. Create a standard account: **🔍 I need a tradie** → name, email, password. There is no separate "landlord account" — property features live inside every customer account.
 3. Open the **Account** tab. Everything property-related happens in the **🏠 Properties** section.
 
@@ -205,4 +205,4 @@ Open the job → **Report a problem**. Complaints go straight to the QuickieFix 
 
 ---
 
-*QuickieFix · On-demand, verified tradies · quickiefix.store*
+*QuickieFix · On-demand, verified tradies · quickiefix.app*

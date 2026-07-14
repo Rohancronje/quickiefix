@@ -6,7 +6,7 @@
 |---|---|
 | **Applies to** | QuickieFix mobile app v1.2.0 (Android) and the web app |
 | **Audience** | Tradies — sole traders and company-tagged team members |
-| **Get the app** | https://quickiefix.store/download |
+| **Get the app** | https://quickiefix.app/download |
 | **Web app** | https://quickiefix-app.web.app |
 | **Document version** | 1.0 · July 2026 |
 
@@ -265,4 +265,4 @@ Dashboard → **💳 This month**. Invoices come monthly on the 1st with 7-day t
 
 ---
 
-*QuickieFix · On-demand, verified tradies · quickiefix.store*
+*QuickieFix · On-demand, verified tradies · quickiefix.app*

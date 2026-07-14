@@ -6,8 +6,8 @@
 |---|---|
 | **Applies to** | QuickieFix Business Portal + mobile app v1.2.0 |
 | **Audience** | Trade businesses with multiple tradies (owners, ops managers, admins) |
-| **Business Portal** | https://quickiefix-portal.web.app |
-| **App download (for your tradies)** | https://quickiefix.store/download |
+| **Business Portal** | https://portal.quickiefix.app |
+| **App download (for your tradies)** | https://quickiefix.app/download |
 | **Document version** | 1.0 · July 2026 |
 
 ---
@@ -46,7 +46,7 @@ The lifecycle of a seat: **issued → claimed → validated → (removed)**. You
 
 ## 2. Creating your company
 
-1. Open the **Business Portal**: **https://quickiefix-portal.web.app**
+1. Open the **Business Portal**: **https://portal.quickiefix.app**
 
 ![The Business Portal sign-in page](images/portal-signin.png)
 *The Business Portal — sign in or create your company here.*
@@ -233,4 +233,4 @@ The `primaryTrade` column must use the exact keys listed in section 5 (lowercase
 
 ---
 
-*QuickieFix · On-demand, verified tradies · quickiefix.store*
+*QuickieFix · On-demand, verified tradies · quickiefix.app*

@@ -25,19 +25,19 @@ const EAS_PROJECT_ID = 'af87594c-64e6-4ab1-8796-04cf077c722b';
 // Must match PLATFORM_ADMINS in portal/src/config.ts and firestore.rules.
 const PLATFORM_ADMINS = ['admin@quickiefix.store'];
 
-// Where waitlist-signup notifications go. Use a real, deliverable inbox (Gmail),
-// not admin@quickiefix.store (a login-only address with no mailbox).
-const FOUNDER_EMAIL = 'rohan87cronje@gmail.com';
+// Where waitlist signups, support tickets and job-rescue alerts go — the
+// founder's Workspace inbox on the company domain.
+const FOUNDER_EMAIL = 'rohan@quickiefix.app';
 
-// Must be a VERIFIED sender in your Brevo account.
-const SENDER = { email: 'noreply@quickiefix.store', name: 'QuickieFix' };
+// Domain-authenticated in Brevo (quickiefix.app verified 15 Jul 2026).
+const SENDER = { email: 'noreply@quickiefix.app', name: 'QuickieFix' };
 
 // Where the reset flow sends the user after they set a new password. Tried in
-// order: the branded custom domain first (activates once quickiefix.store is an
+// order: the branded custom domain first (activates once quickiefix.app is an
 // authorised auth domain), then the always-authorised web.app, then a plain
 // link with no continue. All point at the same branded "open the app" page.
 const RESET_CONTINUE_URLS = [
-  'https://quickiefix.store/reset-complete.html',
+  'https://quickiefix.app/reset-complete.html',
   'https://quickiefix-2ea2a.web.app/reset-complete.html',
 ];
 
@@ -103,7 +103,7 @@ function monthKeyOf(ts) {
 
 // Stable download link. Resolves to the latest Android build at request time via
 // the `download` function below — so emails never point at an expired artifact.
-const APP_DOWNLOAD_URL = 'https://quickiefix.store/download';
+const APP_DOWNLOAD_URL = 'https://quickiefix.app/download';
 
 function welcomeHtml({ firstName, companyName, email, tempPassword }) {
   return `
@@ -623,7 +623,7 @@ exports.sendAgencyInvite = onCall(
          </ol>`
       : `<ol style="color:#5A6478;line-height:1.9">
            <li><b>Sole tradie?</b> Download the app, sign up as a tradie, then open <b>Profile → 🏢 Property agents</b> and enter the code.</li>
-           <li><b>Trade company?</b> Sign in at <a href="https://quickiefix-portal.web.app">quickiefix-portal.web.app</a> and enter the code under <b>Settings → Property agents</b> — you choose whether it covers your whole team or employees only.</li>
+           <li><b>Trade company?</b> Sign in at <a href="https://portal.quickiefix.app">quickiefix-portal.web.app</a> and enter the code under <b>Settings → Property agents</b> — you choose whether it covers your whole team or employees only.</li>
            <li>${agency.name} approves you, and jobs at their managed properties dispatch to you.</li>
          </ol>`;
     await brevoSend({
@@ -646,7 +646,7 @@ exports.sendAgencyInvite = onCall(
         </div>
         ${steps}
         <div style="text-align:center;margin:24px 0 8px">
-          <a href="https://quickiefix.store/download"
+          <a href="https://quickiefix.app/download"
              style="display:inline-block;background:#FFB020;color:#0B1220;font-weight:800;
                     text-decoration:none;padding:15px 30px;border-radius:12px;font-size:15px">
             📲 Download the QuickieFix app
@@ -1310,7 +1310,7 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
 });
 
 /**
- * Stable app-download redirect. Served at quickiefix.store/download (Hosting
+ * Stable app-download redirect. Served at quickiefix.app/download (Hosting
  * rewrite) — resolves the newest FINISHED internal Android build from EAS at
  * request time and 302-redirects to its APK. Emails/links never go stale: as
  * long as a recent build exists, this always points at the latest one.
@@ -1426,7 +1426,7 @@ exports.download = onRequest(
 /** Send a branded transactional email via Brevo. */
 // Hosted PNG (SVG is blocked by most email clients). 360px source → 180px
 // display = crisp on retina. Served from the landing site.
-const EMAIL_LOGO_URL = 'https://quickiefix.store/email-logo.png';
+const EMAIL_LOGO_URL = 'https://quickiefix.app/email-logo.png';
 
 async function brevoSend({ to, toName, subject, html }) {
   // Every email gets the branded header + a consistent footer, in one place.
@@ -1439,7 +1439,7 @@ async function brevoSend({ to, toName, subject, html }) {
       ${html}
     </div>
     <div style="max-width:560px;margin:auto;text-align:center;padding-top:14px;color:#8A93A6;font-family:Inter,Arial,sans-serif;font-size:12px">
-      QuickieFix · On-demand, verified tradies · <a href="https://quickiefix.store" style="color:#8A93A6">quickiefix.store</a>
+      QuickieFix · On-demand, verified tradies · <a href="https://quickiefix.app" style="color:#8A93A6">quickiefix.app</a>
     </div>
   </div>`;
 
@@ -1550,7 +1550,7 @@ function waitlistThanksHtml({ role }) {
         Thanks for joining the QuickieFix waitlist. We'll email you ${line}
       </p>
       <p style="color:#8A93A6;font-size:12px;margin-top:18px">
-        You're receiving this because you signed up at quickiefix.store. No further action needed.
+        You're receiving this because you signed up at quickiefix.app. No further action needed.
       </p>
     </div>
     <div style="text-align:center;color:#8A93A6;font-size:12px;padding:12px">
