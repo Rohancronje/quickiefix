@@ -21,13 +21,12 @@ import { formatMoney, TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
 import { useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { isOnPanel } from '../../src/lib/panel';
-import { formatWhen } from '../../src/lib/format';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
-import { AssignmentMode, Location, TradeCategory, UrgencyType } from '../../src/types';
+import { AssignmentMode, Location, TradeCategory } from '../../src/types';
 
-const STEPS = ['Service', 'Details', 'Location', 'When'];
+const STEPS = ['Service', 'Details', 'Location', 'Review'];
 
 export default function NewJob() {
   const router = useRouter();
@@ -42,11 +41,7 @@ export default function NewJob() {
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
-  const [urgency, setUrgency] = useState<UrgencyType>('now');
-  // Scheduled-for: day offset (0 = today) + hour slot. Tradies are alerted AT
-  // this time — dispatch simply doesn't start until then.
-  const [schedDay, setSchedDay] = useState(1);
-  const [schedHour, setSchedHour] = useState(8);
+  // Future bookings are off the menu — QuickieFix is about help NOW.
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
   const [isEmergency, setIsEmergency] = useState(false);
   // Emergencies can't wait to browse — force auto-assign.
@@ -67,38 +62,6 @@ export default function NewJob() {
     latitude: coords?.latitude,
     longitude: coords?.longitude,
   };
-
-  // Scheduling slots: only future times are offered (≥45 min out for today).
-  const TIME_SLOTS = [
-    { hour: 8, label: '8:00 am' },
-    { hour: 10, label: '10:00 am' },
-    { hour: 12, label: '12:00 pm' },
-    { hour: 15, label: '3:00 pm' },
-    { hour: 18, label: '6:00 pm' },
-  ];
-  const slotTime = (offset: number, hour: number) => {
-    const d = new Date();
-    d.setHours(hour, 0, 0, 0);
-    return d.getTime() + offset * 86_400_000;
-  };
-  const dayOptions = [0, 1, 2, 3].map((offset) => ({
-    offset,
-    label:
-      offset === 0
-        ? 'Today'
-        : offset === 1
-          ? 'Tomorrow'
-          : new Date(Date.now() + offset * 86_400_000).toLocaleDateString([], {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            }),
-  }));
-  const timeOptions = TIME_SLOTS.filter((t) => slotTime(schedDay, t.hour) > Date.now() + 45 * 60_000);
-  const scheduledFor =
-    urgency === 'scheduled' && timeOptions.some((t) => t.hour === schedHour)
-      ? slotTime(schedDay, schedHour)
-      : null;
 
   // Agency-managed property: dispatch is panel-only and rates are hidden —
   // the preview must show ONLY the agency's approved tradies, without prices.
@@ -147,7 +110,7 @@ export default function NewJob() {
       case 2:
         return address.trim().length > 0;
       case 3:
-        return urgency === 'now' || scheduledFor != null;
+        return true;
       default:
         return true;
     }
@@ -213,8 +176,7 @@ export default function NewJob() {
           description: description.trim(),
           photos,
           location: jobLocation,
-          urgency,
-          scheduledFor: urgency === 'scheduled' && scheduledFor ? scheduledFor : undefined,
+          urgency: 'now',
           isEmergency,
           assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
@@ -469,7 +431,7 @@ export default function NewJob() {
           )}
 
           {step === 3 && (
-            <Step title="When do you need this done?">
+            <Step title="Ready to go — how do you want to match?">
               {/* Agency property: the agency's approved panel handles this job
                   on agency terms — panel-only preview, no rates. */}
               {isAgencyJob && (
@@ -538,63 +500,6 @@ export default function NewJob() {
                 </View>
               )}
 
-              <Pressable
-                style={[styles.option, urgency === 'now' && styles.optionActive]}
-                onPress={() => setUrgency('now')}
-              >
-                <Txt style={{ fontSize: 26 }}>⚡</Txt>
-                <View style={{ flex: 1 }}>
-                  <Txt variant="label">Help now</Txt>
-                </View>
-              </Pressable>
-              <Pressable
-                style={[styles.option, urgency === 'scheduled' && styles.optionActive]}
-                onPress={() => setUrgency('scheduled')}
-              >
-                <Txt style={{ fontSize: 26 }}>🗓️</Txt>
-                <View style={{ flex: 1 }}>
-                  <Txt variant="label">Schedule for later</Txt>
-                </View>
-              </Pressable>
-
-              {/* Day + time slots — tradies are alerted AT this time, not now. */}
-              {urgency === 'scheduled' && (
-                <View style={{ gap: spacing.sm }}>
-                  <Txt variant="label">Which day?</Txt>
-                  <View style={styles.chipRow}>
-                    {dayOptions.map((d) => (
-                      <Chip
-                        key={d.offset}
-                        label={d.label}
-                        selected={schedDay === d.offset}
-                        onPress={() => setSchedDay(d.offset)}
-                      />
-                    ))}
-                  </View>
-                  <Txt variant="label">What time?</Txt>
-                  <View style={styles.chipRow}>
-                    {timeOptions.map((t) => (
-                      <Chip
-                        key={t.hour}
-                        label={t.label}
-                        selected={schedHour === t.hour}
-                        onPress={() => setSchedHour(t.hour)}
-                      />
-                    ))}
-                  </View>
-                  {timeOptions.length === 0 && (
-                    <Txt variant="caption" color={colors.textMuted}>
-                      No slots left today — pick another day.
-                    </Txt>
-                  )}
-                  {scheduledFor != null && (
-                    <Txt variant="caption" color={colors.success}>
-                      🗓️ Booked for {formatWhen(scheduledFor)} — we alert nearby pros then.
-                    </Txt>
-                  )}
-                </View>
-              )}
-
               {/* How to match — auto-dispatch vs browse & choose. */}
               <View style={{ gap: spacing.sm, marginTop: spacing.sm }}>
                 <Txt variant="label">How do you want to match?</Txt>
@@ -637,11 +542,7 @@ export default function NewJob() {
               {/* Emergency flag — jumps the search queue (and can't be scheduled). */}
               <Pressable
                 style={[styles.emergency, isEmergency && styles.emergencyActive]}
-                onPress={() => {
-                  const next = !isEmergency;
-                  setIsEmergency(next);
-                  if (next) setUrgency('now'); // an emergency can't wait for a booked slot
-                }}
+                onPress={() => setIsEmergency(!isEmergency)}
               >
                 <Txt style={{ fontSize: 22 }}>{isEmergency ? '🚨' : '⚠️'}</Txt>
                 <View style={{ flex: 1 }}>
@@ -686,13 +587,11 @@ export default function NewJob() {
           <Button
             title={
               step === STEPS.length - 1
-                ? canNext()
-                  ? effectiveMode === 'choose'
-                    ? 'Browse tradies'
-                    : urgency === 'now' && nearestEta != null
-                      ? `Find me a tradie · ~${nearestEta} min`
-                      : 'Find me a tradie'
-                  : 'Pick a time slot to continue'
+                ? effectiveMode === 'choose'
+                  ? 'Browse tradies'
+                  : nearestEta != null
+                    ? `Find me a tradie · ~${nearestEta} min`
+                    : 'Find me a tradie'
                 : canNext()
                   ? 'Continue'
                   : ['Pick a trade to continue', 'Add a few details to continue', 'Enter the job address'][step]
