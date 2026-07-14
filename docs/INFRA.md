@@ -24,12 +24,25 @@ CLI aliases (`.firebaserc`): `--project prod` / `--project staging`.
    Google sign-in was also toggled on in the console — unused by the app, harmless;
    the "download new config file / SHA-1" console prompt can be ignored until we
    ever build an APK against staging.
-2. ⬜ **Billing (Blaze)**: link the same billing account as prod — required for
-   functions + storage on staging. Console → ⚙ → Usage and billing.
-3. ⬜ After billing: `npx firebase-tools deploy --only functions --project staging`
-   (set the `BREVO_API_KEY` secret first: `npx firebase-tools functions:secrets:set BREVO_API_KEY --project staging` — use a Brevo test key, not the prod one).
-4. ⬜ **Move test accounts here over time**: User1–21, demo-company, demo-property
-   belong in staging once real customers exist in prod.
+2. ✅ **Billing (Blaze)** linked 15 Jul 2026 to the prod billing account
+   (`0135C7-F9B4B9-627ED5` — the "Firebase Payment" account whose only other
+   project is quickiefix-2ea2a). Note: three other empty "Firebase Payment"
+   billing accounts exist from abandoned console upgrade flows — safe to close.
+   "My Billing Account" belongs to the WordPress/logbook projects, not QuickieFix.
+3. ✅ All three secrets copied to staging (`BREVO_API_KEY`, `EXPO_TOKEN`,
+   `PLACES_API_KEY`); **all functions + rules deployed** (first deploy needed an
+   Eventarc IAM-propagation retry — normal on fresh projects).
+4. ✅ **Full data copy prod → staging** (15 Jul 2026): 15 collections / ~165 docs
+   (users, jobs, companies, agencies, properties, tags, links, fees, messages…)
+   plus all 33 auth users with matching UIDs. ⚠️ **Every staging account's
+   password is `password`** (hash import isn't possible; these are test creds).
+   Re-run anytime with `node scripts/copyToStaging.mjs` (from `functions/` deps,
+   run as `cd functions && node ../scripts/copyToStaging.mjs`).
+5. ⬜ **Prod test-data cleanup is deferred** until a staging build exists to
+   test against — the phones + deployed web apps still point at prod. Delete
+   User1–21/demo-* from prod as the final pre-launch step.
+6. ⬜ **Storage bucket**: staging has no default bucket yet (photo uploads will
+   fail there) — Console → Storage → Get started when needed.
 
 ### Staging client configs (saved, not yet wired anywhere)
 
