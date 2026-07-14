@@ -44,8 +44,10 @@ export function TradieProfileCard({ tradie }: { tradie: Tradie }) {
         {verified && (
           <Badge label="🎓 Qualified" color={colors.blue} soft={colors.infoSoft} />
         )}
+        {/* Clearly secondary — a bare trade chip here read like the JOB's
+            trade ("Electrician" on a plumbing job). */}
         {tradie.secondaryTrades.map((t) => (
-          <Badge key={t} label={tradeMeta(t).label} />
+          <Badge key={t} label={`Also ${tradeMeta(t).label.toLowerCase()}`} />
         ))}
       </View>
 

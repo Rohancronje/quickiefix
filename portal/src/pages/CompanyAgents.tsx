@@ -93,7 +93,12 @@ export function CompanyAgents() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
           />
-          <button className="co-btn co-btn-primary co-btn-sm" disabled={busy || !code.trim()} onClick={join}>
+          <button
+            className="co-btn co-btn-primary co-btn-sm"
+            disabled={busy || !code.trim()}
+            title={!code.trim() ? 'Enter an agent code first' : undefined}
+            onClick={join}
+          >
             {busy ? 'Sending…' : 'Join panel'}
           </button>
         </div>

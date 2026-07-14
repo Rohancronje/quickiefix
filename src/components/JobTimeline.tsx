@@ -23,10 +23,16 @@ export function JobTimeline({ job }: { job: Job }) {
     { key: 'completed', label: 'Job completed', at: t.completedAt },
   ];
 
+  // Monotonic: flows may skip intermediate stamps (accept can land straight
+  // on confirmed; travelling can be skipped) — every stage BEFORE the furthest
+  // stamped one counts as done, so a completed job never shows an earlier
+  // step stuck on "Pending".
+  const lastDone = stages.reduce((last, s, i) => (s.at != null ? i : last), -1);
+
   return (
     <View style={styles.wrap}>
       {stages.map((s, i) => {
-        const done = s.at != null;
+        const done = i <= lastDone;
         const isLast = i === stages.length - 1;
         return (
           <View key={s.key} style={styles.row}>
@@ -43,7 +49,7 @@ export function JobTimeline({ job }: { job: Job }) {
                 {s.label}
               </Txt>
               <Txt variant="caption" color={colors.textMuted}>
-                {done ? formatTime(s.at) : 'Pending'}
+                {done ? (s.at != null ? formatTime(s.at) : '—') : 'Pending'}
               </Txt>
             </View>
           </View>

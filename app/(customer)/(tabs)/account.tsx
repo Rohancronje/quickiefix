@@ -16,7 +16,7 @@ import {
 } from '../../../src/hooks/useData';
 import { initials } from '../../../src/lib/format';
 import { AddressField } from '../../../src/components/AddressField';
-import { backend, resetDemoData } from '../../../src/services';
+import { backend, resetDemoData, usingFirebase } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
 import { Location, Property } from '../../../src/types';
 
@@ -85,7 +85,8 @@ export default function CustomerAccount() {
 
       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
         <Button title="Log out" kind="ghost" onPress={logout} />
-        <Button title="Reset demo data" kind="ghost" onPress={confirmReset} />
+        {/* Demo-only control — hidden on the live backend. */}
+        {!usingFirebase && <Button title="Reset demo data" kind="ghost" onPress={confirmReset} />}
       </View>
     </Screen>
   );

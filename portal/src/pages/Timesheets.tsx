@@ -89,7 +89,12 @@ export function Timesheets() {
           <span className="co-card-title">
             Completed jobs ({rows.length})
           </span>
-          <button className="co-btn co-btn-primary co-btn-sm" disabled={rows.length === 0} onClick={exportCsv}>
+          <button
+            className="co-btn co-btn-primary co-btn-sm"
+            disabled={rows.length === 0}
+            title={rows.length === 0 ? 'Nothing to export yet — rows appear when jobs complete' : undefined}
+            onClick={exportCsv}
+          >
             ⬇ Export as CSV
           </button>
         </div>

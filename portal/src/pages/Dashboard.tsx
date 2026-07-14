@@ -98,7 +98,10 @@ export function Dashboard() {
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const currentIdx = steps.findIndex((s) => !s.done);
-  const activated = totalJobs > 0;
+  // Once the company is SET UP (tradies + rate card), the checklist has done
+  // its job — show the real dashboard even before the first job lands.
+  const setupDone = hasRateCard && (rows.length > 0 || seatsIssued > 0);
+  const activated = totalJobs > 0 || setupDone;
 
   return (
     <>

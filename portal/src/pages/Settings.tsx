@@ -189,7 +189,20 @@ export function Settings() {
             <tr>
               <td className="co-sub">Company ID</td>
               <td>
-                <span className="co-code">{company?.id}</span>
+                <span className="co-code">{company?.id}</span>{' '}
+                <button
+                  className="co-btn co-btn-ghost co-btn-sm"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(company?.id ?? '');
+                    flash('Company ID copied');
+                  }}
+                >
+                  Copy
+                </button>
+                <p className="co-help" style={{ marginTop: 4 }}>
+                  Your unique account reference — QuickieFix support may ask for it. Not a secret,
+                  but nobody else needs it.
+                </p>
               </td>
             </tr>
           </tbody>

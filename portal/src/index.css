@@ -306,7 +306,7 @@ tr:last-child td { border-bottom: none; }
 .bo-date { font-size: 13px; color: var(--ink-600); }
 
 .bo-content { padding: 32px; flex: 1; }
-.bo-content-inner { max-width: 1200px; }
+.bo-content-inner { max-width: 1200px; margin: 0 auto; }
 
 /* ---- Bands ---- */
 .bo-band { margin-bottom: 32px; }
@@ -551,7 +551,8 @@ tr:last-child td { border-bottom: none; }
 .co-title { font-size: 20px; font-weight: 600; color: var(--ink-900); }
 .co-date { font-size: 13px; color: var(--ink-600); }
 .co-content { padding: 32px; flex: 1; }
-.co-content-inner { max-width: 1100px; }
+/* Centre the content column on wide screens — no dead zone on the right. */
+.co-content-inner { max-width: 1100px; margin: 0 auto; }
 
 /* ---- Bands / sections ---- */
 .co-band { margin-bottom: 32px; }

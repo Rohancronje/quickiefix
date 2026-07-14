@@ -262,7 +262,16 @@ export function AgencyRequestHelp({
           </div>
         )}
 
-        <button className="co-btn co-btn-primary" disabled={!canDispatch} onClick={dispatch}>
+        <button
+          className="co-btn co-btn-primary"
+          disabled={!canDispatch}
+          title={
+            !canDispatch && !busy
+              ? 'Pick a property, a trade, and describe the fault (a few words) first'
+              : undefined
+          }
+          onClick={dispatch}
+        >
           {busy ? 'Dispatching…' : preferred ? 'Dispatch this tradie' : 'Dispatch best match'}
         </button>
         {properties.length === 0 && (

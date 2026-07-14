@@ -285,6 +285,11 @@ export function Team() {
         <button
           className="co-btn co-btn-primary"
           disabled={busy || !seatName.trim() || !seatEmail.trim()}
+          title={
+            !seatName.trim() || !seatEmail.trim()
+              ? "Enter the tradie's name and email first"
+              : undefined
+          }
           onClick={addSeat}
         >
           Add seat

@@ -66,6 +66,9 @@ export function SupportForm({
       <button
         className="co-btn co-btn-primary"
         disabled={busy || !subject.trim() || !detail.trim()}
+        title={
+          !subject.trim() || !detail.trim() ? 'Add a subject and a message first' : undefined
+        }
         onClick={send}
       >
         {busy ? 'Sending…' : 'Send to QuickieFix'}

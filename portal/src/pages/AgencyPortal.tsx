@@ -360,7 +360,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     );
   }
 
-  const activated = completedJobs > 0 || activeJobs > 0;
   const steps = [
     { label: 'Create your agency account', done: true },
     {
@@ -384,6 +383,10 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   ];
   const doneCount = steps.filter((s) => s.done).length;
   const currentIdx = steps.findIndex((s) => !s.done);
+  // Once set up (all steps ticked) — or once real jobs flow — the checklist
+  // is done for good; show the working dashboard.
+  const activated =
+    completedJobs > 0 || activeJobs > 0 || doneCount === steps.length;
 
   const inviteBox = (
     <div className="co-card" style={{ marginBottom: 16 }}>
