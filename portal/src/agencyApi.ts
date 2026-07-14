@@ -154,8 +154,14 @@ export async function listAgencyProperties(adminUserId: string): Promise<Propert
 
 export async function addAgencyProperty(
   agency: Agency,
-  input: { label?: string; address: string },
-): Promise<void> {
+  input: {
+    label?: string;
+    address: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    invitedTenantEmail?: string;
+  },
+): Promise<string> {
   const ref = doc(collection(db, 'properties'));
   await setDoc(ref, {
     id: ref.id,
@@ -163,11 +169,85 @@ export async function addAgencyProperty(
     landlordName: agency.name,
     ...(input.label?.trim() ? { label: input.label.trim() } : {}),
     address: input.address.trim(),
+    ...(input.latitude != null && input.longitude != null
+      ? { latitude: input.latitude, longitude: input.longitude }
+      : {}),
     tenantIds: [],
     tenantEmails: [],
+    invitedTenantEmails: input.invitedTenantEmail ? [input.invitedTenantEmail.trim().toLowerCase()] : [],
     createdAt: Date.now(),
     agencyId: agency.id,
     agencyName: agency.name,
+  });
+  return ref.id;
+}
+
+/** Record a tenant invite against a property (the email invite itself is sent
+ *  via the sendAgencyInvite callable). */
+export async function recordTenantInvite(property: Property, email: string): Promise<void> {
+  const clean = email.trim().toLowerCase();
+  await updateDoc(doc(db, 'properties', property.id), {
+    invitedTenantEmails: [...new Set([...(property.invitedTenantEmails ?? []), clean])],
+  });
+}
+
+/**
+ * Agency confirms a tenant: approves the link AND auto-attaches them to the
+ * property they were invited to (matched by email). Returns the matched
+ * property address, or null if no invite matched (manual link needed).
+ */
+export async function confirmTenantLink(
+  agency: Agency,
+  link: AgencyLink,
+): Promise<string | null> {
+  await approveAgencyLink(link.id);
+  const email = (link.memberEmail ?? '').toLowerCase();
+  if (!email) return null;
+  const properties = await listAgencyProperties(agency.adminUserId);
+  const match = properties.find((p) => (p.invitedTenantEmails ?? []).includes(email));
+  if (!match) return null;
+  await updateDoc(doc(db, 'properties', match.id), {
+    tenantIds: [...new Set([...match.tenantIds, link.memberId])],
+    tenantEmails: [...new Set([...match.tenantEmails, email])],
+    invitedTenantEmails: (match.invitedTenantEmails ?? []).filter((e) => e !== email),
+  });
+  return match.label || match.address;
+}
+
+/* ---------------------------------------------------------- bulk import --- */
+
+export interface PortfolioRow {
+  label?: string;
+  address: string;
+  tenantName?: string;
+  tenantEmail?: string;
+  error?: string;
+}
+
+export const PORTFOLIO_TEMPLATE =
+  'label,address,tenantName,tenantEmail\nUnit 4,12 Queen Street Auckland,Sam Taylor,sam@example.com\n';
+
+/** Parse the portfolio CSV: one row = one property (+ optional tenant). */
+export function parsePortfolioCsv(text: string): PortfolioRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const col = (name: string) => headers.indexOf(name.toLowerCase());
+  const iLabel = col('label');
+  const iAddress = col('address');
+  const iName = col('tenantname');
+  const iEmail = col('tenantemail');
+  return lines.slice(1).map((line) => {
+    const cells = line.split(',').map((c) => c.trim());
+    const row: PortfolioRow = {
+      label: iLabel >= 0 ? cells[iLabel] : undefined,
+      address: iAddress >= 0 ? (cells[iAddress] ?? '') : '',
+      tenantName: iName >= 0 ? cells[iName] : undefined,
+      tenantEmail: iEmail >= 0 ? cells[iEmail] : undefined,
+    };
+    if (!row.address) row.error = 'Missing address';
+    else if (row.tenantEmail && !/.+@.+\..+/.test(row.tenantEmail)) row.error = 'Invalid tenant email';
+    return row;
   });
 }
 

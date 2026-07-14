@@ -1,0 +1,24 @@
+/* Address suggestion dropdown (Places proxy). */
+.qf-sug {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(11, 18, 32, 0.15);
+  overflow: hidden;
+}
+.qf-sug-row {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  cursor: pointer;
+}
+.qf-sug-row:hover {
+  background: #fff7e6;
+}
+.qf-sug-row + .qf-sug-row {
+  border-top: 1px solid var(--line);
+}

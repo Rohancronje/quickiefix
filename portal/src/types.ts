@@ -204,6 +204,8 @@ export interface Property {
   createdAt: number;
   agencyId?: string;
   agencyName?: string;
+  /** Invited-by-email tenants who haven't claimed the code yet. */
+  invitedTenantEmails?: string[];
 }
 
 export type AgencyLinkStatus = 'pending' | 'approved' | 'removed';

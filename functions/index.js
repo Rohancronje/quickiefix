@@ -590,11 +590,12 @@ exports.sendAgencyInvite = onCall(
     if (agencies.empty) throw new HttpsError('permission-denied', 'Only a property agency admin can send invites.');
     const agency = agencies.docs[0].data();
     const isTenant = kind === 'tenant';
+    const propertyAddress = String(request.data?.propertyAddress || '').trim().slice(0, 200);
     const steps = isTenant
       ? `<ol style="color:#5A6478;line-height:1.9">
-           <li>Download the QuickieFix app below and create a <b>customer</b> account.</li>
+           <li>Download the QuickieFix app below and create a <b>customer</b> account with this email.</li>
            <li>Open <b>Account → 🏢 Property manager</b> and enter the code.</li>
-           <li>${agency.name} confirms you and adds you to your property — repairs are then one tap away.</li>
+           <li>${agency.name} confirms you${propertyAddress ? ` and links you to <b>${propertyAddress}</b>` : ' and adds you to your property'} — repairs are then one tap away.</li>
          </ol>`
       : `<ol style="color:#5A6478;line-height:1.9">
            <li><b>Sole tradie?</b> Download the app, sign up as a tradie, then open <b>Profile → 🏢 Property agents</b> and enter the code.</li>
@@ -611,7 +612,7 @@ exports.sendAgencyInvite = onCall(
         <h2 style="margin:0 0 8px">${isTenant ? `Repairs, sorted — with ${agency.name}` : `Join ${agency.name}'s approved panel`}</h2>
         <p style="color:#5A6478">${
           isTenant
-            ? `${agency.name} manages your property with QuickieFix: report an issue in the app and a verified, approved tradie is dispatched — no phone calls, no waiting.`
+            ? `${agency.name} manages ${propertyAddress ? `your place at <b>${propertyAddress}</b>` : 'your property'} with QuickieFix: report an issue in the app and a verified, approved tradie is dispatched — no phone calls, no waiting.`
             : `${agency.name} uses QuickieFix to route work at their managed properties to their approved tradies. Join the panel to receive those jobs.`
         }</p>
         <div style="text-align:center;margin:18px 0">

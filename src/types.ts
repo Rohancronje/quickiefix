@@ -221,6 +221,9 @@ export interface Property {
    *  approved tradie panel, and rates are hidden (agency terms apply). */
   agencyId?: string;
   agencyName?: string;
+  /** Tenants invited by email who haven't claimed the code yet — used to
+   *  auto-link them to this property when the agency confirms them. */
+  invitedTenantEmails?: string[];
 }
 
 /** A property agency (portal account). The `code` links tradies/companies to
