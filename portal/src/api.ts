@@ -15,7 +15,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { Company, CompanyAdmin, CompanyTag, Job, RateCard, Tradie, TradieStats } from './types';
+import { Company, CompanyAdmin, CompanyTag, FeeLineItem, Job, RateCard, Tradie, TradieStats } from './types';
 
 const TAG_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const TAG_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -240,6 +240,37 @@ export async function getTradieJobs(tradieId: string): Promise<Job[]> {
   return snap.docs
     .map((d) => d.data() as Job)
     .sort((a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0));
+}
+
+/** Platform-fee line items billed against this company's jobs. */
+export async function listCompanyFees(companyId: string): Promise<FeeLineItem[]> {
+  const snap = await getDocs(
+    query(collection(db, 'feeLineItems'), where('companyId', '==', companyId)),
+  );
+  return snap.docs
+    .map((d) => d.data() as FeeLineItem)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** In-platform support ticket from a portal account (company or agency). */
+export async function filePortalTicket(
+  from: { id: string; name: string; email: string; role: 'company' | 'agency' },
+  subject: string,
+  detail: string,
+): Promise<void> {
+  const ref = doc(collection(db, 'complaints'));
+  await setDoc(ref, {
+    id: ref.id,
+    kind: 'support',
+    customerId: from.id,
+    customerName: from.name,
+    contactEmail: from.email,
+    raisedByRole: from.role,
+    subject: subject.trim(),
+    detail: detail.trim(),
+    status: 'open',
+    createdAt: Date.now(),
+  });
 }
 
 export function computeStats(jobs: Job[]): TradieStats {

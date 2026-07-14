@@ -115,7 +115,7 @@ export interface Complaint {
   tradieName?: string;
   trade?: string;
   contactEmail?: string;
-  raisedByRole?: 'customer' | 'tradie';
+  raisedByRole?: 'customer' | 'tradie' | 'company' | 'agency';
   subject: string;
   detail: string;
   status: 'open' | 'resolved';

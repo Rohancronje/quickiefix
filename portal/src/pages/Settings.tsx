@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
-import { listCompanyAgencyLinks, requestCompanyAgencyLink } from '../agencyApi';
+import { useState } from 'react';
 import { setCompanyRateCard, updateCompanyName, updateCompanyProfile } from '../api';
 import { useAuth } from '../auth';
 import { centsToDollars, dollarsToCents } from '../lib';
-import { AgencyLink, RateCard } from '../types';
+import { RateCard } from '../types';
 
 const centsToInput = (cents?: number) =>
   cents === undefined ? '' : (cents / 100).toFixed(2);
@@ -24,30 +23,6 @@ export function Settings() {
     centsToInput(company?.rateCard?.afterHoursCalloutFeeCents),
   );
   const [savingRate, setSavingRate] = useState(false);
-
-  // Property-agency panels this company belongs to (or has requested).
-  const [agencyLinks, setAgencyLinks] = useState<AgencyLink[]>([]);
-  const [agencyCode, setAgencyCode] = useState('');
-  const [agencyScope, setAgencyScope] = useState<'all' | 'employees'>('all');
-  const [joiningAgency, setJoiningAgency] = useState(false);
-  useEffect(() => {
-    if (company) void listCompanyAgencyLinks(company.id).then(setAgencyLinks);
-  }, [company]);
-
-  const joinAgency = async () => {
-    if (!company || !agencyCode.trim()) return;
-    try {
-      setJoiningAgency(true);
-      const name = await requestCompanyAgencyLink(company, agencyCode, agencyScope);
-      setAgencyCode('');
-      setAgencyLinks(await listCompanyAgencyLinks(company.id));
-      flash(`Request sent to ${name} — pending their approval`);
-    } catch (e) {
-      flash((e as Error).message);
-    } finally {
-      setJoiningAgency(false);
-    }
-  };
 
   const isLive = !!rateCard; // company goes 'active' once a rate card is set
 
@@ -201,57 +176,6 @@ export function Settings() {
         >
           {saving ? 'Saving…' : 'Save changes'}
         </button>
-      </div>
-
-      {/* Property agents — approved-panel memberships (whole roster) */}
-      <div className="co-card">
-        <div className="co-sectionhead">Property agents</div>
-        <p className="co-help">
-          Work with a property manager? Enter their agent code — once they approve, jobs at their
-          managed properties dispatch to your whole team (on the agency's own commercial terms).
-        </p>
-        {agencyLinks.map((l) => (
-          <div key={l.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
-            <span style={{ flex: 1, fontWeight: 600 }}>{l.agencyName}</span>
-            <span className={`co-chip ${l.status === 'approved' ? 'co-chip-green' : 'co-chip-amber'}`}>
-              {l.status}
-            </span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', gap: 14, margin: '10px 0 4px', fontSize: 13 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input
-              type="radio"
-              checked={agencyScope === 'all'}
-              onChange={() => setAgencyScope('all')}
-            />
-            Whole team
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input
-              type="radio"
-              checked={agencyScope === 'employees'}
-              onChange={() => setAgencyScope('employees')}
-            />
-            Employees only (no contractors)
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <input
-            className="co-input"
-            style={{ flex: 1 }}
-            placeholder="Agent code (e.g. QF-AG-7K2P)"
-            value={agencyCode}
-            onChange={(e) => setAgencyCode(e.target.value.toUpperCase())}
-          />
-          <button
-            className="co-btn co-btn-primary co-btn-sm"
-            disabled={joiningAgency || !agencyCode.trim()}
-            onClick={joinAgency}
-          >
-            {joiningAgency ? 'Sending…' : 'Join panel'}
-          </button>
-        </div>
       </div>
 
       <div className="co-card">

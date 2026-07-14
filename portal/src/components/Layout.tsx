@@ -2,10 +2,14 @@ import React, { type ComponentType, type SVGProps } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import {
+  IconActivity,
   IconBilling,
   IconBriefcase,
+  IconClock,
   IconCompanies,
+  IconComplaint,
   IconLogout,
+  IconMetrics,
   IconOverview,
   IconTradies,
 } from '../backoffice/icons';
@@ -14,15 +18,25 @@ type SvgIcon = ComponentType<SVGProps<SVGSVGElement> & { size?: number }>;
 
 const NAV: { path: string; label: string; Icon: SvgIcon }[] = [
   { path: '/', label: 'Dashboard', Icon: IconOverview },
+  { path: '/jobs', label: 'Jobs', Icon: IconActivity },
   { path: '/team', label: 'My Tradies', Icon: IconTradies },
-  { path: '/timesheets', label: 'Timesheets', Icon: IconBilling },
+  { path: '/timesheets', label: 'Timesheets', Icon: IconClock },
+  { path: '/reputation', label: 'Reputation', Icon: IconMetrics },
+  { path: '/billing', label: 'Billing', Icon: IconBilling },
+  { path: '/agents', label: 'Property agents', Icon: IconCompanies },
+  { path: '/support', label: 'Support', Icon: IconComplaint },
   { path: '/settings', label: 'Settings', Icon: IconBriefcase },
 ];
 
 const TITLES: Record<string, string> = {
   '/': 'Dashboard',
+  '/jobs': 'Job board',
   '/team': 'My Tradies',
   '/timesheets': 'Timesheets',
+  '/reputation': 'Reputation',
+  '/billing': 'Billing & ROI',
+  '/agents': 'Property agents',
+  '/support': 'Support',
   '/settings': 'Settings',
 };
 

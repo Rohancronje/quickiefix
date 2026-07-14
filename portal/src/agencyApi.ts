@@ -50,6 +50,10 @@ export async function signUpAgency(
   return agency;
 }
 
+export async function updateAgencyName(agencyId: string, name: string): Promise<void> {
+  await updateDoc(doc(db, 'agencies', agencyId), { name: name.trim() });
+}
+
 export async function getMyAgency(uid: string): Promise<Agency | null> {
   const snap = await getDocs(query(collection(db, 'agencies'), where('adminUserId', '==', uid)));
   return snap.empty ? null : (snap.docs[0].data() as Agency);

@@ -21,17 +21,23 @@ import { useAuth } from '../auth';
 import { confirmDialog } from '../components/confirm';
 import { functions } from '../firebase';
 import {
+  IconActivity,
+  IconBilling,
   IconBriefcase,
   IconCheck,
   IconCompanies,
+  IconComplaint,
   IconLogout,
+  IconMetrics,
   IconOverview,
   IconTradies,
 } from '../backoffice/icons';
-import { formatDate } from '../lib';
+import { SupportForm } from '../components/SupportForm';
+import { updateAgencyName } from '../agencyApi';
+import { formatDate, formatDuration } from '../lib';
 import { Agency, AgencyLink, Job, Property, tradeLabel } from '../types';
 
-type Tab = 'dashboard' | 'panel' | 'properties';
+type Tab = 'dashboard' | 'jobs' | 'panel' | 'properties' | 'reports' | 'support' | 'settings';
 
 const KIND_LABEL: Record<AgencyLink['kind'], string> = {
   tradie: 'Individual tradie',
@@ -72,6 +78,12 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const [importRows, setImportRows] = useState<PortfolioRow[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
+  // Jobs tab filters
+  const [jobFilter, setJobFilter] = useState<'All' | 'Live' | 'Completed'>('All');
+  const [jobProperty, setJobProperty] = useState('All');
+  // Settings
+  const [agencyName, setAgencyName] = useState(agency.name);
+  const [savingName, setSavingName] = useState(false);
 
   const flash = (m: string) => {
     setToast(m);
@@ -300,8 +312,12 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
 
   const NAV: { key: Tab; label: string; Icon: typeof IconOverview }[] = [
     { key: 'dashboard', label: 'Dashboard', Icon: IconOverview },
+    { key: 'jobs', label: 'Jobs', Icon: IconActivity },
     { key: 'panel', label: 'Tradie panel', Icon: IconTradies },
     { key: 'properties', label: 'Properties', Icon: IconBriefcase },
+    { key: 'reports', label: 'Owner reports', Icon: IconMetrics },
+    { key: 'support', label: 'Support', Icon: IconComplaint },
+    { key: 'settings', label: 'Settings', Icon: IconBilling },
   ];
   const today = new Date().toLocaleDateString(undefined, {
     weekday: 'short',
@@ -431,11 +447,17 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       <div className="co-main">
         <header className="co-header">
           <h1 className="co-title">
-            {tab === 'dashboard'
-              ? `Welcome back, ${agency.name} 👋`
-              : tab === 'panel'
-                ? 'Tradie panel & invites'
-                : 'Properties & tenants'}
+            {
+              {
+                dashboard: `Welcome back, ${agency.name} 👋`,
+                jobs: 'Jobs at your properties',
+                panel: 'Tradie panel & invites',
+                properties: 'Properties & tenants',
+                reports: 'Owner reports',
+                support: 'Support',
+                settings: 'Settings',
+              }[tab]
+            }
           </h1>
           <span className="co-date">{today}</span>
         </header>
@@ -767,6 +789,233 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              </>
+            )}
+
+            {/* ----------------------------------------------------- JOBS -- */}
+            {tab === 'jobs' && (
+              <div className="co-card flush">
+                <div className="co-card-head">
+                  <span className="co-card-title">All jobs ({jobs.length})</span>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <select
+                      className="co-input"
+                      style={{ width: 200 }}
+                      value={jobProperty}
+                      onChange={(e) => setJobProperty(e.target.value)}
+                    >
+                      <option value="All">All properties</option>
+                      {properties.map((p) => (
+                        <option key={p.id} value={p.address}>
+                          {p.label || p.address}
+                        </option>
+                      ))}
+                    </select>
+                    {(['All', 'Live', 'Completed'] as const).map((f) => (
+                      <button
+                        key={f}
+                        className={`co-btn co-btn-sm ${jobFilter === f ? 'co-btn-primary' : 'co-btn-ghost'}`}
+                        onClick={() => setJobFilter(f)}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <table className="co-table">
+                  <thead>
+                    <tr>
+                      <th>Property</th>
+                      <th>Trade</th>
+                      <th>Issue</th>
+                      <th>Tradie</th>
+                      <th>Raised</th>
+                      <th>On site</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {jobs
+                      .filter((j) =>
+                        jobFilter === 'All'
+                          ? true
+                          : jobFilter === 'Live'
+                            ? ['searching', 'confirmed', 'travelling', 'on_site'].includes(j.status)
+                            : j.status === 'completed',
+                      )
+                      .filter((j) => jobProperty === 'All' || j.location.address === jobProperty)
+                      .map((j) => (
+                        <tr key={j.id}>
+                          <td className="co-sub">{j.location.address}</td>
+                          <td>{tradeLabel(j.trade)}</td>
+                          <td className="co-sub" style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {j.description}
+                          </td>
+                          <td>{j.tradieName ?? '—'}</td>
+                          <td>{formatDate(j.timestamps.createdAt)}</td>
+                          <td className="co-num-cell">
+                            {j.timestamps.completedAt && j.timestamps.onSiteAt
+                              ? formatDuration(j.timestamps.completedAt - j.timestamps.onSiteAt)
+                              : '—'}
+                          </td>
+                          <td>
+                            <span className={`co-chip ${STATUS_CHIP[j.status] ?? 'co-chip-grey'}`}>
+                              {j.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* -------------------------------------------------- REPORTS -- */}
+            {tab === 'reports' && (
+              <>
+                <div className="co-card" style={{ marginBottom: 16 }}>
+                  <div className="co-sectionhead">Per-property maintenance report</div>
+                  <p className="co-help">
+                    Your deliverable to property owners: everything that happened at their asset —
+                    response times, work done, tenant satisfaction. Export and attach it straight to
+                    your monthly owner statement.
+                  </p>
+                  <button
+                    className="co-btn co-btn-primary co-btn-sm"
+                    disabled={jobs.length === 0}
+                    onClick={() => {
+                      const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+                      const lines = ['Property,Trade,Issue,Tradie,Raised,Completed,On site (min),Rating'];
+                      for (const j of jobs) {
+                        const t = j.timestamps;
+                        lines.push(
+                          [
+                            j.location.address,
+                            tradeLabel(j.trade),
+                            j.description,
+                            j.tradieName ?? '',
+                            formatDate(t.createdAt),
+                            t.completedAt ? formatDate(t.completedAt) : '',
+                            t.completedAt && t.onSiteAt ? String(Math.round((t.completedAt - t.onSiteAt) / 60000)) : '',
+                            j.customerRating ? String(j.customerRating.stars) : '',
+                          ]
+                            .map((v) => esc(String(v)))
+                            .join(','),
+                        );
+                      }
+                      const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `${agency.name.replace(/\s+/g, '-')}-owner-report-${new Date().toISOString().slice(0, 10)}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    }}
+                  >
+                    ⬇ Export owner report (CSV)
+                  </button>
+                </div>
+
+                <div className="co-card flush">
+                  <div className="co-card-head">
+                    <span className="co-card-title">Portfolio summary</span>
+                  </div>
+                  <table className="co-table">
+                    <thead>
+                      <tr>
+                        <th>Property</th>
+                        <th>Jobs</th>
+                        <th>Completed</th>
+                        <th>Avg response</th>
+                        <th>Avg rating</th>
+                        <th>Last job</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {properties.map((p) => {
+                        const pj = jobs.filter((j) => j.location.address === p.address);
+                        const done = pj.filter((j) => j.status === 'completed');
+                        const responses = pj
+                          .map((j) =>
+                            j.timestamps.confirmedAt ? j.timestamps.confirmedAt - j.timestamps.createdAt : null,
+                          )
+                          .filter((x): x is number => x != null);
+                        const avgResp = responses.length
+                          ? responses.reduce((a, b) => a + b, 0) / responses.length
+                          : null;
+                        const rated = done.filter((j) => j.customerRating);
+                        const avgRating = rated.length
+                          ? Math.round((rated.reduce((s, j) => s + (j.customerRating?.stars ?? 0), 0) / rated.length) * 10) / 10
+                          : null;
+                        return (
+                          <tr key={p.id}>
+                            <td style={{ fontWeight: 600 }}>{p.label || p.address}</td>
+                            <td className="co-num-cell">{pj.length}</td>
+                            <td className="co-num-cell">{done.length}</td>
+                            <td className="co-num-cell">{avgResp != null ? formatDuration(avgResp) : '—'}</td>
+                            <td>{avgRating != null ? `${avgRating} ★` : '—'}</td>
+                            <td>{pj[0] ? formatDate(pj[0].timestamps.createdAt) : '—'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+
+            {/* -------------------------------------------------- SUPPORT -- */}
+            {tab === 'support' && (
+              <SupportForm
+                from={{ id: agency.id, name: agency.name, email: agency.adminEmail, role: 'agency' }}
+              />
+            )}
+
+            {/* ------------------------------------------------- SETTINGS -- */}
+            {tab === 'settings' && (
+              <>
+                <div className="co-card" style={{ marginBottom: 16, maxWidth: 620 }}>
+                  <div className="co-sectionhead">Agency profile</div>
+                  <div className="co-field" style={{ margin: '10px 0 14px' }}>
+                    <label>Agency name</label>
+                    <input className="co-input" value={agencyName} onChange={(e) => setAgencyName(e.target.value)} />
+                  </div>
+                  <button
+                    className="co-btn co-btn-primary co-btn-sm"
+                    disabled={savingName || !agencyName.trim()}
+                    onClick={async () => {
+                      setSavingName(true);
+                      await updateAgencyName(agency.id, agencyName);
+                      setSavingName(false);
+                      flash('Saved ✓ — refresh to see it everywhere');
+                    }}
+                  >
+                    {savingName ? 'Saving…' : 'Save changes'}
+                  </button>
+                </div>
+                <div className="co-card" style={{ maxWidth: 620 }}>
+                  <div className="co-sectionhead">Account</div>
+                  <table className="co-table">
+                    <tbody>
+                      <tr>
+                        <td className="co-sub">Admin email</td>
+                        <td style={{ fontWeight: 600 }}>{agency.adminEmail}</td>
+                      </tr>
+                      <tr>
+                        <td className="co-sub">Agent code</td>
+                        <td>
+                          <span className="co-code">{agency.code}</span>{' '}
+                          <button className="co-btn co-btn-ghost co-btn-sm" onClick={copyCode}>Copy</button>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="co-sub">Agency ID</td>
+                        <td>
+                          <span className="co-code">{agency.id}</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </>
             )}

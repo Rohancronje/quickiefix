@@ -467,7 +467,7 @@ export interface Complaint {
   trade?: TradeCategory;
   /** Where to reply (the raiser's account email). */
   contactEmail?: string;
-  raisedByRole?: 'customer' | 'tradie';
+  raisedByRole?: 'customer' | 'tradie' | 'company' | 'agency';
   subject: string;
   detail: string;
   status: 'open' | 'resolved';
