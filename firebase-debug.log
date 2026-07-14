@@ -1,31 +1,31 @@
-[debug] [2026-07-14T02:39:27.518Z] ----------------------------------------------------------------------
-[debug] [2026-07-14T02:39:27.526Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\rohan.cronje\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting:quickiefix-portal --project quickiefix-2ea2a
-[debug] [2026-07-14T02:39:27.526Z] CLI Version:   15.23.0
-[debug] [2026-07-14T02:39:27.527Z] Platform:      win32
-[debug] [2026-07-14T02:39:27.527Z] Node Version:  v24.15.0
-[debug] [2026-07-14T02:39:27.527Z] Detected Agent: claude-code_2-1-154_agent
-[debug] [2026-07-14T02:39:27.527Z] Time:          Tue Jul 14 2026 14:39:27 GMT+1200 (New Zealand Standard Time)
-[debug] [2026-07-14T02:39:27.527Z] ----------------------------------------------------------------------
+[debug] [2026-07-14T02:41:35.760Z] ----------------------------------------------------------------------
+[debug] [2026-07-14T02:41:35.768Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\rohan.cronje\AppData\Local\npm-cache\_npx\7750544ccf494d8b\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting:quickiefix-portal --project quickiefix-2ea2a
+[debug] [2026-07-14T02:41:35.768Z] CLI Version:   15.23.0
+[debug] [2026-07-14T02:41:35.768Z] Platform:      win32
+[debug] [2026-07-14T02:41:35.769Z] Node Version:  v24.15.0
+[debug] [2026-07-14T02:41:35.769Z] Detected Agent: claude-code_2-1-154_agent
+[debug] [2026-07-14T02:41:35.769Z] Time:          Tue Jul 14 2026 14:41:35 GMT+1200 (New Zealand Standard Time)
+[debug] [2026-07-14T02:41:35.769Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2026-07-14T02:39:43.109Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2026-07-14T02:39:43.109Z] > authorizing via signed-in user (rohan87cronje@gmail.com)
-[debug] [2026-07-14T02:39:43.109Z] [iam] checking project quickiefix-2ea2a for permissions ["firebase.projects.get","firebasehosting.sites.update"]
-[debug] [2026-07-14T02:39:43.130Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:43.130Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:43.132Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions [none]
-[debug] [2026-07-14T02:39:43.132Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions  x-goog-user-project=quickiefix-2ea2a
-[debug] [2026-07-14T02:39:43.132Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
-[debug] [2026-07-14T02:39:48.709Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions 200
-[debug] [2026-07-14T02:39:48.710Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
-[debug] [2026-07-14T02:39:48.710Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:48.710Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:48.711Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a [none]
-[debug] [2026-07-14T02:39:49.712Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a 200
-[debug] [2026-07-14T02:39:49.713Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a {"projectId":"quickiefix-2ea2a","projectNumber":"468151741418","displayName":"quickiefix","name":"projects/quickiefix-2ea2a","resources":{"hostingSite":"quickiefix-2ea2a"},"state":"ACTIVE","labels":{"firebase":"enabled","firebase/storage-default-bucket":"created"},"etag":"1_d675ef3f-3c7d-43d5-997f-eb09e35828bb"}
+[debug] [2026-07-14T02:41:41.920Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-14T02:41:41.921Z] > authorizing via signed-in user (rohan87cronje@gmail.com)
+[debug] [2026-07-14T02:41:41.921Z] [iam] checking project quickiefix-2ea2a for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-14T02:41:41.943Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:41.943Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:41.945Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions [none]
+[debug] [2026-07-14T02:41:41.945Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions  x-goog-user-project=quickiefix-2ea2a
+[debug] [2026-07-14T02:41:41.946Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-14T02:41:47.380Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions 200
+[debug] [2026-07-14T02:41:47.380Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/quickiefix-2ea2a:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-14T02:41:47.381Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:47.382Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:47.382Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a [none]
+[debug] [2026-07-14T02:41:47.987Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a 200
+[debug] [2026-07-14T02:41:47.987Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/quickiefix-2ea2a {"projectId":"quickiefix-2ea2a","projectNumber":"468151741418","displayName":"quickiefix","name":"projects/quickiefix-2ea2a","resources":{"hostingSite":"quickiefix-2ea2a"},"state":"ACTIVE","labels":{"firebase":"enabled","firebase/storage-default-bucket":"created"},"etag":"1_d675ef3f-3c7d-43d5-997f-eb09e35828bb"}
 [info] 
 [info] === Deploying to 'quickiefix-2ea2a'...
 [info] 
 [info] i  deploying hosting 
-[debug] [2026-07-14T02:39:49.718Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:49.718Z] Checked if tokens are valid: true, expires at: 1783998988244
-[debug] [2026-07-14T02:39:49.718Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/quickiefix-2ea2a/sites/quickiefix-portal [none]
+[debug] [2026-07-14T02:41:47.990Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:47.990Z] Checked if tokens are valid: true, expires at: 1783998988244
+[debug] [2026-07-14T02:41:47.990Z] >>> [apiv2][query] GET https://firebasehosting.googleapis.com/v1beta1/projects/quickiefix-2ea2a/sites/quickiefix-portal [none]

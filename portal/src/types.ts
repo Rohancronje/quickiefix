@@ -149,6 +149,12 @@ export interface Job {
   tradieId?: string;
   tradieName?: string;
   isEmergency?: boolean;
+  // Stamped when the job is at a managed/owned property.
+  propertyId?: string;
+  landlordId?: string;
+  landlordName?: string;
+  agencyId?: string;
+  agencyName?: string;
   timestamps: {
     createdAt: number;
     searchingAt?: number;
