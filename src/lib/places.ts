@@ -5,7 +5,10 @@
  * its final details lookup into a single billed Places session.
  */
 
-const PLACES_URL = 'https://australia-southeast1-quickiefix-2ea2a.cloudfunctions.net/places';
+import { firebaseConfig } from '../services/firebaseConfig';
+
+// Environment-aware: the proxy lives in whichever project this build targets.
+const PLACES_URL = `https://australia-southeast1-${firebaseConfig.projectId}.cloudfunctions.net/places`;
 
 export interface AddressSuggestion {
   placeId: string;

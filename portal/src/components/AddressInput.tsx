@@ -5,9 +5,11 @@
  * distance ranking and ETAs.
  */
 import { useEffect, useRef, useState } from 'react';
+import { firebaseConfig } from '../firebase';
 import '../sug.css';
 
-const PLACES_URL = 'https://australia-southeast1-quickiefix-2ea2a.cloudfunctions.net/places';
+// Environment-aware: the proxy lives in whichever project this build targets.
+const PLACES_URL = `https://australia-southeast1-${firebaseConfig.projectId}.cloudfunctions.net/places`;
 
 interface Suggestion {
   placeId: string;

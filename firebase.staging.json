@@ -1,0 +1,16 @@
+{
+  "hosting": [
+    {
+      "site": "quickiefix-portal-staging",
+      "public": "portal/dist-staging",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    },
+    {
+      "site": "quickiefix-app-staging",
+      "public": "web-build-staging",
+      "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+      "rewrites": [{ "source": "**", "destination": "/index.html" }]
+    }
+  ]
+}

@@ -44,6 +44,19 @@ CLI aliases (`.firebaserc`): `--project prod` / `--project staging`.
 6. ⬜ **Storage bucket**: staging has no default bucket yet (photo uploads will
    fail there) — Console → Storage → Get started when needed.
 
+### Staging builds & URLs (live)
+
+| Surface | Staging URL | Build command |
+|---|---|---|
+| App (web) | https://quickiefix-app-staging.web.app | `$env:EXPO_PUBLIC_FIREBASE_ENV='staging'; npx expo export --platform web --output-dir web-build-staging` |
+| Portal | https://quickiefix-portal-staging.web.app | `cd portal; $env:VITE_FIREBASE_ENV='staging'; npx vite build --outDir dist-staging` |
+| Deploy both | — | `npx firebase-tools deploy --only hosting --config firebase.staging.json --project quickiefix-staging` |
+
+Env switching lives in `src/services/firebaseConfig.ts` (app) and
+`portal/src/firebase.ts` (portal); the Places proxy URL follows the selected
+project automatically. Default (no env var) is ALWAYS production — CI and
+normal builds are unaffected. All staging logins use password `password`.
+
 ### Staging client configs (saved, not yet wired anywhere)
 
 - Android: `google-services.staging.json` at repo root — swap in for a staging APK build.

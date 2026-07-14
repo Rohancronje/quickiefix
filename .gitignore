@@ -70,3 +70,5 @@ Secrets/
 Business Plan/
 
 firebase-debug.log
+web-build-staging/
+dist-staging/
