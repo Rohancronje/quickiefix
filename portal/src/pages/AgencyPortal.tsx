@@ -1,13 +1,13 @@
 import { httpsCallable } from 'firebase/functions';
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   addAgencyProperty,
+  agencyJobsQuery,
+  agencyPropertiesQuery,
   approveAgencyLink,
   confirmTenantLink,
   linkTenantByEmail,
-  listAgencyJobs,
-  listAgencyProperties,
-  listPanel,
+  panelQuery,
   parsePortfolioCsv,
   PORTFOLIO_TEMPLATE,
   PortfolioRow,
@@ -33,6 +33,7 @@ import {
   IconTradies,
 } from '../backoffice/icons';
 import { SupportForm } from '../components/SupportForm';
+import { useLive } from '../live';
 import { updateAgencyName } from '../agencyApi';
 import { formatDate, formatDuration } from '../lib';
 import { Agency, AgencyLink, Job, Property, tradeLabel } from '../types';
@@ -59,10 +60,26 @@ const STATUS_CHIP: Record<string, string> = {
 export function AgencyPortal({ agency }: { agency: Agency }) {
   const { logout } = useAuth();
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [links, setLinks] = useState<AgencyLink[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Live listeners: instant paint from the local cache, and every change
+  // (approval, removal, job status, tenant confirm) reflects immediately.
+  const linksLive = useLive<AgencyLink>(`panel:${agency.id}`, () => panelQuery(agency.id));
+  const propertiesLive = useLive<Property>(`agencyProps:${agency.adminUserId}`, () =>
+    agencyPropertiesQuery(agency.adminUserId),
+  );
+  const jobsLive = useLive<Job>(`agencyJobs:${agency.id}`, () => agencyJobsQuery(agency.id));
+  const loading = !linksLive || !propertiesLive || !jobsLive;
+  const links = useMemo(
+    () => [...(linksLive ?? [])].sort((a, b) => b.requestedAt - a.requestedAt),
+    [linksLive],
+  );
+  const properties = useMemo(
+    () => [...(propertiesLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [propertiesLive],
+  );
+  const jobs = useMemo(
+    () => [...(jobsLive ?? [])].sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt),
+    [jobsLive],
+  );
   const [toast, setToast] = useState<string | null>(null);
   // Add-property form
   const [label, setLabel] = useState('');
@@ -91,22 +108,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     setToast(m);
     setTimeout(() => setToast(null), 2600);
   };
-
-  const refresh = useCallback(async () => {
-    const [l, p, j] = await Promise.all([
-      listPanel(agency.id),
-      listAgencyProperties(agency.adminUserId),
-      listAgencyJobs(agency.id),
-    ]);
-    setLinks(l);
-    setProperties(p);
-    setJobs(j);
-    setLoading(false);
-  }, [agency.id, agency.adminUserId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   const pending = links.filter((l) => l.status === 'pending');
   const panelPending = pending.filter((l) => l.kind !== 'tenant');
@@ -138,7 +139,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     try {
       if (l.kind === 'tenant') {
         const matched = await confirmTenantLink(agency, l);
-        await refresh();
         flash(
           matched
             ? `${l.memberName} confirmed — linked to ${matched} ✓`
@@ -146,7 +146,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
         );
       } else {
         await approveAgencyLink(l.id);
-        await refresh();
         flash(`${l.memberName} approved ✓`);
       }
     } catch (e) {
@@ -168,7 +167,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       return;
     try {
       await removeAgencyLink(l.id);
-      await refresh();
       flash('Removed');
     } catch (e) {
       flash(`Could not remove: ${(e as Error).message}`);
@@ -199,7 +197,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       setCoords(null);
       setNewTenantName('');
       setNewTenantEmail('');
-      await refresh();
       flash(invitee ? `Property added — invite sent to ${invitee} ✓` : 'Property added ✓');
     } catch (e) {
       flash(`Could not add: ${(e as Error).message}`);
@@ -216,7 +213,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     try {
       await linkTenantByEmail(p, email);
       setTenantEmail((m) => ({ ...m, [p.id]: '' }));
-      await refresh();
       flash('Tenant linked to property ✓');
     } catch (e) {
       flash((e as Error).message);
@@ -234,7 +230,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       });
       await recordTenantInvite(p, email);
       setTenantEmail((m) => ({ ...m, [p.id]: '' }));
-      await refresh();
       flash(`Invite sent to ${email} — they'll auto-link to ${p.label || p.address} on confirm ✓`);
     } catch (e) {
       flash(`Could not invite: ${(e as Error).message}`);
@@ -252,7 +247,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       return;
     try {
       await removeProperty(p.id);
-      await refresh();
       flash('Property removed');
     } catch (e) {
       flash(`Could not remove: ${(e as Error).message}`);
@@ -314,7 +308,6 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
     setImporting(false);
     setImportRows(null);
     setImportProgress('');
-    await refresh();
     flash(`Imported ${valid.length} propert${valid.length === 1 ? 'y' : 'ies'} — tenant invites sent ✓`);
   };
 
@@ -791,7 +784,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                           <span style={{ flex: 1 }}>👤 {e}</span>
                           <button
                             className="co-btn co-btn-ghost co-btn-sm"
-                            onClick={() => unlinkTenant(p, p.tenantIds[i], e).then(refresh)}
+                            onClick={() => unlinkTenant(p, p.tenantIds[i], e)}
                           >
                             Unlink
                           </button>

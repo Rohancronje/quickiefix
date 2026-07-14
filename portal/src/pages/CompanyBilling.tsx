@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { listCompanyFees, listCompanyJobs } from '../api';
+import { useMemo } from 'react';
+import { companyFeesQuery, companyJobsQuery } from '../api';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { centsToDollars } from '../lib';
 import { FeeLineItem, Job } from '../types';
 
@@ -11,19 +12,19 @@ import { FeeLineItem, Job } from '../types';
  */
 export function CompanyBilling() {
   const { company } = useAuth();
-  const [fees, setFees] = useState<FeeLineItem[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cid = company?.id ?? '';
+  const feesLive = useLive<FeeLineItem>(`companyFees:${cid}`, () => companyFeesQuery(cid));
+  const jobsLive = useLive<Job>(`companyJobs:${cid}`, () => companyJobsQuery(cid));
+  const loading = !feesLive || !jobsLive;
 
-  useEffect(() => {
-    if (!company) return;
-    (async () => {
-      const [f, j] = await Promise.all([listCompanyFees(company.id), listCompanyJobs(company.id)]);
-      setFees(f);
-      setJobs(j.filter((x) => x.status === 'completed'));
-      setLoading(false);
-    })();
-  }, [company]);
+  const fees = useMemo(
+    () => [...(feesLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [feesLive],
+  );
+  const jobs = useMemo(
+    () => (jobsLive ?? []).filter((x) => x.status === 'completed'),
+    [jobsLive],
+  );
 
   if (loading) {
     return (

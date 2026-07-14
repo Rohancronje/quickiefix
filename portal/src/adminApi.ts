@@ -19,6 +19,30 @@ import {
   WaitlistEntry,
 } from './types';
 
+/* ---------------------------------------------------------- live queries --- */
+/* Query builders + doc mappers for useLive() in the back office. */
+
+export const allUsersQuery = () => query(collection(db, 'users'));
+export const allJobsQuery = () => query(collection(db, 'jobs'));
+export const allCompaniesQuery = () => query(collection(db, 'companies'));
+export const allComplaintsQuery = () => query(collection(db, 'complaints'));
+export const allFeesQuery = () => query(collection(db, 'feeLineItems'));
+export const pendingTagsQuery = () =>
+  query(collection(db, 'companyTags'), where('status', '==', 'claimed'));
+export const waitlistQuery = () => query(collection(db, 'waitlist'));
+
+export function mapWaitlistDoc(docSnap: {
+  id: string;
+  data: () => unknown;
+}): WaitlistEntry {
+  const d = docSnap.data() as { email: string; role: string; createdAt?: unknown; source?: string };
+  const createdAt =
+    typeof (d.createdAt as { toMillis?: () => number })?.toMillis === 'function'
+      ? (d.createdAt as { toMillis: () => number }).toMillis()
+      : ((d.createdAt as number) || 0);
+  return { id: docSnap.id, email: d.email, role: d.role, createdAt, source: d.source } as WaitlistEntry;
+}
+
 export async function listAllUsers(): Promise<(Tradie | Customer)[]> {
   const snap = await getDocs(collection(db, 'users'));
   return snap.docs.map((d) => d.data() as Tradie | Customer);
@@ -129,22 +153,7 @@ export async function setSharedCredits(companyId: string, n: number): Promise<vo
 
 export async function listWaitlist(): Promise<WaitlistEntry[]> {
   const snap = await getDocs(collection(db, 'waitlist'));
-  return snap.docs
-    .map((doc) => {
-      const d = doc.data() as { email: string; role: string; createdAt?: unknown; source?: string };
-      const createdAt =
-        typeof (d.createdAt as { toMillis?: () => number })?.toMillis === 'function'
-          ? (d.createdAt as { toMillis: () => number }).toMillis()
-          : ((d.createdAt as number) || 0);
-      return {
-        id: doc.id,
-        email: d.email,
-        role: d.role,
-        createdAt,
-        source: d.source,
-      } as WaitlistEntry;
-    })
-    .sort((a, b) => b.createdAt - a.createdAt);
+  return snap.docs.map(mapWaitlistDoc).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function isTradie(u: Tradie | Customer): u is Tradie {

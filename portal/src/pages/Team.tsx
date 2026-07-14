@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { confirmClaimedTag, issueTag, listCompanyTags, listCompanyTradies, removeTag } from '../api';
+import {
+  companyTagsQuery,
+  companyTradiesQuery,
+  confirmClaimedTag,
+  issueTag,
+  removeTag,
+} from '../api';
 import { useAuth } from '../auth';
 import { confirmDialog } from '../components/confirm';
 import { IconTag, IconTradies } from '../backoffice/icons';
@@ -12,8 +18,9 @@ import {
   parseImportCsv,
   VALID_TRADES,
 } from '../importApi';
+import { useLive } from '../live';
 import { initials } from '../lib';
-import { Company, CompanyTag, CompanyTagStatus, Tradie, tradeLabel } from '../types';
+import { CompanyTag, CompanyTagStatus, Tradie, tradeLabel } from '../types';
 
 const TAG_CHIP: Record<CompanyTagStatus, string> = {
   issued: 'co-chip-amber',
@@ -25,8 +32,18 @@ const TAG_CHIP: Record<CompanyTagStatus, string> = {
 export function Team() {
   const { company } = useAuth();
   const nav = useNavigate();
-  const [tradies, setTradies] = useState<Tradie[]>([]);
-  const [tags, setTags] = useState<CompanyTag[]>([]);
+  const cid = company?.id ?? '';
+  // Live listeners — every add/confirm/remove reflects instantly, no refresh.
+  const usersLive = useLive<Tradie>(`companyTradies:${cid}`, () => companyTradiesQuery(cid));
+  const tagsLive = useLive<CompanyTag>(`companyTags:${cid}`, () => companyTagsQuery(cid));
+  const tradies = useMemo(
+    () => (usersLive ?? []).filter((t) => t.role === 'tradie'),
+    [usersLive],
+  );
+  const tags = useMemo(
+    () => [...(tagsLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [tagsLive],
+  );
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // Add-seat form
@@ -57,19 +74,8 @@ export function Team() {
     setResults(res);
     setRows(null);
     setImporting(false);
-    await refresh(company);
     flash(`Imported ${res.filter((r) => r.ok).length} tradie(s)`);
   };
-
-  const refresh = async (c: Company) => {
-    const [t, tg] = await Promise.all([listCompanyTradies(c.id), listCompanyTags(c.id)]);
-    setTradies(t);
-    setTags(tg);
-  };
-
-  useEffect(() => {
-    if (company) void refresh(company);
-  }, [company]);
 
   const flash = (m: string) => {
     setToast(m);
@@ -88,7 +94,6 @@ export function Team() {
     setSeatName('');
     setSeatEmail('');
     setSeatPhone('');
-    await refresh(company);
     setBusy(false);
     flash('Seat added — share the code');
   };
@@ -110,7 +115,6 @@ export function Team() {
       return;
     try {
       await removeTag(tag.id);
-      await refresh(company);
       flash('Seat removed');
     } catch (e) {
       // Never fail silently — a denied write must be visible.
@@ -135,7 +139,6 @@ export function Team() {
       return;
     try {
       await confirmClaimedTag(tag.id);
-      await refresh(company);
       flash(`${tag.issuedToName} is now on your roster ✓`);
     } catch (e) {
       flash(`Could not confirm: ${(e as Error).message}`);

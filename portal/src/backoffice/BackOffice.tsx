@@ -1,21 +1,23 @@
-import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
 import {
+  allCompaniesQuery,
+  allComplaintsQuery,
+  allFeesQuery,
+  allJobsQuery,
+  allUsersQuery,
   isTradie,
-  listAllJobs,
-  listAllUsers,
-  listCompanies,
-  listComplaints,
-  listFeeLineItems,
-  listPendingTags,
-  listWaitlist,
+  mapWaitlistDoc,
+  pendingTagsQuery,
   resolveComplaint,
   setApproval,
   setFreeCredits,
   setPaymentHold,
   setSharedCredits,
   validateTag,
+  waitlistQuery,
 } from '../adminApi';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { centsToDollars, formatDate, formatDuration, initials, stars } from '../lib';
 import {
   Company,
@@ -164,38 +166,45 @@ function relativeTime(ts?: number): string {
 export function BackOffice() {
   const { adminEmail, logout } = useAuth();
   const [tab, setTab] = useState<Tab>('overview');
-  const [users, setUsers] = useState<(Tradie | Customer)[]>([]);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [fees, setFees] = useState<FeeLineItem[]>([]);
-  const [pendingTags, setPendingTags] = useState<CompanyTag[]>([]);
-  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    setLoading(true);
-    const [u, j, c, co, f, pt, wl] = await Promise.all([
-      listAllUsers(),
-      listAllJobs(),
-      listComplaints(),
-      listCompanies(),
-      listFeeLineItems(),
-      listPendingTags(),
-      listWaitlist(),
-    ]);
-    setUsers(u);
-    setJobs(j);
-    setComplaints(c);
-    setCompanies(co);
-    setFees(f);
-    setPendingTags(pt);
-    setWaitlist(wl);
-    setLoading(false);
-  };
-  useEffect(() => {
-    void load();
-  }, []);
+  // Live listeners: every approval, hold, credit change or new signup reflects
+  // instantly — no full reload of seven collections after each click.
+  const usersLive = useLive<Tradie | Customer>('admin:users', allUsersQuery);
+  const jobsLive = useLive<Job>('admin:jobs', allJobsQuery);
+  const complaintsLive = useLive<Complaint>('admin:complaints', allComplaintsQuery);
+  const companiesLive = useLive<Company>('admin:companies', allCompaniesQuery);
+  const feesLive = useLive<FeeLineItem>('admin:fees', allFeesQuery);
+  const pendingTagsLive = useLive<CompanyTag>('admin:pendingTags', pendingTagsQuery);
+  const waitlistLive = useLive<WaitlistEntry>('admin:waitlist', waitlistQuery, mapWaitlistDoc);
+  const loading =
+    !usersLive || !jobsLive || !complaintsLive || !companiesLive || !feesLive ||
+    !pendingTagsLive || !waitlistLive;
+
+  const users = usersLive ?? [];
+  const companies = companiesLive ?? [];
+  const jobs = useMemo(
+    () => [...(jobsLive ?? [])].sort((a, b) => b.timestamps.createdAt - a.timestamps.createdAt),
+    [jobsLive],
+  );
+  const complaints = useMemo(
+    () => [...(complaintsLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [complaintsLive],
+  );
+  const fees = useMemo(
+    () => [...(feesLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [feesLive],
+  );
+  const pendingTags = useMemo(
+    () =>
+      [...(pendingTagsLive ?? [])].sort(
+        (a, b) => (a.claimedAt ?? a.createdAt) - (b.claimedAt ?? b.createdAt),
+      ),
+    [pendingTagsLive],
+  );
+  const waitlist = useMemo(
+    () => [...(waitlistLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
+    [waitlistLive],
+  );
 
   useEffect(() => {
     document.title = `${TAB_TITLES[tab]} · QuickieFix Back Office`;
@@ -212,29 +221,24 @@ export function BackOffice() {
     year: 'numeric',
   });
 
+  // Writes reflect instantly through the live listeners — no reload needed.
   const approve = async (t: Tradie, approval: Tradie['approval']) => {
     await setApproval(t.id, approval);
-    await load();
   };
   const resolve = async (c: Complaint) => {
     await resolveComplaint(c.id);
-    await load();
   };
   const toggleHold = async (t: Tradie) => {
     await setPaymentHold(t.id, !t.paymentHold);
-    await load();
   };
   const updateCredits = async (t: Tradie, credits: number) => {
     await setFreeCredits(t.id, credits);
-    await load();
   };
   const approveTag = async (tag: CompanyTag) => {
     await validateTag(tag.id);
-    await load();
   };
   const updateSharedCredits = async (c: Company, n: number) => {
     await setSharedCredits(c.id, n);
-    await load();
   };
 
   const counts: Partial<Record<Tab, number>> = {

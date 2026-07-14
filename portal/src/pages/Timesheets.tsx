@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { listCompanyJobs, listCompanyTradies } from '../api';
+import { useMemo } from 'react';
+import { companyJobsQuery, companyTradiesQuery } from '../api';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { formatDate, formatDuration } from '../lib';
 import { Job, Tradie, tradeLabel } from '../types';
 
@@ -9,38 +10,27 @@ interface Row {
   job: Job;
 }
 
-// Session cache — instant render on revisit, background refresh.
-const sheetCache = new Map<string, Row[]>();
-
 /** Company-wide timesheets: every completed job across the roster, exportable
- *  as CSV for payroll / invoicing runs. */
+ *  as CSV for payroll / invoicing runs. Live — new completions appear as they
+ *  happen. */
 export function Timesheets() {
   const { company } = useAuth();
-  const cached = company ? sheetCache.get(company.id) : undefined;
-  const [rows, setRows] = useState<Row[]>(cached ?? []);
-  const [loading, setLoading] = useState(!cached);
+  const cid = company?.id ?? '';
+  const usersLive = useLive<Tradie>(`companyTradies:${cid}`, () => companyTradiesQuery(cid));
+  const jobsLive = useLive<Job>(`companyJobs:${cid}`, () => companyJobsQuery(cid));
+  const loading = !usersLive || !jobsLive;
 
-  useEffect(() => {
-    if (!company) return;
-    (async () => {
-      // Two parallel queries: the roster + every company job in one shot.
-      const [tradies, jobs] = await Promise.all([
-        listCompanyTradies(company.id),
-        listCompanyJobs(company.id),
-      ]);
-      const byId = new Map(tradies.map((t) => [t.id, t]));
-      const all: Row[] = [];
-      for (const job of jobs) {
-        if (job.status !== 'completed' || !job.tradieId) continue;
-        const tradie = byId.get(job.tradieId);
-        if (tradie) all.push({ tradie, job });
-      }
-      all.sort((a, b) => (b.job.timestamps.completedAt ?? 0) - (a.job.timestamps.completedAt ?? 0));
-      sheetCache.set(company.id, all);
-      setRows(all);
-      setLoading(false);
-    })();
-  }, [company]);
+  const rows = useMemo<Row[]>(() => {
+    const byId = new Map((usersLive ?? []).map((t) => [t.id, t]));
+    const all: Row[] = [];
+    for (const job of jobsLive ?? []) {
+      if (job.status !== 'completed' || !job.tradieId) continue;
+      const tradie = byId.get(job.tradieId);
+      if (tradie) all.push({ tradie, job });
+    }
+    all.sort((a, b) => (b.job.timestamps.completedAt ?? 0) - (a.job.timestamps.completedAt ?? 0));
+    return all;
+  }, [usersLive, jobsLive]);
 
   const minutes = (a?: number, b?: number) => (a && b ? Math.round((a - b) / 60000) : '');
 

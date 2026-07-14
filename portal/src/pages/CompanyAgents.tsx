@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { listCompanyAgencyLinks, requestCompanyAgencyLink } from '../agencyApi';
+import { useMemo, useState } from 'react';
+import { companyAgencyLinksQuery, requestCompanyAgencyLink } from '../agencyApi';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { AgencyLink } from '../types';
 
 /**
@@ -10,7 +11,17 @@ import { AgencyLink } from '../types';
  */
 export function CompanyAgents() {
   const { company } = useAuth();
-  const [links, setLinks] = useState<AgencyLink[]>([]);
+  const cid = company?.id ?? '';
+  const linksLive = useLive<AgencyLink>(`companyAgencyLinks:${cid}`, () =>
+    companyAgencyLinksQuery(cid),
+  );
+  const links = useMemo(
+    () =>
+      (linksLive ?? [])
+        .filter((l) => l.status !== 'removed')
+        .sort((a, b) => b.requestedAt - a.requestedAt),
+    [linksLive],
+  );
   const [code, setCode] = useState('');
   const [scope, setScope] = useState<'all' | 'employees'>('all');
   const [busy, setBusy] = useState(false);
@@ -21,17 +32,12 @@ export function CompanyAgents() {
     setTimeout(() => setToast(null), 2400);
   };
 
-  useEffect(() => {
-    if (company) void listCompanyAgencyLinks(company.id).then(setLinks);
-  }, [company]);
-
   const join = async () => {
     if (!company || !code.trim()) return;
     setBusy(true);
     try {
       const name = await requestCompanyAgencyLink(company, code, scope);
       setCode('');
-      setLinks(await listCompanyAgencyLinks(company.id));
       flash(`Request sent to ${name} — pending their approval`);
     } catch (e) {
       flash((e as Error).message);

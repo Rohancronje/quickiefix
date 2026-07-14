@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { computeStats, listCompanyJobs, listCompanyTags, listCompanyTradies } from '../api';
+import { companyJobsQuery, companyTagsQuery, companyTradiesQuery, computeStats } from '../api';
 import { useAuth } from '../auth';
 import {
   IconArrowRight,
@@ -9,54 +9,47 @@ import {
   IconMetrics,
   IconTradies,
 } from '../backoffice/icons';
+import { useLive } from '../live';
 import { formatDuration, initials, stars } from '../lib';
-import { Tradie, TradieStats, tradeLabel } from '../types';
+import { CompanyTag, Job, Tradie, TradieStats, tradeLabel } from '../types';
 
 interface Row {
   tradie: Tradie;
   stats: TradieStats;
 }
 
-// Session cache: clicking back to the Dashboard renders the last data
-// INSTANTLY and refreshes quietly in the background (stale-while-revalidate).
-const dashCache = new Map<string, { rows: Row[]; seatsIssued: number }>();
-
 export function Dashboard() {
   const { company } = useAuth();
   const nav = useNavigate();
-  const cached = company ? dashCache.get(company.id) : undefined;
-  const [rows, setRows] = useState<Row[]>(cached?.rows ?? []);
-  const [seatsIssued, setSeatsIssued] = useState(cached?.seatsIssued ?? 0);
-  const [loading, setLoading] = useState(!cached);
+  const cid = company?.id ?? '';
 
-  useEffect(() => {
-    if (!company) return;
-    (async () => {
-      // Three parallel queries — no per-tradie waterfall.
-      const [tradies, tags, jobs] = await Promise.all([
-        listCompanyTradies(company.id),
-        listCompanyTags(company.id),
-        listCompanyJobs(company.id),
-      ]);
-      const byTradie = new Map<string, typeof jobs>();
-      for (const j of jobs) {
-        if (!j.tradieId) continue;
-        byTradie.set(j.tradieId, [...(byTradie.get(j.tradieId) ?? []), j]);
-      }
-      const nextRows = tradies.map((tradie) => ({
-        tradie,
-        stats: computeStats(byTradie.get(tradie.id) ?? []),
-      }));
-      nextRows.sort((a, b) => b.stats.completedJobs - a.stats.completedJobs);
-      // A seat you've issued counts as "tradie added" — validation is
-      // QuickieFix's job, and the checklist shouldn't stall on our queue.
-      const nextSeats = tags.filter((t) => t.status !== 'removed').length;
-      dashCache.set(company.id, { rows: nextRows, seatsIssued: nextSeats });
-      setRows(nextRows);
-      setSeatsIssued(nextSeats);
-      setLoading(false);
-    })();
-  }, [company]);
+  // Live listeners: instant paint from the local cache, and every change
+  // (job completed, seat removed, tradie confirmed) streams in by itself.
+  const users = useLive<Tradie>(`companyTradies:${cid}`, () => companyTradiesQuery(cid));
+  const tags = useLive<CompanyTag>(`companyTags:${cid}`, () => companyTagsQuery(cid));
+  const jobs = useLive<Job>(`companyJobs:${cid}`, () => companyJobsQuery(cid));
+  const loading = !users || !tags || !jobs;
+
+  const rows = useMemo<Row[]>(() => {
+    if (!users || !jobs) return [];
+    const byTradie = new Map<string, Job[]>();
+    for (const j of jobs) {
+      if (!j.tradieId) continue;
+      byTradie.set(j.tradieId, [...(byTradie.get(j.tradieId) ?? []), j]);
+    }
+    const next = users
+      .filter((t) => t.role === 'tradie')
+      .map((tradie) => ({ tradie, stats: computeStats(byTradie.get(tradie.id) ?? []) }));
+    next.sort((a, b) => b.stats.completedJobs - a.stats.completedJobs);
+    return next;
+  }, [users, jobs]);
+
+  // A seat you've issued counts as "tradie added" — validation is
+  // QuickieFix's job, and the checklist shouldn't stall on our queue.
+  const seatsIssued = useMemo(
+    () => (tags ?? []).filter((t) => t.status !== 'removed').length,
+    [tags],
+  );
 
   const totalJobs = rows.reduce((s, r) => s + r.stats.completedJobs, 0);
   const totalOnSite = rows.reduce((s, r) => s + r.stats.totalOnSiteMs, 0);

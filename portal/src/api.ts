@@ -17,6 +17,18 @@ import {
 import { auth, db } from './firebase';
 import { Company, CompanyAdmin, CompanyTag, FeeLineItem, Job, RateCard, Tradie, TradieStats } from './types';
 
+/* ---------------------------------------------------------- live queries --- */
+/* Query builders for useLive() — all narrow, account-scoped. */
+
+export const companyTradiesQuery = (companyId: string) =>
+  query(collection(db, 'users'), where('companyId', '==', companyId));
+export const companyTagsQuery = (companyId: string) =>
+  query(collection(db, 'companyTags'), where('companyId', '==', companyId));
+export const companyJobsQuery = (companyId: string) =>
+  query(collection(db, 'jobs'), where('companyId', '==', companyId));
+export const companyFeesQuery = (companyId: string) =>
+  query(collection(db, 'feeLineItems'), where('companyId', '==', companyId));
+
 const TAG_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 const TAG_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

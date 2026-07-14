@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { listCompanyJobs, listCompanyTradies } from '../api';
+import { useMemo, useState } from 'react';
+import { companyJobsQuery, companyTradiesQuery } from '../api';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { formatDate, stars } from '../lib';
 import { Job, Tradie, tradeLabel } from '../types';
 
@@ -10,20 +11,22 @@ import { Job, Tradie, tradeLabel } from '../types';
  */
 export function CompanyReputation() {
   const { company } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [tradies, setTradies] = useState<Tradie[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cid = company?.id ?? '';
+  const jobsLive = useLive<Job>(`companyJobs:${cid}`, () => companyJobsQuery(cid));
+  const tradiesLive = useLive<Tradie>(`companyTradies:${cid}`, () => companyTradiesQuery(cid));
   const [copied, setCopied] = useState<string | null>(null);
+  const loading = !jobsLive || !tradiesLive;
 
-  useEffect(() => {
-    if (!company) return;
-    (async () => {
-      const [j, t] = await Promise.all([listCompanyJobs(company.id), listCompanyTradies(company.id)]);
-      setJobs(j.filter((x) => x.customerRating));
-      setTradies(t);
-      setLoading(false);
-    })();
-  }, [company]);
+  const jobs = useMemo(
+    () =>
+      (jobsLive ?? [])
+        .filter((x) => x.customerRating)
+        .sort(
+          (a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0),
+        ),
+    [jobsLive],
+  );
+  const tradies = tradiesLive ?? [];
 
   const byId = new Map(tradies.map((t) => [t.id, t]));
   const avg =

@@ -17,6 +17,18 @@ import {
 import { auth, db } from './firebase';
 import { Agency, AgencyLink, Company, Job, Property } from './types';
 
+/* ---------------------------------------------------------- live queries --- */
+/* Query builders for useLive() — all narrow, account-scoped. */
+
+export const panelQuery = (agencyId: string) =>
+  query(collection(db, 'agencyLinks'), where('agencyId', '==', agencyId));
+export const agencyPropertiesQuery = (adminUserId: string) =>
+  query(collection(db, 'properties'), where('landlordId', '==', adminUserId));
+export const agencyJobsQuery = (agencyId: string) =>
+  query(collection(db, 'jobs'), where('agencyId', '==', agencyId));
+export const companyAgencyLinksQuery = (companyId: string) =>
+  query(collection(db, 'agencyLinks'), where('memberId', '==', companyId));
+
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export function generateAgencyCode(): string {

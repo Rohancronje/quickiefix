@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { listCompanyJobs, listCompanyTradies } from '../api';
+import { useMemo, useState } from 'react';
+import { companyJobsQuery, companyTradiesQuery } from '../api';
 import { useAuth } from '../auth';
+import { useLive } from '../live';
 import { formatDate } from '../lib';
 import { Job, Tradie, tradeLabel } from '../types';
 
@@ -18,23 +19,24 @@ const STATUS_CHIP: Record<string, string> = {
   no_tradie_found: 'co-chip-amber',
 };
 
-/** The company's live job board — who's on what, right now. */
+/** The company's live job board — who's on what, right now. Genuinely live:
+ *  status changes stream in as tradies accept, travel, arrive and complete. */
 export function CompanyJobs() {
   const { company } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [tradies, setTradies] = useState<Tradie[]>([]);
+  const cid = company?.id ?? '';
+  const jobsLive = useLive<Job>(`companyJobs:${cid}`, () => companyJobsQuery(cid));
+  const tradiesLive = useLive<Tradie>(`companyTradies:${cid}`, () => companyTradiesQuery(cid));
   const [filter, setFilter] = useState<Filter>('All');
-  const [loading, setLoading] = useState(true);
+  const loading = !jobsLive || !tradiesLive;
 
-  useEffect(() => {
-    if (!company) return;
-    (async () => {
-      const [j, t] = await Promise.all([listCompanyJobs(company.id), listCompanyTradies(company.id)]);
-      setJobs(j);
-      setTradies(t);
-      setLoading(false);
-    })();
-  }, [company]);
+  const jobs = useMemo(
+    () =>
+      [...(jobsLive ?? [])].sort(
+        (a, b) => b.timestamps.createdAt - a.timestamps.createdAt,
+      ),
+    [jobsLive],
+  );
+  const tradies = tradiesLive ?? [];
 
   const byId = new Map(tradies.map((t) => [t.id, t]));
   const filtered = jobs.filter((j) =>
