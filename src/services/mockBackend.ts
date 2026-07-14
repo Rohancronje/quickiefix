@@ -21,6 +21,7 @@ import {
   FeeLineItem,
   GeoPoint,
   Job,
+  Location,
   Message,
   Property,
   RateCard,
@@ -615,6 +616,20 @@ class MockBackend implements Backend {
   }
 
   /* --------------------------------------------------- property agencies -- */
+
+  async setCustomerAddress(
+    customerId: string,
+    kind: 'home' | 'work',
+    location: Location | null,
+  ): Promise<void> {
+    await this.ensureLoaded();
+    const u = this.db.users[customerId] as Customer | undefined;
+    if (!u) throw new Error('Customer not found.');
+    const field = kind === 'home' ? 'homeAddress' : 'workAddress';
+    if (location) u[field] = location;
+    else delete u[field];
+    this.commit();
+  }
 
   async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {
     return panelFromLinks(

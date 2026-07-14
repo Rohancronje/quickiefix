@@ -187,6 +187,12 @@ export interface Backend {
   releaseJob(jobId: string, tradieId: string): Promise<void>;
 
   // ---- Property agencies (approved-panel model) ----
+  /** Save or clear the customer's saved home/work address. */
+  setCustomerAddress(
+    customerId: string,
+    kind: 'home' | 'work',
+    location: Location | null,
+  ): Promise<void>;
   /** The agency's approved panel — who can serve jobs at its properties.
    *  Powers the request-flow preview so customers only see approved tradies. */
   getAgencyPanel(agencyId: string): Promise<AgencyPanel>;

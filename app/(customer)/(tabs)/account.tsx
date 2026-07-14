@@ -15,9 +15,10 @@ import {
   useTenantProperties,
 } from '../../../src/hooks/useData';
 import { initials } from '../../../src/lib/format';
+import { AddressField } from '../../../src/components/AddressField';
 import { backend, resetDemoData } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
-import { Property } from '../../../src/types';
+import { Location, Property } from '../../../src/types';
 
 export default function CustomerAccount() {
   const customer = useCustomer();
@@ -66,9 +67,9 @@ export default function CustomerAccount() {
       </Card>
 
       <Card style={{ gap: spacing.md }}>
-        <Row label="Saved home address" value={customer.homeAddress?.address ?? 'Not set'} />
+        <EditableAddress customerId={customer.id} kind="home" label="Saved home address" current={customer.homeAddress} />
         <Divider spacingV={spacing.xs} />
-        <Row label="Saved work address" value={customer.workAddress?.address ?? 'Not set'} />
+        <EditableAddress customerId={customer.id} kind="work" label="Saved work address" current={customer.workAddress} />
       </Card>
 
       <PropertiesSection customerId={customer.id} customerName={`${customer.firstName} ${customer.lastName}`} />
@@ -273,6 +274,97 @@ function Row({ label, value }: { label: string; value: string }) {
         {label}
       </Txt>
       <Txt variant="body">{value}</Txt>
+    </View>
+  );
+}
+
+/** Saved home/work address with inline editing (Places-backed). */
+function EditableAddress({
+  customerId,
+  kind,
+  label,
+  current,
+}: {
+  customerId: string;
+  kind: 'home' | 'work';
+  label: string;
+  current?: Location;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    await backend
+      .setCustomerAddress(
+        customerId,
+        kind,
+        address.trim() ? { address: address.trim(), ...(coords ?? {}) } : null,
+      )
+      .catch((e) => appAlert('Could not save', (e as Error).message));
+    setBusy(false);
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Row label={label} value={current?.address ?? 'Not set'} />
+        </View>
+        <Button
+          title={current ? 'Edit' : 'Set'}
+          kind="ghost"
+          small
+          fullWidth={false}
+          onPress={() => {
+            setAddress(current?.address ?? '');
+            setCoords(
+              current?.latitude != null && current?.longitude != null
+                ? { latitude: current.latitude, longitude: current.longitude }
+                : null,
+            );
+            setEditing(true);
+          }}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <AddressField
+        label={label}
+        placeholder="12 Queen Street, Auckland"
+        value={address}
+        onChangeText={(t) => {
+          setAddress(t);
+          setCoords(null);
+        }}
+        onSelect={(r) => {
+          setAddress(r.address);
+          setCoords(
+            r.latitude != null && r.longitude != null
+              ? { latitude: r.latitude, longitude: r.longitude }
+              : null,
+          );
+        }}
+      />
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Cancel" kind="ghost" small onPress={() => setEditing(false)} />
+        </View>
+        <View style={{ flex: 2 }}>
+          <Button
+            title={address.trim() ? 'Save' : 'Clear address'}
+            small
+            loading={busy}
+            onPress={save}
+          />
+        </View>
+      </View>
     </View>
   );
 }

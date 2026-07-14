@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { appAlert } from './AppAlert';
+import { useTenantProperties } from '../hooks/useData';
 import { backend } from '../services';
 import { colors, radius, spacing } from '../theme';
 import { AgencyLink, AppUser } from '../types';
@@ -16,6 +17,9 @@ export function TenantAgencyCard({ user }: { user: AppUser }) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Confirmed but not linked to a property yet? Tell the tenant what's
+  // missing instead of leaving a silent gap.
+  const rented = useTenantProperties(user.id);
 
   useEffect(() => backend.subscribeMyAgencyLinks(user.id, setLinks), [user.id]);
 
@@ -71,6 +75,12 @@ export function TenantAgencyCard({ user }: { user: AppUser }) {
           </View>
         </View>
       ))}
+      {links.some((l) => l.status === 'approved') && rented.length === 0 && (
+        <Txt variant="caption" color={colors.warning}>
+          ⚠️ You're confirmed, but your property manager hasn't linked you to your address yet —
+          ask them to add you to your property so repairs there are one tap away.
+        </Txt>
+      )}
       <Field
         placeholder="Agent code (e.g. QF-AG-7K2P)"
         autoCapitalize="characters"

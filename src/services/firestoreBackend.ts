@@ -692,6 +692,24 @@ export class FirestoreBackend implements Backend {
     });
   }
 
+  async setCustomerAddress(
+    customerId: string,
+    kind: 'home' | 'work',
+    location: Location | null,
+  ): Promise<void> {
+    const field = kind === 'home' ? 'homeAddress' : 'workAddress';
+    // Firestore rejects undefined values — only include coords when pinned.
+    const clean = location
+      ? {
+          address: location.address,
+          ...(location.latitude != null && location.longitude != null
+            ? { latitude: location.latitude, longitude: location.longitude }
+            : {}),
+        }
+      : deleteField();
+    await updateDoc(this.userRef(customerId), { [field]: clean });
+  }
+
   /* --------------------------------------------------- property agencies -- */
 
   async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {

@@ -116,6 +116,10 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const approvedPanel = approved.filter((l) => l.kind !== 'tenant');
   const approvedTenants = approved.filter((l) => l.kind === 'tenant');
   const confirmedTenantEmails = approvedTenants.map((l) => l.memberEmail).filter(Boolean) as string[];
+  // Confirmed tenants who are NOT linked to any property yet — they can't
+  // raise repairs against their address until this is fixed, so shout.
+  const linkedTenantIds = new Set(properties.flatMap((p) => p.tenantIds));
+  const unlinkedTenants = approvedTenants.filter((l) => !linkedTenantIds.has(l.memberId));
   const tenantsLinked = properties.reduce((s, p) => s + p.tenantIds.length, 0);
   const completedJobs = jobs.filter((j) => j.status === 'completed').length;
   const activeJobs = jobs.filter((j) =>
@@ -648,6 +652,39 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                         </>,
                       ),
                     )}
+                  </div>
+                )}
+
+                {/* Confirmed but not linked to any property — their app shows
+                    no rental and repairs can't route. Make it unmissable. */}
+                {unlinkedTenants.length > 0 && (
+                  <div
+                    className="co-card"
+                    style={{ marginBottom: 16, border: '1px solid #E8B33C', background: '#FFF9EC' }}
+                  >
+                    <div className="co-sectionhead">
+                      ⚠️ Confirmed tenants without a property ({unlinkedTenants.length})
+                    </div>
+                    <p className="co-help">
+                      These tenants confirmed your agency code, but their invite email didn't match
+                      any property — so they can't see their rental or raise repairs yet. Link each
+                      one below: find their property and type their email into its tenant box
+                      (they'll appear in the suggestions).
+                    </p>
+                    {unlinkedTenants.map((l) => (
+                      <div
+                        key={l.id}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontWeight: 600 }}>{l.memberName}</span>{' '}
+                          <span className="co-sub" style={{ fontSize: 12.5 }}>
+                            {l.memberEmail ?? 'no email on file'}
+                          </span>
+                        </div>
+                        <span className="co-chip co-chip-amber">not linked</span>
+                      </div>
+                    ))}
                   </div>
                 )}
 
