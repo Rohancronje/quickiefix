@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "quickiefix-2ea2a"
+    "default": "quickiefix-2ea2a",
+    "prod": "quickiefix-2ea2a",
+    "staging": "quickiefix-staging"
   }
 }
