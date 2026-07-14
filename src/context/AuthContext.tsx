@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /** Local marker: this device has logged in before → cold starts route straight
@@ -79,6 +79,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(HAD_SESSION_KEY).catch(() => null),
       ]);
 
+      // WEB: a refresh or deep link IS a cold start, so the banking policy
+      // would bounce every reload back to login. Restore the persisted
+      // session like any website instead — the policy stays native-only.
+      if (Platform.OS === 'web') {
+        const u = await getSessionUser();
+        if (!u && hadSession === '1') setSessionEnded(true);
+        bind(u);
+        setLoading(false);
+        return;
+      }
+
       if (!bioEnabled) {
         if (hadSession === '1') setSessionEnded(true); // returning user → login
         bind(null);
@@ -127,6 +138,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // everyone else is signed out to the login screen. The grace window means
   // quickly hopping to Maps and back never logs a tradie out.
   useEffect(() => {
+    // Web: switching browser tabs fires background/active constantly — ending
+    // the session for that would be hostile. Native-only policy.
+    if (Platform.OS === 'web') return;
     const BG_GRACE_MS = 60_000;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') {

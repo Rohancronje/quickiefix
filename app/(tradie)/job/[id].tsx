@@ -164,7 +164,11 @@ export default function TradieJob() {
         <StatusPill status={job.status} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Customer + location */}
         <Card style={{ gap: spacing.sm }}>
           <Txt variant="label">Customer</Txt>
