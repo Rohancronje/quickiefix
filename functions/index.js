@@ -292,6 +292,26 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
             status: 'no_tradie_found',
             'timestamps.noTradieFoundAt': now,
           });
+          // Nobody should learn about the expiry from a stale screen: the
+          // customer can retry, and interested tradies stop waiting.
+          const interested = (job.interestedTradies ?? []).map((t) => t.tradieId).filter(Boolean);
+          const custTokens = await pushTokensFor(job.customerId ? [job.customerId] : []);
+          const tradTokens = await pushTokensFor(interested);
+          await expoPush([
+            ...custTokens.map((to) => ({
+              to,
+              title: '⏳ Your job request expired',
+              body: 'Your browse-and-choose request sat for 24 hours — open it to try again.',
+              sound: 'default',
+              data: { jobId: d.id, role: 'customer' },
+            })),
+            ...tradTokens.map((to) => ({
+              to,
+              title: 'Job expired',
+              body: 'A job you were keen on expired before the customer chose — more are always coming.',
+              data: { jobId: d.id, role: 'tradie' },
+            })),
+          ]);
         }
         return;
       }
@@ -989,12 +1009,48 @@ exports.onJobPushOffers = onDocumentCreated('jobs/{jobId}', async (event) => {
   // arrives — pinging tradies now for tomorrow's job would just be noise.
   if ((job.dispatch?.startedAt ?? 0) > Date.now()) return;
   const candidates = job.dispatch?.candidateIds ?? [];
-  if (!candidates.length) return;
-  await notifyOfferCandidates(
-    event.data.ref,
-    job,
-    event.params.jobId,
-    candidates.slice(0, PUSH_WAVE.first),
+  if (candidates.length) {
+    await notifyOfferCandidates(
+      event.data.ref,
+      job,
+      event.params.jobId,
+      candidates.slice(0, PUSH_WAVE.first),
+    );
+  }
+  // Agency-raised job: the tenant is the customer of record but didn't tap the
+  // button — tell them their property manager has a tradie on the way.
+  if (job.raisedVia === 'agency_portal' && job.customerId) {
+    const tokens = await pushTokensFor([job.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: `🏢 ${job.agencyName || 'Your property manager'} raised a repair for your place`,
+        body: `${snip(job.description)} — track the tradie live in the app.`,
+        sound: 'default',
+        data: { jobId: event.params.jobId, role: 'customer' },
+      })),
+    );
+  }
+});
+
+/** New message → push the party who DIDN'T send it. */
+exports.onMessagePosted = onDocumentCreated('messages/{id}', async (event) => {
+  const msg = event.data?.data();
+  if (!msg?.jobId) return;
+  const jobSnap = await admin.firestore().collection('jobs').doc(msg.jobId).get();
+  if (!jobSnap.exists) return;
+  const job = jobSnap.data();
+  const recipient = msg.from === 'customer' ? job.tradieId : job.customerId;
+  if (!recipient) return;
+  const tokens = await pushTokensFor([recipient]);
+  await expoPush(
+    tokens.map((to) => ({
+      to,
+      title: `💬 ${msg.senderName || 'New message'}`,
+      body: snip(msg.text, 120),
+      sound: 'default',
+      data: { jobId: msg.jobId, role: msg.from === 'customer' ? 'tradie' : 'customer' },
+    })),
   );
 });
 
@@ -1069,6 +1125,23 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
         data: { jobId, role: 'customer' },
       })),
     );
+    // …and close the loop for the interested tradies who WEREN'T picked, so
+    // they aren't left watching a stale job.
+    const losers = (after.interestedTradies ?? [])
+      .map((t) => t.tradieId)
+      .filter((id) => id && id !== after.tradieId);
+    if (losers.length) {
+      const loserTokens = await pushTokensFor(losers);
+      await expoPush(
+        loserTokens.map((to) => ({
+          to,
+          title: 'Job taken',
+          body: `${after.customerName || 'The customer'} went with another tradie this time — more jobs are always coming.`,
+          sound: 'default',
+          data: { jobId, role: 'tradie' },
+        })),
+      );
+    }
   }
 
   // Tradie is on the way / arrived → keep the customer in the loop.
@@ -1079,6 +1152,20 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
         to,
         title: '🚗 On the way',
         body: `${after.tradieName || 'Your tradie'} is heading to you now.`,
+        sound: 'default',
+        data: { jobId, role: 'customer' },
+      })),
+    );
+  }
+
+  // Tradie arrived on site → the customer should know the clock has started.
+  if (after.status === 'on_site' && before.status !== 'on_site' && after.customerId) {
+    const tokens = await pushTokensFor([after.customerId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: '🛠️ Your tradie has arrived',
+        body: `${after.tradieName || 'Your tradie'} is on site and getting started.`,
         sound: 'default',
         data: { jobId, role: 'customer' },
       })),
