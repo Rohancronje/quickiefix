@@ -18,15 +18,31 @@ CLI aliases (`.firebaserc`): `--project prod` / `--project staging`.
 - **Daily backup schedule** on prod, 7-day retention
   (schedule id `9cc7c507-f433-4c9f-a3ab-6be917f51dc4`).
 
-## Staging — remaining one-time console steps (~10 min)
+## Staging — status
 
-1. **Authentication**: [staging console](https://console.firebase.google.com/project/quickiefix-staging/authentication) → Get started → enable **Email/Password**. (The API bootstrap needs this one click or billing.)
-2. **Billing (Blaze)**: link the same billing account as prod — required for
+1. ✅ **Authentication** enabled (Email/Password confirmed ON, 15 Jul 2026).
+   Google sign-in was also toggled on in the console — unused by the app, harmless;
+   the "download new config file / SHA-1" console prompt can be ignored until we
+   ever build an APK against staging.
+2. ⬜ **Billing (Blaze)**: link the same billing account as prod — required for
    functions + storage on staging. Console → ⚙ → Usage and billing.
-3. After billing: `npx firebase-tools deploy --only functions --project staging`
+3. ⬜ After billing: `npx firebase-tools deploy --only functions --project staging`
    (set the `BREVO_API_KEY` secret first: `npx firebase-tools functions:secrets:set BREVO_API_KEY --project staging` — use a Brevo test key, not the prod one).
-4. **Move test accounts here over time**: User1–21, demo-company, demo-property
+4. ⬜ **Move test accounts here over time**: User1–21, demo-company, demo-property
    belong in staging once real customers exist in prod.
+
+### Staging client configs (saved, not yet wired anywhere)
+
+- Android: `google-services.staging.json` at repo root — swap in for a staging APK build.
+- Web (`src/services/firebaseConfig.ts` values for a staging build):
+  ```
+  projectId: quickiefix-staging
+  apiKey: AIzaSyAp74jq40qkb8QgI-Du4lAxvfcMF_V1RTw
+  authDomain: quickiefix-staging.firebaseapp.com
+  storageBucket: quickiefix-staging.firebasestorage.app
+  messagingSenderId: 980457473979
+  appId: 1:980457473979:web:9e220ffbc5f80405c2669e
+  ```
 
 ## Hardening roadmap (agreed 15 Jul 2026)
 
