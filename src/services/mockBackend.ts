@@ -249,6 +249,33 @@ class MockBackend implements Backend {
     await AsyncStorage.removeItem(SESSION_KEY);
   }
 
+  async deleteAccount(): Promise<void> {
+    await this.ensureLoaded();
+    const id = await AsyncStorage.getItem(SESSION_KEY);
+    if (!id) return;
+    const user = this.db.users[id];
+    if (user) {
+      // Mirror the cloud cleanup: credentials, profile, properties, seats, links.
+      delete this.db.credentials[user.email.trim().toLowerCase()];
+      for (const p of Object.values(this.db.properties)) {
+        if (p.landlordId === id) delete this.db.properties[p.id];
+        else p.tenantIds = p.tenantIds.filter((t) => t !== id);
+      }
+      for (const t of Object.values(this.db.tags)) {
+        if (t.claimedByUserId === id && t.status !== 'removed') {
+          t.status = 'removed';
+          t.removedAt = Date.now();
+        }
+      }
+      for (const l of Object.values(this.db.agencyLinks)) {
+        if (l.memberId === id) l.status = 'removed';
+      }
+      delete this.db.users[id];
+      this.commit();
+    }
+    await AsyncStorage.removeItem(SESSION_KEY);
+  }
+
   async setPushToken(userId: string, token: string | null): Promise<void> {
     await this.ensureLoaded();
     const u = this.db.users[userId];

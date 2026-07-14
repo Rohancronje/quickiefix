@@ -187,6 +187,9 @@ export interface Backend {
   releaseJob(jobId: string, tradieId: string): Promise<void>;
 
   // ---- Property agencies (approved-panel model) ----
+  /** Permanently delete the signed-in user's account and personal data
+   *  (Google Play requirement). Completed-job records are de-identified. */
+  deleteAccount(): Promise<void>;
   /** Save or clear the customer's saved home/work address. */
   setCustomerAddress(
     customerId: string,

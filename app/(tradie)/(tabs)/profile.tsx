@@ -8,7 +8,7 @@ import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Chip, Divider, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, tradeMeta } from '../../../src/constants';
 import { useAuth, useTradie } from '../../../src/context/AuthContext';
-import { backend, resetDemoData } from '../../../src/services';
+import { backend, resetDemoData, usingFirebase } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
 import { AgencyLink, Engagement, RateCard } from '../../../src/types';
 
@@ -190,6 +190,28 @@ export default function TradieProfile() {
     suspended: { label: '⛔ Suspended', color: colors.danger, soft: colors.dangerSoft },
   }[tradie.approval];
 
+  const confirmDeleteAccount = () => {
+    appAlert(
+      'Delete your account?',
+      'This permanently removes your profile, business details and sign-in, and ends any company seat or agency panel membership. Completed-job records are kept in de-identified form for billing law. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete my account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await backend.deleteAccount();
+              await logout();
+            } catch (e) {
+              appAlert('Could not delete account', (e as Error).message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const confirmReset = () => {
     appAlert('Reset demo data?', 'Clears all local data and logs you out.', [
       { text: 'Cancel', style: 'cancel' },
@@ -321,7 +343,10 @@ export default function TradieProfile() {
 
       <View style={{ gap: spacing.md, marginTop: spacing.md }}>
         <Button title="Log out" kind="ghost" onPress={logout} />
-        <Button title="Reset demo data" kind="ghost" onPress={confirmReset} />
+        {/* Demo-only control — hidden on the live backend. */}
+        {!usingFirebase && <Button title="Reset demo data" kind="ghost" onPress={confirmReset} />}
+        {/* Google Play requirement: in-app account deletion. */}
+        <Button title="Delete my account" kind="danger" onPress={confirmDeleteAccount} />
       </View>
     </Screen>
   );

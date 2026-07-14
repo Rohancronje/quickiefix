@@ -1,0 +1,32 @@
+/* Shared style for QuickieFix legal pages — light, readable, on-brand. */
+:root {
+  --navy: #0b1220;
+  --amber: #f5a623;
+  --ink: #1c2434;
+  --muted: #5a6478;
+  --line: #e6eaf2;
+  --bg: #f7f8fb;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--ink); line-height: 1.7; }
+header { background: var(--navy); padding: 20px 0; }
+header .wrap { display: flex; align-items: center; justify-content: space-between; }
+header img { height: 28px; display: block; }
+header a { color: var(--amber); text-decoration: none; font-weight: 600; font-size: 14px; }
+.wrap { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+main { padding: 48px 0 64px; }
+h1 { font-size: 32px; line-height: 1.2; margin-bottom: 8px; }
+.updated { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+h2 { font-size: 20px; margin: 36px 0 12px; }
+h3 { font-size: 16px; margin: 24px 0 8px; }
+p, li { font-size: 15.5px; color: var(--ink); margin-bottom: 12px; }
+ul, ol { padding-left: 24px; margin-bottom: 16px; }
+li { margin-bottom: 6px; }
+table { border-collapse: collapse; width: 100%; margin: 16px 0 24px; font-size: 14.5px; }
+th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+th { background: #fff; font-weight: 700; }
+td { background: #fff; }
+.note { background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--amber); border-radius: 8px; padding: 14px 18px; margin: 20px 0; font-size: 14.5px; }
+a { color: #b97a00; }
+footer { border-top: 1px solid var(--line); padding: 32px 0; text-align: center; color: var(--muted); font-size: 14px; }
+footer a { margin: 0 8px; }

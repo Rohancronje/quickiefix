@@ -26,6 +26,28 @@ export default function CustomerAccount() {
   const jobs = useCustomerJobs(customer.id);
   const completed = jobs.filter((j) => j.status === 'completed').length;
 
+  const confirmDeleteAccount = () => {
+    appAlert(
+      'Delete your account?',
+      'This permanently removes your profile, addresses and sign-in. Completed-job records are kept in de-identified form for billing law. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete my account',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await backend.deleteAccount();
+              await logout();
+            } catch (e) {
+              appAlert('Could not delete account', (e as Error).message);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const confirmReset = () => {
     appAlert(
       'Reset demo data?',
@@ -87,6 +109,8 @@ export default function CustomerAccount() {
         <Button title="Log out" kind="ghost" onPress={logout} />
         {/* Demo-only control — hidden on the live backend. */}
         {!usingFirebase && <Button title="Reset demo data" kind="ghost" onPress={confirmReset} />}
+        {/* Google Play requirement: in-app account deletion. */}
+        <Button title="Delete my account" kind="danger" onPress={confirmDeleteAccount} />
       </View>
     </Screen>
   );

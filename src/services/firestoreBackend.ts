@@ -217,6 +217,14 @@ export class FirestoreBackend implements Backend {
     });
   }
 
+  async deleteAccount(): Promise<void> {
+    if (!functions) throw new Error('Account deletion is unavailable right now.');
+    // Admin-side cleanup (profile, properties, seats, links, auth user) — works
+    // without a recent re-login, unlike client-side auth deletion.
+    await httpsCallable(functions, 'deleteMyAccount')({});
+    await signOut(this.auth).catch(() => {});
+  }
+
   async logout(): Promise<void> {
     await signOut(this.auth);
   }

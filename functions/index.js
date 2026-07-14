@@ -657,6 +657,46 @@ exports.sendAgencyInvite = onCall(
   },
 );
 
+/* ------------------------------------------------------- account deletion --- */
+// Google Play requires in-app account deletion. Runs with the Admin SDK so it
+// works without a recent re-login: removes the profile + sign-in immediately;
+// completed-job billing records are kept but de-identified (names only — the
+// uid link dies with the users doc).
+exports.deleteMyAccount = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const db = admin.firestore();
+
+  // Unlink from any properties where they're a tenant.
+  const rented = await db.collection('properties').where('tenantIds', 'array-contains', uid).get();
+  await Promise.all(
+    rented.docs.map((d) =>
+      d.ref.update({ tenantIds: admin.firestore.FieldValue.arrayRemove(uid) }),
+    ),
+  );
+  // Delete properties they own (landlord) — tenants lose the link, job history
+  // keeps its own stamped copies.
+  const owned = await db.collection('properties').where('landlordId', '==', uid).get();
+  await Promise.all(owned.docs.map((d) => d.ref.delete()));
+  // Retire any active company seat.
+  const tags = await db.collection('companyTags').where('claimedByUserId', '==', uid).get();
+  await Promise.all(
+    tags.docs
+      .filter((d) => d.data().status !== 'removed')
+      .map((d) => d.ref.update({ status: 'removed', removedAt: Date.now(), removedBy: 'account_deleted' })),
+  );
+  // Remove agency links they hold personally.
+  const links = await db.collection('agencyLinks').where('memberId', '==', uid).get();
+  await Promise.all(links.docs.map((d) => d.ref.update({ status: 'removed' })));
+  // The profile itself, then the sign-in.
+  await db.collection('users').doc(uid).delete();
+  await admin.auth().deleteUser(uid).catch((e) => {
+    // Auth user may already be gone — the data cleanup above still ran.
+    if (e?.code !== 'auth/user-not-found') throw e;
+  });
+  return { ok: true };
+});
+
 /* ---------------------------------------------------- agency job dispatch --- */
 // The property manager raises a job on a tenant's behalf ("the tenant called
 // us with a fault"). Runs with the Admin SDK: verifies the caller manages the
