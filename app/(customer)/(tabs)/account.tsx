@@ -228,6 +228,27 @@ function OwnedProperty({ property }: { property: Property }) {
         error={err ?? undefined}
       />
       <Button title="Link tenant" small loading={busy} disabled={!email.trim()} onPress={link} />
+      <Button
+        title="Remove property"
+        kind="ghost"
+        small
+        onPress={() =>
+          appAlert(
+            'Remove this property?',
+            `${property.label || property.address} is removed from your account${
+              property.tenantIds.length > 0 ? ' and unlinked from its tenants' : ''
+            }. Past jobs and their records are unaffected.`,
+            [
+              { text: 'Keep property', style: 'cancel' },
+              {
+                text: 'Remove',
+                style: 'destructive',
+                onPress: () => backend.removeProperty(property.id),
+              },
+            ],
+          )
+        }
+      />
     </View>
   );
 }

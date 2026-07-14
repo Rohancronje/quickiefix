@@ -6,6 +6,7 @@
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import {
   collection,
+  deleteDoc,
   doc,
   getDocs,
   query,
@@ -180,6 +181,12 @@ export async function addAgencyProperty(
     agencyName: agency.name,
   });
   return ref.id;
+}
+
+/** Remove a property from the portfolio. Past jobs keep their own copies of
+ *  the property/agency stamps, so history is unaffected. */
+export async function removeProperty(propertyId: string): Promise<void> {
+  await deleteDoc(doc(db, 'properties', propertyId));
 }
 
 /** Record a tenant invite against a property (the email invite itself is sent

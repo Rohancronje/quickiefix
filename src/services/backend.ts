@@ -280,6 +280,8 @@ export interface Backend {
   linkTenant(propertyId: string, tenantEmail: string): Promise<void>;
   /** Unlink a tenant from a property. */
   unlinkTenant(propertyId: string, tenantId: string): Promise<void>;
+  /** Remove a property (owner only). Past jobs keep their own stamps. */
+  removeProperty(propertyId: string): Promise<void>;
   /** Live feed of jobs at a landlord's properties (visibility only). */
   subscribeLandlordJobs(landlordId: string, cb: (jobs: Job[]) => void): Unsubscribe;
 

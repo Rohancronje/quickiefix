@@ -1391,6 +1391,12 @@ class MockBackend implements Backend {
     );
   }
 
+  async removeProperty(propertyId: string): Promise<void> {
+    await this.ensureLoaded();
+    delete this.db.properties[propertyId];
+    this.commit();
+  }
+
   async linkTenant(propertyId: string, tenantEmail: string): Promise<void> {
     await this.ensureLoaded();
     const property = this.db.properties[propertyId];

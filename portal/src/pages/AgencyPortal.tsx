@@ -13,6 +13,7 @@ import {
   PortfolioRow,
   recordTenantInvite,
   removeAgencyLink,
+  removeProperty,
   unlinkTenant,
 } from '../agencyApi';
 import { AddressInput } from '../components/AddressInput';
@@ -207,6 +208,24 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
       flash(`Invite sent to ${email} — they'll auto-link to ${p.label || p.address} on confirm ✓`);
     } catch (e) {
       flash(`Could not invite: ${(e as Error).message}`);
+    }
+  };
+
+  const deleteProperty = async (p: Property) => {
+    if (
+      !(await confirmDialog(`Remove ${p.label || p.address}?`, {
+        message: `${p.tenantIds.length > 0 ? `${p.tenantIds.length} linked tenant${p.tenantIds.length === 1 ? '' : 's'} will lose the property in their app. ` : ''}Past jobs and their records are unaffected.`,
+        confirmLabel: 'Remove property',
+        danger: true,
+      }))
+    )
+      return;
+    try {
+      await removeProperty(p.id);
+      await refresh();
+      flash('Property removed');
+    } catch (e) {
+      flash(`Could not remove: ${(e as Error).message}`);
     }
   };
 
@@ -695,6 +714,9 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                         <span className="co-chip co-chip-blue" style={{ marginLeft: 'auto' }}>
                           {p.tenantIds.length} tenant{p.tenantIds.length === 1 ? '' : 's'}
                         </span>
+                        <button className="co-btn co-btn-danger co-btn-sm" onClick={() => deleteProperty(p)}>
+                          Remove
+                        </button>
                       </div>
                       {p.tenantEmails.map((e, i) => (
                         <div key={e} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}>

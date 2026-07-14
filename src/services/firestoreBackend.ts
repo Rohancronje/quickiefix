@@ -22,6 +22,7 @@ import {
   arrayRemove,
   arrayUnion,
   collection,
+  deleteDoc,
   deleteField,
   doc,
   getDoc,
@@ -1517,6 +1518,10 @@ export class FirestoreBackend implements Backend {
       where('tenantIds', 'array-contains', tenantId),
     );
     return onSnapshot(q, (snap) => cb(snap.docs.map((d) => d.data() as Property)));
+  }
+
+  async removeProperty(propertyId: string): Promise<void> {
+    await deleteDoc(this.propertyRef(propertyId));
   }
 
   async linkTenant(propertyId: string, tenantEmail: string): Promise<void> {
