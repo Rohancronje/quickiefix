@@ -116,7 +116,7 @@ describe('workflow guards', () => {
     const j = await job(cust, { trade: 'plumber' });
     await mockBackend.acceptJob(j.id, t.id); // plumbing job now in progress
 
-    await expect(job(cust, { trade: 'plumber' })).rejects.toThrow(/already have a plumber job/i);
+    await expect(job(cust, { trade: 'plumber' })).rejects.toThrow(/already have a live plumber job/i);
 
     const other = await job(cust, { trade: 'electrician' });
     expect(other.status).toBe('searching'); // different trade is fine
