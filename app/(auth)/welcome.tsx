@@ -1,31 +1,16 @@
-import { appAlert } from '../../src/components/AppAlert';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import React from 'react';
+import { Image, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Txt } from '../../src/components/ui';
-import { useAuth } from '../../src/context/AuthContext';
 import { colors, font, radius, spacing } from '../../src/theme';
 
 export default function Welcome() {
   const router = useRouter();
-  const { login } = useAuth();
-  const [busy, setBusy] = useState<string | null>(null);
   // Scale the hero to the device: small phones get a smaller lockup + headline.
   const { width, height } = useWindowDimensions();
   const compact = width < 370 || height < 700;
   const logoW = Math.min(280, width * 0.72);
-
-  const demoLogin = async (email: string) => {
-    try {
-      setBusy(email);
-      await login(email, 'password');
-      // routing guard handles navigation
-    } catch (e) {
-      appAlert('Login failed', (e as Error).message);
-      setBusy(null);
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -78,44 +63,8 @@ export default function Welcome() {
           </Txt>
         </Pressable>
 
-        <View style={styles.demoBox}>
-          <Txt style={styles.demoLabel}>Try a demo account</Txt>
-          <View style={styles.demoRow}>
-            <DemoChip
-              label="Customer"
-              loading={busy === 'User1@testaccount.com'}
-              onPress={() => demoLogin('User1@testaccount.com')}
-            />
-            <DemoChip
-              label="Electrician"
-              loading={busy === 'User2@testaccount.com'}
-              onPress={() => demoLogin('User2@testaccount.com')}
-            />
-            <DemoChip
-              label="Plumber"
-              loading={busy === 'User7@testaccount.com'}
-              onPress={() => demoLogin('User7@testaccount.com')}
-            />
-          </View>
-        </View>
       </View>
     </SafeAreaView>
-  );
-}
-
-function DemoChip({
-  label,
-  onPress,
-  loading,
-}: {
-  label: string;
-  onPress: () => void;
-  loading?: boolean;
-}) {
-  return (
-    <Pressable onPress={onPress} disabled={loading} style={styles.demoChip}>
-      <Txt style={styles.demoChipText}>{loading ? '…' : label}</Txt>
-    </Pressable>
   );
 }
 
@@ -151,29 +100,4 @@ const styles = StyleSheet.create({
   loginLink: { alignItems: 'center', paddingVertical: spacing.sm },
   loginText: { color: colors.onNavyMuted, fontSize: font.size.sm },
   loginTextBold: { color: colors.amber, fontWeight: font.weight.bold, fontSize: font.size.sm },
-  demoBox: {
-    backgroundColor: colors.navySoft,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.navyLine,
-    gap: spacing.sm,
-  },
-  demoLabel: {
-    color: colors.onNavyMuted,
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    textAlign: 'center',
-  },
-  demoRow: { flexDirection: 'row', gap: spacing.sm },
-  demoChip: {
-    flex: 1,
-    backgroundColor: colors.navyCard,
-    paddingVertical: 10,
-    borderRadius: radius.sm,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.navyLine,
-  },
-  demoChipText: { color: colors.onNavy, fontSize: font.size.sm, fontWeight: font.weight.semibold },
 });
