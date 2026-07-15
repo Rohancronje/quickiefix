@@ -12,7 +12,7 @@ import { Screen } from '../../../src/components/Screen';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
-import { useJob, useUser } from '../../../src/hooks/useData';
+import { useAgency, useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration, formatWhen } from '../../../src/lib/format';
 import { distanceKm, formatDistance } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
@@ -441,6 +441,9 @@ export default function TradieJob() {
  */
 function CompleteJobSheet({ job }: { job: Job }) {
   const customer = useUser(job.customerId);
+  // Agency-paid job: the invoice chain is fixed (agency → company → you), so
+  // there is nothing for the tradie to enter — fetch the agency contact.
+  const agency = useAgency(job.agencyId);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -465,6 +468,41 @@ function CompleteJobSheet({ job }: { job: Job }) {
       setBusy(false);
     }
   };
+
+  // Agency pays → no billing form. Complete directly; the record goes to the
+  // agency (billing contact locked to them).
+  if (job.agencyId) {
+    const completeAgencyJob = async () => {
+      try {
+        setBusy(true);
+        if (agency?.adminEmail) {
+          await backend.setJobBilling(job.id, {
+            contactName: job.agencyName ?? agency.name,
+            contactEmail: agency.adminEmail,
+          });
+        }
+        await backend.completeJob(job.id);
+      } catch (e) {
+        appAlert('Could not complete', (e as Error).message);
+        setBusy(false);
+      }
+    };
+    return (
+      <Card style={{ gap: spacing.sm }}>
+        <Txt variant="caption" color={colors.textMuted}>
+          🏢 Billed to {job.agencyName ?? 'the property agency'} under their agency agreement —
+          nothing to invoice the occupant. 🔒 Billing contact is set by the agency.
+        </Txt>
+        <Button
+          title="Complete job"
+          icon="✅"
+          kind="success"
+          loading={busy}
+          onPress={completeAgencyJob}
+        />
+      </Card>
+    );
+  }
 
   if (!open) {
     return <Button title="Complete job" icon="✅" kind="success" onPress={() => setOpen(true)} />;
