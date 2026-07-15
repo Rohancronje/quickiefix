@@ -217,6 +217,32 @@
     .section-head h2 { font-size: var(--fs-h2); font-weight: 900; letter-spacing: -0.02em; margin-bottom: 12px; }
     .section-head p { color: var(--on-navy-muted); font-size: 17px; }
 
+    /* ---------- Property-manager band ---------- */
+    .pm-band {
+      display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 40px; align-items: center;
+      margin-top: 88px; padding: 44px;
+      background: linear-gradient(160deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border-strong); border-radius: 24px;
+      box-shadow: var(--shadow-lift);
+    }
+    .pm-kicker { color: var(--amber); font-weight: 800; letter-spacing: 1.5px; font-size: 12.5px; margin-bottom: 14px; }
+    .pm-copy h2 { font-size: clamp(24px, 3.4vw, 34px); font-weight: 900; letter-spacing: -0.01em; margin-bottom: 12px; }
+    .pm-copy p { color: var(--on-navy-muted); font-size: 15.5px; margin-bottom: 24px; }
+    .pm-copy b { color: var(--on-navy); }
+    .pm-ctas { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+    .pm-btn {
+      background: var(--amber); color: var(--navy); text-decoration: none; font-weight: 800;
+      font-size: 14.5px; padding: 13px 22px; border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(245,168,0,0.28);
+    }
+    .pm-btn:hover { background: var(--amber-dark); }
+    .pm-link { color: var(--amber); text-decoration: none; font-weight: 700; font-size: 14px; }
+    .pm-shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--border-strong); box-shadow: 0 24px 60px rgba(0,0,0,0.45); }
+    .pm-shot img { width: 100%; display: block; }
+    @media (max-width: 900px) {
+      .pm-band { grid-template-columns: 1fr; padding: 32px 24px; margin-top: 64px; }
+    }
+
     /* ---------- How it works ---------- */
     .how { padding: 96px 0 48px; }
     .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
@@ -281,6 +307,7 @@
       </a>
       <div class="nav-right">
         <span class="nav-tag">Launching soon · New Zealand</span>
+        <a class="nav-login" href="/property-managers.html">Property managers</a>
         <a class="nav-login" href="https://portal.quickiefix.app">Business portal</a>
         <a class="nav-cta" href="https://my.quickiefix.app">Log in / Open the app</a>
       </div>
@@ -334,6 +361,26 @@
         </div>
       </div>
     </header>
+
+    <!-- Property managers: the go-to-market audience gets its own band. -->
+    <section class="pm-band">
+      <div class="pm-copy">
+        <div class="pm-kicker">FOR PROPERTY MANAGERS</div>
+        <h2>Your maintenance desk, automated.</h2>
+        <p>
+          Tenants report faults from their phone — or you dispatch from your desk while they're on
+          the line. Only <b>your approved tradies</b> get the work, arrivals are tracked live, and
+          every job becomes an owner-ready report.
+        </p>
+        <div class="pm-ctas">
+          <a class="pm-btn" href="/property-managers.html">See how it works →</a>
+          <a class="pm-link" href="mailto:hello@quickiefix.app?subject=Founding%20agency%20pilot">Founding agency pilot — free</a>
+        </div>
+      </div>
+      <div class="pm-shot">
+        <img src="agency-console.png" alt="The QuickieFix agency dispatch console" loading="lazy" />
+      </div>
+    </section>
 
     <section class="how">
       <div class="section-head">

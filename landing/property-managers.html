@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>QuickieFix for Property Managers — your maintenance desk, automated</title>
+  <meta name="description" content="Tenants report faults from their phone, your approved tradies are dispatched automatically with live tracking, and owners get a clean report for every job. Free for founding agencies." />
+  <link rel="canonical" href="https://quickiefix.app/property-managers.html" />
+  <link rel="icon" href="logo-icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #0f1a2e; --navy-deep: #0b1220; --surface: #16233b; --surface-2: #1b2a44;
+      --amber: #f5a800; --amber-dark: #d99400; --on-navy: #f4f6fb; --on-navy-muted: #b9c3d8;
+      --border: rgba(231,234,240,0.10); --border-strong: rgba(231,234,240,0.16); --success: #12b76a;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Inter', -apple-system, 'Segoe UI', sans-serif; background: var(--navy); color: var(--on-navy); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    nav { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; }
+    nav img { height: 32px; display: block; }
+    nav .links { display: flex; align-items: center; gap: 14px; }
+    nav a { color: var(--on-navy-muted); text-decoration: none; font-weight: 600; font-size: 14px; }
+    nav a.cta { background: var(--amber); color: var(--navy); padding: 10px 18px; border-radius: 999px; font-weight: 800; }
+    .hero { padding: 56px 0 40px; }
+    .kicker { color: var(--amber); font-weight: 800; letter-spacing: 1.5px; font-size: 13px; text-transform: uppercase; margin-bottom: 16px; }
+    h1 { font-size: clamp(34px, 5.5vw, 56px); font-weight: 900; line-height: 1.08; letter-spacing: -0.02em; max-width: 800px; }
+    .sub { color: var(--on-navy-muted); font-size: clamp(16px, 2vw, 19px); max-width: 680px; margin: 20px 0 28px; }
+    .cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn { display: inline-block; padding: 15px 26px; border-radius: 12px; font-weight: 800; font-size: 15px; text-decoration: none; }
+    .btn.primary { background: var(--amber); color: var(--navy); box-shadow: 0 8px 20px rgba(245,168,0,0.28); }
+    .btn.primary:hover { background: var(--amber-dark); }
+    .btn.ghost { border: 1.5px solid var(--border-strong); color: var(--on-navy); }
+    .shot { margin: 48px 0 8px; border-radius: 16px; border: 1px solid var(--border-strong); overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.45); }
+    .shot img { width: 100%; display: block; }
+    .caption { text-align: center; color: var(--on-navy-muted); font-size: 13.5px; margin: 12px 0 0; }
+    section { padding: 64px 0 8px; }
+    h2 { font-size: clamp(24px, 3.5vw, 34px); font-weight: 900; letter-spacing: -0.01em; margin-bottom: 10px; }
+    .lead { color: var(--on-navy-muted); font-size: 16.5px; max-width: 640px; margin-bottom: 36px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 26px; }
+    .card .ico { font-size: 26px; margin-bottom: 12px; }
+    .card h3 { font-size: 16.5px; font-weight: 800; margin-bottom: 8px; }
+    .card p { color: var(--on-navy-muted); font-size: 14.5px; }
+    .steps { counter-reset: s; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .step { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+    .step .n { width: 30px; height: 30px; border-radius: 9px; background: rgba(245,168,0,0.15); color: var(--amber); font-weight: 900; display: grid; place-items: center; margin-bottom: 12px; }
+    .step h3 { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+    .step p { color: var(--on-navy-muted); font-size: 13.5px; }
+    .pilot { margin: 72px 0; background: linear-gradient(160deg, var(--surface-2), var(--surface)); border: 1px solid var(--border-strong); border-radius: 24px; padding: 48px 40px; text-align: center; }
+    .pilot h2 { margin-bottom: 12px; }
+    .pilot p { color: var(--on-navy-muted); max-width: 560px; margin: 0 auto 26px; }
+    footer { border-top: 1px solid var(--border); padding: 36px 0 48px; text-align: center; color: var(--on-navy-muted); font-size: 14px; }
+    footer a { color: var(--amber); text-decoration: none; margin: 0 6px; }
+    @media (max-width: 900px) { .steps { grid-template-columns: 1fr 1fr; } .grid3 { grid-template-columns: 1fr; } .grid2 { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) { .steps { grid-template-columns: 1fr; } nav .links a:not(.cta) { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a href="/" aria-label="QuickieFix home"><img src="logo-lockup-reversed.svg" alt="QuickieFix" /></a>
+      <div class="links">
+        <a href="/">Home</a>
+        <a class="cta" href="https://portal.quickiefix.app">Agency portal login</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="kicker">QuickieFix for Property Managers</div>
+      <h1>Your maintenance desk, automated.</h1>
+      <p class="sub">
+        Tenants report faults from their phone — or call you, and you dispatch from your desk in
+        thirty seconds. Only <b>your approved tradies</b> get the work, everyone watches the tradie
+        arrive live, and every job ends as an owner-ready report. No phone tag, no chasing, no
+        lost paper trail.
+      </p>
+      <div class="cta-row">
+        <a class="btn primary" href="mailto:hello@quickiefix.app?subject=Founding%20agency%20pilot">Book a walkthrough</a>
+        <a class="btn ghost" href="https://portal.quickiefix.app">Open the agency portal</a>
+      </div>
+
+      <div class="shot">
+        <img src="agency-console.png" alt="The QuickieFix agency console: tenant on the phone, approved tradies available now, one-click dispatch" />
+      </div>
+      <p class="caption">The dispatch console: tenant on the line, your panel's availability live, one click and the tradie is on the way.</p>
+    </header>
+
+    <section>
+      <h2>How it works for your agency</h2>
+      <p class="lead">Set up once, then maintenance runs itself.</p>
+      <div class="steps">
+        <div class="step"><div class="n">1</div><h3>Load your portfolio</h3><p>Bulk-import properties and tenants from a spreadsheet. Tenants get an invite and link to their property automatically.</p></div>
+        <div class="step"><div class="n">2</div><h3>Approve your panel</h3><p>Invite the tradies and trade companies you already trust. Only they ever receive jobs at your properties — on your commercial terms.</p></div>
+        <div class="step"><div class="n">3</div><h3>Faults dispatch themselves</h3><p>Tenants report in the app (or call you — dispatch from your desk). The nearest approved tradie accepts and everyone tracks the arrival live.</p></div>
+        <div class="step"><div class="n">4</div><h3>Owners get the story</h3><p>Every job is logged with times, tradie, and outcome. Export per-property owner reports in one click.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Built for how agencies actually work</h2>
+      <p class="lead">Everything below exists today — this is a working product, not a roadmap.</p>
+      <div class="grid3">
+        <div class="card"><div class="ico">🛠️</div><h3>Approved panels</h3><p>Your tradies, your rates, your rules. Panel-only dispatch means no strangers at your properties and no surprise invoices.</p></div>
+        <div class="card"><div class="ico">📞</div><h3>Desk dispatch</h3><p>Tenant rings instead of using the app? Pick the property, describe the fault, dispatch — while they're still on the line.</p></div>
+        <div class="card"><div class="ico">📍</div><h3>Live tracking</h3><p>You and the tenant both see the tradie driving to the property, with an arrival ETA. "When are they coming?" answers itself.</p></div>
+        <div class="card"><div class="ico">📋</div><h3>Owner reports</h3><p>Per-property job history exported as a clean CSV — attach it straight to your monthly owner statements.</p></div>
+        <div class="card"><div class="ico">🧾</div><h3>Full audit trail</h3><p>Who reported it, who was sent, when they arrived, how long they were on site, what the tenant rated. Every job, on record.</p></div>
+        <div class="card"><div class="ico">📲</div><h3>Tenants love it</h3><p>Report a fault in under a minute, then watch it get fixed — no waiting on hold. Happier tenants, fewer calls to your office.</p></div>
+      </div>
+    </section>
+
+    <div class="pilot">
+      <h2>Founding agency pilot — free</h2>
+      <p>
+        We're onboarding a small number of Auckland agencies as founding partners. Full platform,
+        white-glove setup (we'll import your portfolio with you), and direct access to the founder.
+        No cost, no lock-in.
+      </p>
+      <a class="btn primary" href="mailto:hello@quickiefix.app?subject=Founding%20agency%20pilot">Book a walkthrough → hello@quickiefix.app</a>
+    </div>
+  </div>
+
+  <footer>
+    <div class="wrap">
+      <a href="/">quickiefix.app</a> · <a href="/privacy.html">Privacy</a> ·
+      <a href="/tradie-terms.html">Business terms</a> · © QuickieFix Limited
+    </div>
+  </footer>
+</body>
+</html>

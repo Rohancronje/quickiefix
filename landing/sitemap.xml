@@ -3,6 +3,7 @@
   <url><loc>https://quickiefix.app/</loc><priority>1.0</priority></url>
   <url><loc>https://quickiefix.app/privacy.html</loc><priority>0.3</priority></url>
   <url><loc>https://quickiefix.app/terms.html</loc><priority>0.3</priority></url>
+  <url><loc>https://quickiefix.app/property-managers.html</loc><priority>0.8</priority></url>
   <url><loc>https://quickiefix.app/tradie-terms.html</loc><priority>0.5</priority></url>
   <url><loc>https://quickiefix.app/delete-account.html</loc><priority>0.1</priority></url>
 </urlset>
