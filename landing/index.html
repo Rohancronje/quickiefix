@@ -234,13 +234,17 @@
     .step p { color: var(--on-navy-muted); font-size: var(--fs-body); line-height: 1.55; }
 
     /* ---------- Audience ---------- */
-    .audience { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 24px 0 96px; }
+    .audience { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 24px 0 96px; }
+    @media (max-width: 960px) and (min-width: 721px) {
+      .audience { grid-template-columns: 1fr 1fr; }
+    }
     .aud-card {
       border-radius: 20px; padding: 36px; border: 1px solid var(--border);
       box-shadow: var(--shadow-card);
     }
     .aud-card.customer { background: linear-gradient(160deg, var(--surface-2), var(--surface)); }
     .aud-card.tradie { background: linear-gradient(160deg, #17233d, var(--surface)); }
+    .aud-card.agency { background: linear-gradient(160deg, #1a2440, var(--surface)); }
     .aud-card .icon { font-size: 32px; margin-bottom: 16px; }
     .aud-card h3 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 14px; }
     .aud-card ul { list-style: none; }
@@ -340,17 +344,17 @@
         <div class="step">
           <div class="num">1</div>
           <h3>🔧 Describe the job</h3>
-          <p>Pick a trade, tell us what's wrong, and share your location. Takes under a minute.</p>
+          <p>Pick a trade, describe the problem — add photos if it helps — and confirm the address. Under a minute.</p>
         </div>
         <div class="step">
           <div class="num">2</div>
           <h3>⚡ We dispatch instantly</h3>
-          <p>Nearby verified tradies get your request in real time. First to accept is yours.</p>
+          <p>Nearby verified tradies see your request in real time. First to accept is locked in — or browse profiles, compare rates and pick your own.</p>
         </div>
         <div class="step">
           <div class="num">3</div>
           <h3>✅ Track &amp; done</h3>
-          <p>Watch them arrive, get the job completed, then rate the work. Everything logged.</p>
+          <p>Watch your tradie drive to you live on the map, get the job done, then rate the work. Every job is on record.</p>
         </div>
       </div>
     </section>
@@ -360,20 +364,30 @@
         <div class="icon">🏠</div>
         <h3>For customers</h3>
         <ul>
-          <li>Trusted, licence-verified tradespeople</li>
-          <li>Real-time arrival tracking</li>
-          <li>Transparent ratings &amp; reviews</li>
-          <li>No bidding wars, no waiting hours</li>
+          <li>Rates upfront — no quotes, no surprises</li>
+          <li>Vetted, verified tradespeople with real reviews</li>
+          <li>Watch your tradie arrive in real time</li>
+          <li>No bidding wars, no waiting for callbacks</li>
         </ul>
       </div>
       <div class="aud-card tradie">
         <div class="icon">🧰</div>
         <h3>For tradies</h3>
         <ul>
-          <li>Jobs come to you — no lead fees</li>
-          <li>Go online, get dispatched nearby work</li>
+          <li>Jobs come to you — no lead fees, no commission</li>
+          <li>Flat $15 per completed job · first 5 free</li>
           <li>Build a public reputation that pays off</li>
-          <li>Automatic timesheets &amp; job history</li>
+          <li>Automatic job history &amp; timesheets</li>
+        </ul>
+      </div>
+      <div class="aud-card agency">
+        <div class="icon">🏢</div>
+        <h3>For property managers</h3>
+        <ul>
+          <li>Tenants report faults straight from their phone</li>
+          <li>Only your approved tradies get dispatched</li>
+          <li>Tenant on the line? Dispatch from your desk</li>
+          <li>Owner-ready job reports for every property</li>
         </ul>
       </div>
     </section>
