@@ -38,13 +38,17 @@
   td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
   tr:nth-child(even) td { background: #F7F9FD; }
   hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
-  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  /* Screenshots: capped by HEIGHT so no image ever eats more than ~40% of a
+     printed page — tall phone shots scale down, keeping pagination tight. */
   .page img {
-    display: block; margin: 16px auto 4px; max-width: 230px; width: 100%;
-    border: 1px solid var(--line); border-radius: 14px;
+    display: block; margin: 14px auto 4px;
+    max-width: 220px; max-height: 340px; width: auto; height: auto;
+    border: 1px solid var(--line); border-radius: 12px;
     box-shadow: 0 6px 24px rgba(11,18,32,.10);
   }
-  .page img[src*="portal"], .page img[src*="company-"], .page img[src*="agency-"] { max-width: 620px; border-radius: 8px; }
+  .page img[src*="portal"], .page img[src*="company-"], .page img[src*="agency-"] {
+    max-width: 620px; border-radius: 8px;
+  }
   .page img + em, .page p:has(img) + p > em:only-child {
     display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;
   }
@@ -69,10 +73,11 @@
     table { break-inside: auto; }
     thead { display: table-header-group; }
     tr { break-inside: avoid; }
-    /* Keep a screenshot and its caption together. */
+    /* Keep a screenshot (and its caption) intact, but let the surrounding
+       text flow freely — gluing image+caption+next paragraph into one
+       unbreakable block is what created half-blank pages. */
     blockquote, .page img { break-inside: avoid; }
-    p:has(> img) { break-inside: avoid; break-after: avoid; }
-    p:has(> img) + p { break-before: avoid; }
+    p:has(> img) { break-inside: avoid; }
     a { color: inherit; }
   }
   @page { margin: 14mm 12mm; }
