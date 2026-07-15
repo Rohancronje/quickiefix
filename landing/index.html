@@ -34,7 +34,7 @@
     "@context": "https://schema.org",
     "@type": "FAQPage",
     "mainEntity": [
-      { "@type": "Question", "name": "What does QuickieFix cost?", "acceptedAnswer": { "@type": "Answer", "text": "Nothing for customers — no booking fee, no service charge. You pay the tradie directly at the hourly rate and call-out fee shown before you confirm. Tradies pay a flat NZ$15 per completed job (first five free) with no lead fees and no commission." } },
+      { "@type": "Question", "name": "What does QuickieFix cost?", "acceptedAnswer": { "@type": "Answer", "text": "Nothing for customers — no booking fee, no service charge. You pay the tradie directly at the hourly labour rate and call-out fee shown before you confirm; parts and materials are additional and agreed with the tradie on site. Tradies pay a flat NZ$15 per completed job (first five free) with no lead fees and no commission." } },
       { "@type": "Question", "name": "Where is QuickieFix available?", "acceptedAnswer": { "@type": "Answer", "text": "Launching on Auckland's North Shore first, then expanding suburb by suburb across New Zealand." } },
       { "@type": "Question", "name": "How are QuickieFix tradies verified?", "acceptedAnswer": { "@type": "Answer", "text": "Every tradie is identity-checked with verified business details (NZBN), makes licensing declarations for regulated work, and carries a public rating from real completed jobs." } },
       { "@type": "Question", "name": "How does QuickieFix work for property managers?", "acceptedAnswer": { "@type": "Answer", "text": "Tenants report faults from their phone and only the agency's approved tradies are dispatched, billed to the agency, with an owner-ready report for every job. Founding agencies get the platform free." } },
@@ -468,7 +468,7 @@
                 <button class="role-btn" data-role="tradie" type="button">I'm a tradie</button>
               </div>
               <p class="role-benefit" id="roleBenefit">
-                Free for customers — you only ever pay the tradie, at rates you saw upfront.
+                Free for customers — you pay the tradie directly, at the labour rate shown upfront. Parts are extra, agreed on site.
               </p>
               <form id="waitlistForm">
                 <div class="field-row">
@@ -591,8 +591,8 @@
         </div>
       </div>
       <p class="reassure">
-        💰 Free for customers — no booking fees, ever. You pay the tradie directly, at the rate you
-        saw before confirming.
+        💰 Free for customers — no booking fees, ever. You pay the tradie directly at the labour
+        rate you saw before confirming; any parts or materials are agreed with you on site.
       </p>
     </section>
 
@@ -601,7 +601,7 @@
         <div class="icon">🏠</div>
         <h3>For customers</h3>
         <ul>
-          <li>Rates upfront — no quotes, no surprises</li>
+          <li>Hourly rate &amp; call-out shown upfront</li>
           <li>Vetted, verified tradespeople with real reviews</li>
           <li>Watch your tradie arrive in real time</li>
           <li>No bidding wars, no waiting for callbacks</li>
@@ -639,7 +639,7 @@
       </div>
       <div class="faq-item">
         <h3>What does it cost?</h3>
-        <p>Nothing for customers — no booking fee, no service charge. You pay the tradie directly, at the hourly rate and call-out fee shown <b>before</b> you confirm. Tradies pay a flat $15 per completed job (first five free) — no lead fees, no commission.</p>
+        <p>Nothing for customers — no booking fee, no service charge. You pay the tradie directly, at the hourly rate and call-out fee shown <b>before</b> you confirm. Those rates cover the <b>labour</b>; if the fix needs parts or materials (a new pipe, tap, cable or cylinder), the tradie agrees those with you on site before fitting them. Tradies pay a flat $15 per completed job (first five free) — no lead fees, no commission.</p>
       </div>
       <div class="faq-item">
         <h3>Where is QuickieFix available?</h3>
@@ -693,7 +693,7 @@
 
     let role = 'customer';
     const BENEFITS = {
-      customer: 'Free for customers — you only ever pay the tradie, at rates you saw upfront.',
+      customer: 'Free for customers — you pay the tradie directly, at the labour rate shown upfront. Parts are extra, agreed on site.',
       tradie: 'Founding tradies: first 5 jobs free, then a flat $15 per job. No lead fees, no commission — ever.',
     };
     const benefitEl = document.getElementById('roleBenefit');

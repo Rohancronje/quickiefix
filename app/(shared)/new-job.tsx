@@ -561,7 +561,7 @@ export default function NewJob() {
                     </Txt>
                   )}
                   <Txt variant="caption" color={colors.textFaint}>
-                    Rates lock in upfront — no quotes, no surprises.
+                    Labour rates lock in upfront — any parts are agreed with you on site.
                   </Txt>
                 </View>
               )}
