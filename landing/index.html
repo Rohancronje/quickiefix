@@ -29,6 +29,19 @@
     "sameAs": []
   }
   </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      { "@type": "Question", "name": "What does QuickieFix cost?", "acceptedAnswer": { "@type": "Answer", "text": "Nothing for customers — no booking fee, no service charge. You pay the tradie directly at the hourly rate and call-out fee shown before you confirm. Tradies pay a flat NZ$15 per completed job (first five free) with no lead fees and no commission." } },
+      { "@type": "Question", "name": "Where is QuickieFix available?", "acceptedAnswer": { "@type": "Answer", "text": "Launching on Auckland's North Shore first, then expanding suburb by suburb across New Zealand." } },
+      { "@type": "Question", "name": "How are QuickieFix tradies verified?", "acceptedAnswer": { "@type": "Answer", "text": "Every tradie is identity-checked with verified business details (NZBN), makes licensing declarations for regulated work, and carries a public rating from real completed jobs." } },
+      { "@type": "Question", "name": "How does QuickieFix work for property managers?", "acceptedAnswer": { "@type": "Answer", "text": "Tenants report faults from their phone and only the agency's approved tradies are dispatched, billed to the agency, with an owner-ready report for every job. Founding agencies get the platform free." } },
+      { "@type": "Question", "name": "Is QuickieFix live yet?", "acceptedAnswer": { "@type": "Answer", "text": "Founding tradies and first customers are onboarding now. Waitlist members get one email the moment QuickieFix goes live in their area." } }
+    ]
+  }
+  </script>
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://quickiefix.app" />
 
@@ -177,7 +190,8 @@
     }
     .waitlist h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; }
     .waitlist p.lead { color: var(--on-navy-muted); font-size: 15px; line-height: 1.5; margin-bottom: 24px; }
-    .role-toggle { display: flex; gap: 10px; margin-bottom: 16px; }
+    .role-toggle { display: flex; gap: 10px; margin-bottom: 10px; }
+    .role-benefit { color: var(--amber); font-size: 13px; font-weight: 600; margin-bottom: 16px; min-height: 18px; }
     .role-btn {
       flex: 1; padding: 14px; border-radius: 12px; border: 1.5px solid var(--border-strong);
       background: transparent; color: var(--on-navy-muted); font-family: inherit;
@@ -282,6 +296,27 @@
     .aud-card li { color: var(--on-navy-muted); font-size: var(--fs-body); line-height: 1.5; padding: 8px 0 8px 28px; position: relative; }
     .aud-card li::before { content: '✓'; position: absolute; left: 0; top: 8px; color: var(--amber); font-weight: 800; }
 
+    /* ---------- Reassurance / card CTAs / FAQ ---------- */
+    .reassure {
+      text-align: center; color: var(--on-navy-muted); font-size: 14.5px; font-weight: 600;
+      margin-top: 28px; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 18px;
+    }
+    .aud-cta {
+      display: inline-block; margin-top: 18px; color: var(--amber); text-decoration: none;
+      font-weight: 800; font-size: 14.5px;
+    }
+    .aud-cta:hover { text-decoration: underline; }
+    .faq { padding: 32px 0 96px; max-width: 760px; margin: 0 auto; }
+    .faq-item {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 22px 26px; margin-bottom: 12px;
+    }
+    .faq-item h3 { font-size: 16px; font-weight: 800; margin-bottom: 8px; }
+    .faq-item p { color: var(--on-navy-muted); font-size: 14.5px; line-height: 1.6; }
+    .faq-item b { color: var(--on-navy); }
+    .faq-item a { color: var(--amber); }
+
     /* ---------- Footer ---------- */
     footer { border-top: 1px solid var(--border); padding: 48px 0; text-align: center; }
     footer .fbrand { display: inline-flex; align-items: center; margin-bottom: 16px; }
@@ -311,10 +346,10 @@
         <img src="logo-lockup-reversed.svg" alt="QuickieFix" style="height:34px" />
       </a>
       <div class="nav-right">
-        <span class="nav-tag">Launching soon · New Zealand</span>
         <a class="nav-login" href="/property-managers.html">Property managers</a>
         <a class="nav-login" href="https://portal.quickiefix.app">Business portal</a>
-        <a class="nav-cta" href="https://my.quickiefix.app">Log in / Open the app</a>
+        <a class="nav-login" href="https://my.quickiefix.app">Log in</a>
+        <a class="nav-cta" href="#waitlist">Join the waitlist</a>
       </div>
     </nav>
 
@@ -328,8 +363,8 @@
           </p>
           <div class="pills">
             <div class="pill">✅ Verified pros</div>
-            <div class="pill">⚡ Live dispatch</div>
-            <div class="pill">⭐ Rated &amp; trusted</div>
+            <div class="pill">💰 Rates upfront</div>
+            <div class="pill">📍 Watch them arrive</div>
           </div>
 
           <!-- Waitlist -->
@@ -341,6 +376,9 @@
                 <button class="role-btn active" data-role="customer" type="button">I need a tradie</button>
                 <button class="role-btn" data-role="tradie" type="button">I'm a tradie</button>
               </div>
+              <p class="role-benefit" id="roleBenefit">
+                Free for customers — you only ever pay the tradie, at rates you saw upfront.
+              </p>
               <form id="waitlistForm">
                 <div class="field-row">
                   <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
@@ -410,6 +448,10 @@
           <p>Watch your tradie drive to you live on the map, get the job done, then rate the work. Every job is on record.</p>
         </div>
       </div>
+      <p class="reassure">
+        💰 Free for customers — no booking fees, ever. You pay the tradie directly, at the rate you
+        saw before confirming.
+      </p>
     </section>
 
     <section class="audience">
@@ -422,6 +464,7 @@
           <li>Watch your tradie arrive in real time</li>
           <li>No bidding wars, no waiting for callbacks</li>
         </ul>
+        <a class="aud-cta" href="#waitlist" data-join-role="customer">Join the waitlist →</a>
       </div>
       <div class="aud-card tradie">
         <div class="icon">🧰</div>
@@ -432,6 +475,7 @@
           <li>Build a public reputation that pays off</li>
           <li>Automatic job history &amp; timesheets</li>
         </ul>
+        <a class="aud-cta" href="#waitlist" data-join-role="tradie">Get founding-tradie access →</a>
       </div>
       <div class="aud-card agency">
         <div class="icon">🏢</div>
@@ -442,6 +486,34 @@
           <li>Tenant on the line? Dispatch from your desk</li>
           <li>Owner-ready job reports for every property</li>
         </ul>
+        <a class="aud-cta" href="/property-managers.html">See the property-manager pitch →</a>
+      </div>
+    </section>
+
+    <!-- FAQ: objection handling + long-tail SEO. Mirrored in FAQPage JSON-LD. -->
+    <section class="faq">
+      <div class="section-head">
+        <h2>Questions, answered</h2>
+      </div>
+      <div class="faq-item">
+        <h3>What does it cost?</h3>
+        <p>Nothing for customers — no booking fee, no service charge. You pay the tradie directly, at the hourly rate and call-out fee shown <b>before</b> you confirm. Tradies pay a flat $15 per completed job (first five free) — no lead fees, no commission.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Where is QuickieFix available?</h3>
+        <p>We're launching on Auckland's North Shore first, then expanding suburb by suburb across New Zealand. Joining the waitlist tells us exactly where to open next.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How are tradies verified?</h3>
+        <p>Every tradie is identity-checked with verified business details (NZBN), makes licensing declarations for regulated work, and carries a public rating from real completed jobs. Poor performers lose access to dispatch.</p>
+      </div>
+      <div class="faq-item">
+        <h3>I manage rental properties — how does this work for me?</h3>
+        <p>Tenants report faults from their phone and only your approved tradies are dispatched, billed to your agency, with an owner-ready report for every job. <a href="/property-managers.html">See the property-manager page</a> — founding agencies get the platform free.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is it live yet?</h3>
+        <p>Founding tradies and first customers are onboarding now. Join the waitlist and you'll get one email the moment we go live in your area — nothing else.</p>
       </div>
     </section>
   </div>
@@ -478,12 +550,24 @@
     const db = getFirestore(app);
 
     let role = 'customer';
+    const BENEFITS = {
+      customer: 'Free for customers — you only ever pay the tradie, at rates you saw upfront.',
+      tradie: 'Founding tradies: first 5 jobs free, then a flat $15 per job. No lead fees, no commission — ever.',
+    };
+    const benefitEl = document.getElementById('roleBenefit');
+    const setRole = (r) => {
+      role = r;
+      document.querySelectorAll('.role-btn').forEach((b) =>
+        b.classList.toggle('active', b.dataset.role === r),
+      );
+      if (benefitEl) benefitEl.textContent = BENEFITS[r];
+    };
     document.querySelectorAll('.role-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.role-btn').forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        role = btn.dataset.role;
-      });
+      btn.addEventListener('click', () => setRole(btn.dataset.role));
+    });
+    // Audience-card CTAs preselect the right role before scrolling up.
+    document.querySelectorAll('[data-join-role]').forEach((a) => {
+      a.addEventListener('click', () => setRole(a.dataset.joinRole));
     });
 
     const form = document.getElementById('waitlistForm');
