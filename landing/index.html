@@ -239,6 +239,11 @@
     .pm-link { color: var(--amber); text-decoration: none; font-weight: 700; font-size: 14px; }
     .pm-shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--border-strong); box-shadow: 0 24px 60px rgba(0,0,0,0.45); }
     .pm-shot img { width: 100%; display: block; }
+    /* Tenant-phone variant: narrow, phone-framed, centred in the band. */
+    .pm-shot.phone-style {
+      width: min(290px, 72vw); margin: 0 auto; border-radius: 34px;
+      border: 8px solid #060b16; background: #060b16;
+    }
     @media (max-width: 900px) {
       .pm-band { grid-template-columns: 1fr; padding: 32px 24px; margin-top: 64px; }
     }
@@ -368,17 +373,18 @@
         <div class="pm-kicker">FOR PROPERTY MANAGERS</div>
         <h2>Your maintenance desk, automated.</h2>
         <p>
-          Tenants report faults from their phone — or you dispatch from your desk while they're on
-          the line. Only <b>your approved tradies</b> get the work, arrivals are tracked live, and
-          every job becomes an owner-ready report.
+          <b>Tenants raise faults themselves</b>, straight from their phone — and only
+          <b> your approved tradies</b> ever get the job, billed to you under your agreement.
+          Arrivals are tracked live and every job becomes an owner-ready report. (Tenant rings the
+          office instead? Dispatch from your desk in thirty seconds.)
         </p>
         <div class="pm-ctas">
           <a class="pm-btn" href="/property-managers.html">See how it works →</a>
           <a class="pm-link" href="mailto:hello@quickiefix.app?subject=Founding%20agency%20pilot">Founding agency pilot — free</a>
         </div>
       </div>
-      <div class="pm-shot">
-        <img src="agency-console.png" alt="The QuickieFix agency dispatch console" loading="lazy" />
+      <div class="pm-shot phone-style">
+        <img src="tenant-request.png" alt="A tenant raising a fault at their managed property — dispatched only to the agency's approved tradies, billed to the agency" loading="lazy" />
       </div>
     </section>
 
