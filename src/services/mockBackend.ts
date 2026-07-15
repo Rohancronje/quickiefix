@@ -348,7 +348,7 @@ class MockBackend implements Backend {
     if (clash) {
       const label = input.trade.replace(/_/g, ' ');
       throw new Error(
-        `You already have a ${label} job on the go. Track or cancel it from your activity before requesting another ${label}.`,
+        `You already have a live ${label} job. Track or cancel it in Activity before requesting another.`,
       );
     }
 

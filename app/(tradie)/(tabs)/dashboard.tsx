@@ -706,7 +706,9 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   pending: { backgroundColor: colors.warningSoft, gap: spacing.sm, alignItems: 'flex-start' },
-  activeCard: { backgroundColor: colors.navy, gap: 4 },
+  // Deep green: the ONE live thing on the screen must not blend into the
+  // navy info cards around it.
+  activeCard: { backgroundColor: '#0E6B45', gap: 4 },
   activeTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   offer: { gap: spacing.sm, borderWidth: 1, borderColor: colors.line },
   requestedBanner: {
