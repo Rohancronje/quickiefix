@@ -56,7 +56,7 @@ const template = (title, body) => `<!doctype html>
     border: 1px solid var(--line); border-radius: 14px;
     box-shadow: 0 6px 24px rgba(11,18,32,.10);
   }
-  .page img[src*="portal"] { max-width: 620px; border-radius: 8px; }
+  .page img[src*="portal"], .page img[src*="company-"], .page img[src*="agency-"] { max-width: 620px; border-radius: 8px; }
   .page img + em, .page p:has(img) + p > em:only-child {
     display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;
   }

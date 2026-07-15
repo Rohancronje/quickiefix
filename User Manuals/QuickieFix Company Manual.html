@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickieFix Company Manual</title>
+<style>
+  :root { --navy:#0B1220; --amber:#FFB020; --muted:#5A6478; --line:#E2E7F1; }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--navy); margin: 0; padding: 0; background: #fff;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px 80px; }
+  .brandbar {
+    background: var(--navy); color: #fff; padding: 28px 40px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brandbar img { height: 46px; }
+  .brandbar .word { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brandbar .word b { color: var(--amber); }
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 8px; }
+  h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  p, li { color: #22314e; }
+  strong { color: var(--navy); }
+  a { color: #3D7BFF; text-decoration: none; }
+  code { background: #F1F4FA; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px; background: #FFF7E6;
+    border-left: 4px solid var(--amber); border-radius: 6px;
+  }
+  blockquote p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  /* The cover meta-table has an intentionally empty header row — hide it. */
+  th:empty { display: none; }
+  td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F7F9FD; }
+  hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  .page img {
+    display: block; margin: 16px auto 4px; max-width: 230px; width: 100%;
+    border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(11,18,32,.10);
+  }
+  .page img[src*="portal"], .page img[src*="company-"], .page img[src*="agency-"] { max-width: 620px; border-radius: 8px; }
+  .page img + em, .page p:has(img) + p > em:only-child {
+    display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;
+  }
+  li { margin: 3px 0; }
+  .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
+  @media print {
+    .page { padding: 8mm 0 0; max-width: none; }
+    .brandbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Cover page: title + meta table stand alone; contents starts page 2. */
+    .page > table:first-of-type { break-after: page; }
+    .page > table:first-of-type + hr { display: none; }
+    /* Never leave a heading stranded at the bottom of a page. */
+    h1, h2, h3 { break-after: avoid; break-inside: avoid; }
+    p { orphans: 3; widows: 3; }
+    li { break-inside: avoid; }
+    /* Keep the TOC list in one block. */
+    h2 + ol { break-inside: avoid; }
+    /* Tables flow across pages (header row repeats); rows never split. */
+    table { break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    /* Keep a screenshot and its caption together. */
+    blockquote, .page img { break-inside: avoid; }
+    p:has(> img) { break-inside: avoid; break-after: avoid; }
+    p:has(> img) + p { break-before: avoid; }
+    a { color: inherit; }
+  }
+  @page { margin: 14mm 12mm; }
+</style>
+</head>
+<body>
+  <div class="brandbar">
+    <img src="https://quickiefix.app/email-logo.png" alt="QuickieFix">
+    <div class="word">Quickie<b>Fix</b> · User Manual</div>
+  </div>
+  <div class="page">
+    <h1>QuickieFix Company Manual</h1>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Version</strong></td>
+<td>2.0</td>
+</tr>
+<tr>
+<td><strong>Date</strong></td>
+<td>15 July 2026</td>
+</tr>
+<tr>
+<td><strong>Audience</strong></td>
+<td>Trade company owners &amp; admins</td>
+</tr>
+<tr>
+<td><strong>Portal</strong></td>
+<td>portal.quickiefix.app</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-what-the-business-portal-does">What the business portal does</a></li>
+<li><a href="#2-creating-your-company-account">Creating your company account</a></li>
+<li><a href="#3-dashboard--going-live">Dashboard &amp; going live</a></li>
+<li><a href="#4-building-your-team--my-tradies">Building your team — My Tradies</a></li>
+<li><a href="#5-jobs-board">Jobs board</a></li>
+<li><a href="#6-timesheets">Timesheets</a></li>
+<li><a href="#7-reputation">Reputation</a></li>
+<li><a href="#8-billing--roi">Billing &amp; ROI</a></li>
+<li><a href="#9-agency-panels--the-growth-engine">Agency panels — the growth engine</a></li>
+<li><a href="#10-support">Support</a></li>
+<li><a href="#11-settings">Settings</a></li>
+<li><a href="#12-faq">FAQ</a></li>
+</ol>
+<hr>
+<h2>1. What the business portal does</h2>
+<p>The QuickieFix Business Portal at <strong>portal.quickiefix.app</strong> is mission control for a trade company running a team of tradies on QuickieFix. Your tradies work from the mobile app; you run the business from the portal:</p>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>What you get</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>My Tradies</strong></td>
+<td>Build and manage your roster — add seats one at a time or import a whole spreadsheet</td>
+</tr>
+<tr>
+<td><strong>Dashboard</strong></td>
+<td>Live KPIs and a per-tradie performance table</td>
+</tr>
+<tr>
+<td><strong>Jobs</strong></td>
+<td>A live board of every job your team is on, as it happens</td>
+</tr>
+<tr>
+<td><strong>Timesheets</strong></td>
+<td>Every completed job with on-site and total minutes, exportable as CSV for payroll and invoicing</td>
+</tr>
+<tr>
+<td><strong>Reputation</strong></td>
+<td>All customer reviews across the team in one place, ready to share</td>
+</tr>
+<tr>
+<td><strong>Billing &amp; ROI</strong></td>
+<td>Estimated labour value earned vs. the flat platform fees you pay</td>
+</tr>
+<tr>
+<td><strong>Agency panels</strong></td>
+<td>Join property-agency maintenance panels for recurring, exclusive repair work</td>
+</tr>
+<tr>
+<td><strong>Settings</strong></td>
+<td>Rate card, company profile (name, NZBN, billing email)</td>
+</tr>
+</tbody></table>
+<p>How dispatch works: your tradies simply go <strong>Available</strong> in the app. QuickieFix routes company-sourced work to your team, every job they accept is stamped with your company name and rate card, and the results stream into your portal in real time — no refreshing, no manual reporting.</p>
+<blockquote>
+<p>💡 <strong>Pricing in one line:</strong> QuickieFix charges a flat <strong>NZ$15 per completed job</strong> — never a percentage. Each tradie&#39;s <strong>first 5 jobs are free</strong>, and fees for company-sourced jobs are billed to the company, not the tradie.</p>
+</blockquote>
+<hr>
+<h2>2. Creating your company account</h2>
+<p>You need one thing before you start: your <strong>NZBN</strong> (New Zealand Business Number). It is required — employees on your roster trade under your NZBN, so QuickieFix will not create a trade company without one.</p>
+<ol>
+<li><p>Open <strong>portal.quickiefix.app</strong>.</p>
+</li>
+<li><p>Click <strong>Create one</strong> under the sign-in form.</p>
+</li>
+<li><p>Choose <strong>🧰 Trade company</strong> (not Property agency).</p>
+</li>
+<li><p>Fill in:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Company name</strong></td>
+<td>e.g. <em>Your Business Ltd</em> — customers see this on every job</td>
+</tr>
+<tr>
+<td><strong>NZBN (required)</strong></td>
+<td>Your 13-digit New Zealand Business Number (starts 9429…)</td>
+</tr>
+<tr>
+<td><strong>Your name</strong></td>
+<td>The admin&#39;s name</td>
+</tr>
+<tr>
+<td><strong>Email</strong></td>
+<td>Becomes your admin login</td>
+</tr>
+<tr>
+<td><strong>Password</strong></td>
+<td>Minimum 6 characters</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>Click <strong>Create company</strong>. You land straight on your Dashboard.</p>
+</li>
+</ol>
+<p><img src="images-v2/portal-login.png" alt="The Business Portal sign-in and sign-up screen">
+<em>Sign in or create your trade company at portal.quickiefix.app.</em></p>
+<p>To sign back in later, use <strong>Sign in</strong> at the same URL with your admin email and password.</p>
+<blockquote>
+<p>⚠️ <strong>Why the NZBN is mandatory:</strong> tradies you engage as <em>employees</em> appear to customers under their personal name trading with <strong>your</strong> NZBN. Without an NZBN on file there is no legal number for them to trade under, so set it before confirming any employee seats.</p>
+</blockquote>
+<hr>
+<h2>3. Dashboard &amp; going live</h2>
+<h3>The setup checklist</h3>
+<p>A brand-new company sees a <strong>&quot;Get your team live&quot;</strong> checklist instead of four dead-zero KPIs. It tracks four steps:</p>
+<ol>
+<li><strong>Create company account</strong> — already done. ✓</li>
+<li><strong>Add your first tradie</strong> — invite pros so jobs can be routed to your team (issuing a seat counts; you don&#39;t wait on validation).</li>
+<li><strong>Set your rate card</strong> — required to go live; customers see these rates.</li>
+<li><strong>Land your first job</strong> — your tradies just go Available in the app; dispatch does the rest.</li>
+</ol>
+<p>Each step has a button that takes you to the right page. The checklist disappears once you are set up (tradies added + rate card saved) — the real dashboard shows even before your first job completes.</p>
+<p><img src="images-v2/company-dashboard.png" alt="Company dashboard with KPI band and team performance table">
+<em>The Dashboard: KPI band on top, team performance table below.</em></p>
+<h3>The KPI band</h3>
+<p>Once you&#39;re live, the top band shows four numbers, updated live:</p>
+<table>
+<thead>
+<tr>
+<th>KPI</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Tradies</strong></td>
+<td>Validated tradies on your roster</td>
+</tr>
+<tr>
+<td><strong>Completed jobs</strong></td>
+<td>Total jobs completed across the team</td>
+</tr>
+<tr>
+<td><strong>Avg rating</strong></td>
+<td>Average customer star rating across rated tradies</td>
+</tr>
+<tr>
+<td><strong>Time on site</strong></td>
+<td>Total billable on-site time across all completed jobs</td>
+</tr>
+</tbody></table>
+<h3>Team performance table</h3>
+<p>Below the band, every tradie gets a row: <strong>name &amp; business name, trade, jobs completed, star rating, time on site, and approval status</strong> (Approved / pending). The table is sorted by completed jobs, so your top performer is always on top. Click any row to open that tradie&#39;s detail page.</p>
+<blockquote>
+<p>💡 Everything on the dashboard is a <strong>live listener</strong> — a job completing, a seat being removed, a tradie being confirmed all appear instantly without a refresh.</p>
+</blockquote>
+<hr>
+<h2>4. Building your team — My Tradies</h2>
+<p><strong>My Tradies</strong> is the core workflow of the portal. It has three parts: the roster of validated tradies, the <strong>Add a seat</strong> form, and the <strong>spreadsheet import</strong>. Below them, the <strong>Tags</strong> table tracks every seat you&#39;ve ever issued.</p>
+<p><img src="images-v2/company-team.png" alt="The My Tradies page with roster, add-a-seat form and tag list">
+<em>My Tradies: your roster on top, Add a seat and spreadsheet import below.</em></p>
+<h3>4.1 Add a seat (one tradie at a time)</h3>
+<ol>
+<li><p>Enter the tradie&#39;s <strong>Name</strong> and <strong>Email</strong> (<strong>Phone</strong> is optional).</p>
+</li>
+<li><p>Pick the <strong>engagement</strong> — this tick is the single most important decision on the page:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What it means</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Employed by &lt;your company&gt;</strong></td>
+<td>They trade under their <strong>personal name</strong> with <strong>your company&#39;s NZBN</strong>. Their own business identity is stored and automatically restored if they ever leave.</td>
+</tr>
+<tr>
+<td><strong>Contractor (own business &amp; NZBN)</strong></td>
+<td>They keep their <strong>own business name and NZBN</strong>, and invoice you for their work.</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>Click <strong>Add seat</strong>.</p>
+</li>
+</ol>
+<blockquote>
+<p>⚠️ <strong>The company&#39;s tick is authoritative.</strong> You declare the engagement when you issue the seat — it decides whose NZBN and business name the tradie works under. Get it right before you confirm them.</p>
+</blockquote>
+<h3>4.2 Seat codes: issue → claim → confirm</h3>
+<p>Adding a seat issues a <strong>tag code</strong> in the format <strong>QF-XXXXXX</strong> (6 characters). It appears in a green panel with a <strong>Copy code</strong> button.</p>
+<ol>
+<li><strong>Send the code to your tradie</strong> — text, email, however you like. The code <strong>expires in 14 days</strong>.</li>
+<li><strong>The tradie claims it</strong> — they enter the code in the QuickieFix app. The tag&#39;s status in your Tags table moves from <code>issued</code> (amber) to <code>claimed</code> (blue).</li>
+<li><strong>You confirm them</strong> — a <strong>Confirm tradie</strong> button appears on the claimed tag. You issued the seat and you know the person, so confirmation is yours, not QuickieFix&#39;s. The confirmation dialog restates the engagement so there are no surprises:<ul>
+<li><strong>Employee seat:</strong> they&#39;ll appear under their personal name with your company&#39;s NZBN.</li>
+<li><strong>Contractor seat:</strong> they keep their own business name and NZBN, and invoice you.</li>
+</ul>
+</li>
+</ol>
+<p>Clicking <strong>Confirm tradie</strong> marks the tag <code>validated</code> (green) and applies the employment effects immediately: the tradie is bound to your company, their jobs carry your company name and rate card from then on, and — for employees — their own business name/NZBN are stashed and replaced by their personal name + your NZBN.</p>
+<h3>4.3 Spreadsheet import (whole team at once)</h3>
+<p>For an existing team, skip the code dance entirely:</p>
+<ol>
+<li><p>Click <strong>Download template</strong>. The CSV columns are:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>firstName</code>, <code>lastName</code></td>
+<td>Required</td>
+</tr>
+<tr>
+<td><code>email</code></td>
+<td>Required, must be valid, must not already be registered</td>
+</tr>
+<tr>
+<td><code>contractorBusinessName</code></td>
+<td><strong>The engagement switch.</strong> Leave EMPTY → <strong>employee</strong> (personal name, your NZBN, automatic). Fill it in → <strong>contractor</strong> trading under that business name.</td>
+</tr>
+<tr>
+<td><code>primaryTrade</code></td>
+<td>One of the valid trades shown on the page (e.g. <code>plumber</code>, <code>electrician</code>)</td>
+</tr>
+<tr>
+<td><code>secondaryTrades</code></td>
+<td>Optional, separated by <code>;</code> (e.g. <code>gasfitter;handyman</code>)</td>
+</tr>
+<tr>
+<td><code>yearsExperience</code></td>
+<td>Number</td>
+</tr>
+<tr>
+<td><code>licenceNumber</code></td>
+<td>Optional (e.g. <code>PGDB-12345</code>, <code>EWRB-6789</code>)</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>Fill it in, then <strong>Choose CSV file</strong>. The portal previews every row — rows with problems (missing name, invalid email, unknown trade) are flagged and skipped, the rest show <strong>ready</strong>.</p>
+</li>
+<li><p>Click <strong>Import N tradie(s)</strong>.</p>
+</li>
+</ol>
+<p>Each imported tradie gets:</p>
+<ul>
+<li>a QuickieFix account <strong>linked to your company</strong> with a <strong>pre-validated tag</strong> (no code to claim, no confirmation step),</li>
+<li>the right engagement applied automatically from <code>contractorBusinessName</code>,</li>
+<li>an <strong>email with a password setup link</strong> so they can sign in to the app.</li>
+</ul>
+<blockquote>
+<p>💡 The import runs in your browser and shows progress row by row. Rows that fail (e.g. &quot;Email already registered&quot;) are reported individually — fix and re-import just those.</p>
+</blockquote>
+<h3>4.4 Removing a seat</h3>
+<p>Click <strong>Remove</strong> on any tag. The tradie <strong>leaves your roster immediately</strong>; their <strong>past jobs stay on your record</strong> (history, timesheets, fees are unchanged). For ex-employees, their own identity is restored automatically: their original business name comes back and your company NZBN leaves with the company — the app prompts them for their own.</p>
+<hr>
+<h2>5. Jobs board</h2>
+<p><strong>Jobs</strong> is your live board of what the team is doing right now. Jobs appear the moment one of your tradies <strong>accepts</strong> company-sourced work, and their status streams in as the tradie travels, arrives and completes — genuinely live, no refresh.</p>
+<p><img src="images-v2/company-jobs.png" alt="The live jobs board with status filters">
+<em>The Jobs board — filter by All, Live, Completed or Cancelled.</em></p>
+<ul>
+<li><strong>Filters:</strong> <strong>All / Live / Completed / Cancelled</strong>. &quot;Live&quot; covers searching, confirmed, travelling and on-site jobs; the header shows a live count (e.g. &quot;Job board · 3 live now&quot;).</li>
+<li><strong>Columns:</strong> Tradie, Trade, Customer, Where (address), Raised (date), Status.</li>
+<li><strong>Status chips:</strong> amber = searching, blue = confirmed / travelling / on site, green = completed, grey = cancelled.</li>
+</ul>
+<blockquote>
+<p>💡 Only <strong>company-sourced</strong> jobs land on your board — see the <a href="#12-faq">FAQ</a> for the sourcing rules.</p>
+</blockquote>
+<hr>
+<h2>6. Timesheets</h2>
+<p><strong>Timesheets</strong> lists every <strong>completed</strong> job across the roster, newest first — your ready-made payroll and invoicing feed.</p>
+<p><img src="images-v2/company-timesheets.png" alt="The Timesheets page with the Export CSV button">
+<em>Timesheets: every completed job with on-site and total time, ready to export.</em></p>
+<p>Each row shows: <strong>Tradie</strong> (with a <code>contractor</code> chip where relevant), <strong>Customer</strong>, <strong>Trade</strong>, <strong>Address</strong>, <strong>Completed</strong> date, <strong>On site</strong> time (arrival → completion), <strong>Total</strong> time (acceptance → completion), and the customer <strong>Rating</strong>.</p>
+<p>Click <strong>⬇ Export as CSV</strong> to download <code>quickiefix-timesheets-&lt;date&gt;.csv</code>. The export adds columns you need for the books:</p>
+<table>
+<thead>
+<tr>
+<th>CSV column</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Tradie, <strong>Engagement</strong></td>
+<td>Who did the work, and whether to run it through <strong>payroll</strong> (employee) or expect a <strong>contractor invoice</strong></td>
+</tr>
+<tr>
+<td><strong>Customer</strong>, Address, Trade</td>
+<td>Who the work was contracted to — i.e. whose job to bill</td>
+</tr>
+<tr>
+<td>Completed, <strong>On site (min)</strong>, <strong>Total (min)</strong></td>
+<td>Billable minutes per job</td>
+</tr>
+<tr>
+<td>Rating</td>
+<td>Quality tracking</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>💡 New completions appear on the page as they happen — export at the end of your pay cycle and you have the whole period in one file.</p>
+</blockquote>
+<hr>
+<h2>7. Reputation</h2>
+<p><strong>Reputation</strong> collects every customer review across your team in one place — your best marketing, written by customers.</p>
+<p><img src="images-v2/company-reputation.png" alt="The Reputation page with rating KPIs and reviews">
+<em>Reputation: team-wide rating KPIs and every customer review, with one-click sharing.</em></p>
+<p>The KPI band shows: <strong>Average rating</strong>, <strong>Total reviews</strong>, <strong>5-star reviews</strong>, and the <strong>5-star rate</strong> (%).</p>
+<p>Below, each review shows the stars, the customer&#39;s name, the trade, the tradie who did the job, the date, the written review and any tags the customer picked. Click <strong>📋 Copy to share</strong> on any review to copy a pre-formatted snippet to your clipboard, ready to paste into social media, your website or a quote:</p>
+<blockquote>
+<p>⭐ ★★★★★ — &quot;Fast, tidy, sorted it first visit&quot; — Jane D., Plumbing job with Your Business Ltd via QuickieFix</p>
+</blockquote>
+<hr>
+<h2>8. Billing &amp; ROI</h2>
+<p><strong>Billing</strong> is deliberately framed as return on investment, not cost: what QuickieFix-sourced work is <em>worth</em> to you against the flat fees you pay.</p>
+<p><img src="images-v2/company-billing.png" alt="The Billing page with ROI KPIs and the fee ledger">
+<em>Billing &amp; ROI: estimated labour value earned versus flat platform fees.</em></p>
+<p>The KPI band:</p>
+<table>
+<thead>
+<tr>
+<th>KPI</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Est. labour value generated</strong></td>
+<td>On-site hours across completed jobs × your hourly rate (+ callout fee per job) — an honest proxy for what the sourced work is worth</td>
+</tr>
+<tr>
+<td><strong>Platform fees (all time)</strong></td>
+<td>Total flat fees incl. GST</td>
+</tr>
+<tr>
+<td><strong>Fee-free jobs (credits)</strong></td>
+<td>Jobs where the fee was waived by a free credit</td>
+</tr>
+<tr>
+<td><strong>Shared credits left</strong></td>
+<td>Free-job credits remaining in the company pool</td>
+</tr>
+</tbody></table>
+<p>When both numbers exist, a summary banner does the maths for you: <em>&quot;QuickieFix work has been worth roughly $X in billable labour to &lt;company&gt; — for $Y in platform fees.&quot;</em></p>
+<h3>How fees work</h3>
+<ul>
+<li><strong>Flat NZ$15 per completed job</strong> — never a percentage of your work.</li>
+<li><strong>First 5 jobs per tradie are free</strong> — credits burn before any fee is charged.</li>
+<li><strong>Company-sourced jobs bill to the company</strong> (they appear in this ledger); jobs a tradie sources independently bill to the tradie.</li>
+<li>Fees are invoiced <strong>monthly</strong> to your billing email.</li>
+</ul>
+<h3>The fee ledger</h3>
+<p>Fees are grouped <strong>by month</strong>, each line showing the tradie, trade, amount (incl. GST) and status: <strong>paid</strong> (green), <strong>pending / invoiced</strong> (amber), or <strong>waived credit</strong> (grey, no charge).</p>
+<blockquote>
+<p>💡 Set your <strong>billing email</strong> in Settings so invoices go to accounts, not the owner&#39;s inbox.</p>
+</blockquote>
+<hr>
+<h2>9. Agency panels — the growth engine</h2>
+<h3>What a panel is</h3>
+<p>Property management agencies (rental and real-estate managers) also use QuickieFix. When a tenant at one of their managed rentals reports a repair, that job dispatches <strong>only</strong> to tradies the agency has approved — their <strong>panel</strong>. Getting onto panels means recurring, exclusive property-maintenance work for your team, with no open-market competition.</p>
+<p><img src="images-v2/company-agency-panels.png" alt="The Agency panels page with the join form">
+<em>Agency panels: enter an agent code, choose the scope, and request to join.</em></p>
+<h3>How to join</h3>
+<ol>
+<li><p>An agency you work with gives you their <strong>agent code</strong> — it looks like <strong>QF-AG-7K2P</strong>.</p>
+</li>
+<li><p>On <strong>Agency panels</strong>, choose the scope of the panel:</p>
+<table>
+<thead>
+<tr>
+<th>Scope</th>
+<th>Who gets the agency&#39;s jobs</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Whole team</strong></td>
+<td>Every tradie on your roster</td>
+</tr>
+<tr>
+<td><strong>Employees only (no contractors)</strong></td>
+<td>Only employee seats — useful when the agency&#39;s terms require work under your NZBN</td>
+</tr>
+</tbody></table>
+</li>
+<li><p>Enter the code and click <strong>Join panel</strong>. The request goes to the agency and shows as <strong>pending</strong> in <em>Your panels</em>.</p>
+</li>
+<li><p>The agency approves you in <strong>their</strong> portal. The chip flips to <strong>approved</strong> — and from then on, repair jobs at their managed rentals dispatch straight to your tradies on the agency&#39;s commercial terms.</p>
+</li>
+</ol>
+<p><img src="images-v2/company-panel-joined.png" alt="A joined panel showing the approved status">
+<em>An approved panel — recurring, exclusive repair work from the agency&#39;s managed rentals.</em></p>
+<h3>The billing chain</h3>
+<p>Panel work flows <strong>agency → company → tradie</strong>: the agency commissions the repair on its commercial terms, your company carries the engagement, and your tradie does the job. On these <strong>company-sourced</strong> jobs — and only these — contractors on your roster carry <strong>your brand</strong> to the customer; on work they source themselves they remain their own business.</p>
+<blockquote>
+<p>💡 No agency contacts yet? Nothing to do here — your team keeps getting open-market jobs as normal. Panels are extra, exclusive work on top.</p>
+</blockquote>
+<blockquote>
+<p>⚠️ Panel requests stay <strong>pending</strong> until the agency approves them in their portal. If a request sits pending, chase the agency — QuickieFix does not approve panels on their behalf.</p>
+</blockquote>
+<hr>
+<h2>10. Support</h2>
+<p><strong>Support</strong> files an in-platform ticket straight to QuickieFix ops — no email address to hunt for.</p>
+<p><img src="images-v2/company-support.png" alt="The Support page contact form">
+<em>Support: your ticket reaches the QuickieFix team immediately.</em></p>
+<ol>
+<li>Open <strong>Support</strong> in the sidebar.</li>
+<li>Enter a <strong>Subject</strong> and a <strong>Message</strong>.</li>
+<li>Click <strong>Send to QuickieFix</strong>.</li>
+</ol>
+<p>Your ticket lands in the QuickieFix back office immediately, tagged with your company account, and the team replies to your admin email.</p>
+<blockquote>
+<p>💡 If support asks for your account reference, your <strong>Company ID</strong> is in <strong>Settings</strong> with a one-click Copy button.</p>
+</blockquote>
+<hr>
+<h2>11. Settings</h2>
+<p><img src="images-v2/company-settings.png" alt="The Settings page with rate card and company profile">
+<em>Settings: rate card, company profile and account reference.</em></p>
+<h3>Rate card — how you go live</h3>
+<p>Your company status is <strong>Setup</strong> (amber) until a rate card is saved, then <strong>Active</strong> (green).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Required</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Hourly rate (NZD)</strong></td>
+<td>✅</td>
+<td>85.00</td>
+</tr>
+<tr>
+<td><strong>Callout fee</strong></td>
+<td>optional</td>
+<td>60.00</td>
+</tr>
+<tr>
+<td><strong>After-hours callout</strong></td>
+<td>optional</td>
+<td>120.00</td>
+</tr>
+</tbody></table>
+<p>Click <strong>Save &amp; go live</strong>. Customers see these rates on every job your team takes, and the Billing page uses the hourly rate to estimate labour value.</p>
+<h3>Company profile</h3>
+<ul>
+<li><strong>Company name</strong> — shown to customers on every job.</li>
+<li><strong>NZBN (required)</strong> — employees who join your team trade under this number; set it <strong>before</strong> confirming any employee seats.</li>
+<li><strong>Billing email</strong> — where monthly fee invoices go (e.g. <a href="mailto:accounts@yourcompany.co.nz">accounts@yourcompany.co.nz</a>).</li>
+</ul>
+<p>Click <strong>Save changes</strong> — the portal will refuse to save a profile without an NZBN.</p>
+<h3>Account</h3>
+<ul>
+<li><strong>Admin email</strong> — your login.</li>
+<li><strong>Company ID</strong> — your unique account reference with a <strong>Copy</strong> button. QuickieFix support may ask for it. It is not a secret, but nobody else needs it.</li>
+<li><strong>Log out</strong> under Session.</li>
+</ul>
+<hr>
+<h2>12. FAQ</h2>
+<p><strong>Why did a job not appear on my Jobs board?</strong>
+The board only shows <strong>company-sourced</strong> jobs — work dispatched to your tradies through QuickieFix under your company (open-market dispatch while tagged to you, or agency panel work). Jobs appear the moment a tradie <strong>accepts</strong>; if a tradie sourced a job independently of the company, it bills to them and does not land on your board. Also check the filter — a completed job won&#39;t show under <strong>Live</strong>.</p>
+<p><strong>My tradie entered the code but nothing changed on my dashboard.</strong>
+The tag is now <code>claimed</code> — go to <strong>My Tradies → Tags</strong> and click <strong>Confirm tradie</strong>. Confirmation is your step, and it&#39;s what applies the employment effects.</p>
+<p><strong>The seat code stopped working.</strong>
+Codes expire after <strong>14 days</strong>. Remove the stale tag and issue a fresh seat.</p>
+<p><strong>Do I pay fees for every job?</strong>
+No — each tradie&#39;s <strong>first 5 jobs are free</strong> (credits burn first), and after that it&#39;s a flat <strong>NZ$15 per completed job</strong>, billed monthly to the company for company-sourced work. Never a percentage.</p>
+<p><strong>Employee vs contractor — cheat sheet:</strong></p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>Employee</strong></th>
+<th><strong>Contractor</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Trades as</td>
+<td>Personal name</td>
+<td>Their own business name</td>
+</tr>
+<tr>
+<td>NZBN used</td>
+<td><strong>Your company&#39;s</strong></td>
+<td><strong>Their own</strong></td>
+</tr>
+<tr>
+<td>Set by</td>
+<td>Your tick on the seat (authoritative)</td>
+<td>Your tick on the seat (authoritative)</td>
+</tr>
+<tr>
+<td>In CSV import</td>
+<td><code>contractorBusinessName</code> <strong>empty</strong></td>
+<td><code>contractorBusinessName</code> <strong>filled</strong></td>
+</tr>
+<tr>
+<td>Pays them</td>
+<td>Your payroll (use Timesheets export)</td>
+<td>They invoice you</td>
+</tr>
+<tr>
+<td>Agency panels</td>
+<td>Included in both scopes</td>
+<td>Excluded from &quot;Employees only&quot; panels</td>
+</tr>
+<tr>
+<td>Carries your brand</td>
+<td>Always</td>
+<td>Only on company-sourced jobs</td>
+</tr>
+<tr>
+<td>If they leave</td>
+<td>Own identity restored automatically</td>
+<td>Nothing changes — it was always theirs</td>
+</tr>
+</tbody></table>
+<p><strong>Can I change a tradie&#39;s engagement after confirming them?</strong>
+Not directly — remove the seat (past jobs stay on record) and issue a new one with the correct tick.</p>
+<p><strong>Does removing a tradie delete their history?</strong>
+No. They leave the roster immediately, but their completed jobs, timesheets and fees stay on your record.</p>
+
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.app</div>
+  </div>
+</body>
+</html>

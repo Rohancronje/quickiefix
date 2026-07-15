@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickieFix Property Agent Manual</title>
+<style>
+  :root { --navy:#0B1220; --amber:#FFB020; --muted:#5A6478; --line:#E2E7F1; }
+  * { box-sizing: border-box; }
+  body {
+    font: 15px/1.65 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--navy); margin: 0; padding: 0; background: #fff;
+  }
+  .page { max-width: 800px; margin: 0 auto; padding: 48px 40px 80px; }
+  .brandbar {
+    background: var(--navy); color: #fff; padding: 28px 40px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brandbar img { height: 46px; }
+  .brandbar .word { font-weight: 800; font-size: 22px; letter-spacing: .2px; }
+  .brandbar .word b { color: var(--amber); }
+  h1 { font-size: 30px; line-height: 1.25; margin: 26px 0 8px; }
+  h2 { font-size: 21px; margin: 38px 0 10px; padding-top: 14px; border-top: 2px solid var(--line); }
+  h3 { font-size: 16.5px; margin: 24px 0 8px; }
+  p, li { color: #22314e; }
+  strong { color: var(--navy); }
+  a { color: #3D7BFF; text-decoration: none; }
+  code { background: #F1F4FA; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  blockquote {
+    margin: 14px 0; padding: 10px 16px; background: #FFF7E6;
+    border-left: 4px solid var(--amber); border-radius: 6px;
+  }
+  blockquote p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 14px; }
+  th { background: var(--navy); color: #fff; text-align: left; padding: 8px 12px; }
+  /* The cover meta-table has an intentionally empty header row — hide it. */
+  th:empty { display: none; }
+  td { border: 1px solid var(--line); padding: 8px 12px; vertical-align: top; }
+  tr:nth-child(even) td { background: #F7F9FD; }
+  hr { border: none; border-top: 2px solid var(--line); margin: 32px 0; }
+  /* Screenshots: phone shots as framed device-width figures; portal shots wide. */
+  .page img {
+    display: block; margin: 16px auto 4px; max-width: 230px; width: 100%;
+    border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(11,18,32,.10);
+  }
+  .page img[src*="portal"], .page img[src*="company-"], .page img[src*="agency-"] { max-width: 620px; border-radius: 8px; }
+  .page img + em, .page p:has(img) + p > em:only-child {
+    display: block; text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 16px;
+  }
+  li { margin: 3px 0; }
+  .footer { margin-top: 56px; color: var(--muted); font-size: 13px; text-align: center; }
+  @media print {
+    .page { padding: 8mm 0 0; max-width: none; }
+    .brandbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    blockquote { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Cover page: title + meta table stand alone; contents starts page 2. */
+    .page > table:first-of-type { break-after: page; }
+    .page > table:first-of-type + hr { display: none; }
+    /* Never leave a heading stranded at the bottom of a page. */
+    h1, h2, h3 { break-after: avoid; break-inside: avoid; }
+    p { orphans: 3; widows: 3; }
+    li { break-inside: avoid; }
+    /* Keep the TOC list in one block. */
+    h2 + ol { break-inside: avoid; }
+    /* Tables flow across pages (header row repeats); rows never split. */
+    table { break-inside: auto; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    /* Keep a screenshot and its caption together. */
+    blockquote, .page img { break-inside: avoid; }
+    p:has(> img) { break-inside: avoid; break-after: avoid; }
+    p:has(> img) + p { break-before: avoid; }
+    a { color: inherit; }
+  }
+  @page { margin: 14mm 12mm; }
+</style>
+</head>
+<body>
+  <div class="brandbar">
+    <img src="https://quickiefix.app/email-logo.png" alt="QuickieFix">
+    <div class="word">Quickie<b>Fix</b> · User Manual</div>
+  </div>
+  <div class="page">
+    <h1>QuickieFix Property Agent Manual</h1>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Version</strong></td>
+<td>2.0</td>
+</tr>
+<tr>
+<td><strong>Date</strong></td>
+<td>15 July 2026</td>
+</tr>
+<tr>
+<td><strong>Audience</strong></td>
+<td>Property managers &amp; agencies</td>
+</tr>
+<tr>
+<td><strong>Portal</strong></td>
+<td><a href="https://portal.quickiefix.app">https://portal.quickiefix.app</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Contents</h2>
+<ol>
+<li><a href="#1-what-quickiefix-does-for-your-agency">What QuickieFix does for your agency</a></li>
+<li><a href="#2-getting-started">Getting started</a></li>
+<li><a href="#3-your-portfolio--the-properties-page">Your portfolio — the Properties page</a></li>
+<li><a href="#4-your-tradie-panel">Your tradie panel</a></li>
+<li><a href="#5-how-tenant-repairs-work">How tenant repairs work</a></li>
+<li><a href="#6-desk-dispatch--request-help">Desk dispatch — Request help</a></li>
+<li><a href="#7-the-jobs-board">The Jobs board</a></li>
+<li><a href="#8-owner-reports">Owner reports</a></li>
+<li><a href="#9-support--settings">Support &amp; Settings</a></li>
+<li><a href="#10-faq">FAQ</a></li>
+</ol>
+<hr>
+<h2>1. What QuickieFix does for your agency</h2>
+<p>QuickieFix turns your maintenance desk into an automated pipeline. Instead of fielding calls, ringing around tradies and chasing paperwork, your agency gets:</p>
+<table>
+<thead>
+<tr>
+<th>You get</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Tenant self-reporting</strong></td>
+<td>Tenants report faults from their own phone, at their linked property, photos included — no call to your office needed.</td>
+</tr>
+<tr>
+<td><strong>Panel-only dispatch</strong></td>
+<td>Jobs at your managed properties go <strong>only to your approved panel</strong> of tradies and trade companies. Nobody you haven&#39;t vetted ever gets dispatched to your properties.</td>
+</tr>
+<tr>
+<td><strong>Your commercial terms</strong></td>
+<td>Panel jobs run under your agency&#39;s commercial agreement. Rates are <strong>hidden in-app</strong> for those jobs — tradies see the work, not a price negotiation.</td>
+</tr>
+<tr>
+<td><strong>Live tracking</strong></td>
+<td>Every job has a live status (searching → confirmed → travelling → on site → completed) visible to you on the portal and to the tenant in their app.</td>
+</tr>
+<tr>
+<td><strong>Owner-ready records</strong></td>
+<td>Every job produces a documented record — trade, issue, tradie, dates, time on site, tenant rating, parts used — exportable per property for your monthly owner statements.</td>
+</tr>
+</tbody></table>
+<p>You run all of this from one place: <strong><a href="https://portal.quickiefix.app">https://portal.quickiefix.app</a></strong>.</p>
+<blockquote>
+<p>💡 <strong>Founding pilot:</strong> QuickieFix is free for founding pilot agencies. There is no portal subscription fee during the pilot.</p>
+</blockquote>
+<hr>
+<h2>2. Getting started</h2>
+<h3>2.1 Create your agency account</h3>
+<ol>
+<li>Go to <strong><a href="https://portal.quickiefix.app">https://portal.quickiefix.app</a></strong>.</li>
+<li>Click <strong>Create one</strong> under the sign-in form.</li>
+<li>Select <strong>🏢 Property agency</strong> (not Trade company).</li>
+<li>Enter your <strong>agency name</strong>, <strong>your name</strong>, <strong>email</strong> and a <strong>password</strong> (at least 6 characters).</li>
+<li>Click <strong>Create agency</strong>.</li>
+</ol>
+<p><img src="images-v2/portal-login.png" alt="The portal sign-in and sign-up screen">
+<em>The Business Portal login — choose 🏢 Property agency when creating your account.</em></p>
+<h3>2.2 Your agent code — <code>QF-AG-XXXX</code></h3>
+<p>Your agency is issued a unique <strong>agent code</strong> in the format <code>QF-AG-XXXX</code> the moment the account is created. This code is the key that links everything to your agency:</p>
+<ul>
+<li><strong>Tenants</strong> enter it in their app (<strong>Account → 🏢 Property manager</strong>) to connect to you.</li>
+<li><strong>Individual tradies</strong> enter it in their app (<strong>Profile → 🏢 Property agents</strong>) to request a place on your panel.</li>
+<li><strong>Trade companies</strong> enter it in their portal (<strong>Settings → Property agents</strong>) to put their team on your panel.</li>
+</ul>
+<p>Every invite email you send from the portal carries this code automatically. You can view and copy it at any time on the <strong>Settings</strong> tab.</p>
+<blockquote>
+<p>⚠️ Anyone who enters your code only <strong>requests</strong> a link — nothing happens until <strong>you</strong> approve or confirm them in the portal. The code is safe to share widely.</p>
+</blockquote>
+<h3>2.3 The dashboard setup checklist</h3>
+<p>On first sign-in, the dashboard shows a <strong>&quot;Get your portfolio live&quot;</strong> checklist with a progress bar:</p>
+<ol>
+<li><strong>Create your agency account</strong> — done.</li>
+<li><strong>Add your first property</strong> — your portfolio decides which jobs route to your panel.</li>
+<li><strong>Build your tradie panel</strong> — invite the tradies and companies you trust; only they get your jobs.</li>
+<li><strong>Invite your tenants</strong> — they report repairs themselves; you keep the paper trail.</li>
+</ol>
+<p>Each step has a button that jumps you straight to the right tab. Once all steps are ticked (or the first real job flows), the checklist retires and the working dashboard takes over: KPI tiles (<strong>Properties · Tenants linked · Panel members · Jobs active/done</strong>) and a live table of the most recent jobs at your properties.</p>
+<p><img src="images-v2/agency-dashboard.png" alt="The agency dashboard">
+<em>The dashboard — setup checklist, portfolio KPIs and a live feed of jobs at your properties.</em></p>
+<blockquote>
+<p>💡 You are also <strong>emailed on every job</strong> raised at a managed property — you never have to sit watching the portal.</p>
+</blockquote>
+<hr>
+<h2>3. Your portfolio — the Properties page</h2>
+<p>Everything on QuickieFix hangs off a property: jobs are always raised <strong>against a property</strong>, and a property decides which tenants can report there and which panel receives the work.</p>
+<p><img src="images-v2/agency-properties.png" alt="The Properties tab">
+<em>Properties &amp; tenants — add properties one at a time, import in bulk, and manage tenant links per property.</em></p>
+<h3>3.1 Add a property</h3>
+<p>In <strong>Properties → Add a property</strong>:</p>
+<ol>
+<li><strong>Label (optional)</strong> — how your office knows it, e.g. <em>&quot;Unit 4, Takapuna&quot;</em>. Used everywhere the property is shown; the street address stays underneath.</li>
+<li><strong>Address</strong> — start typing and pick from the <strong>NZ address autocomplete</strong>. Selecting a suggestion <strong>pins exact coordinates</strong> to the property — you&#39;ll see <em>&quot;✓ Location pinned — tradies get exact distances&quot;</em>. This is what makes dispatch distances accurate, so always pick from the list rather than free-typing.</li>
+<li><strong>Tenant name and tenant email (both optional)</strong> — fill these in and one click does two things at once: it adds the property <strong>and</strong> emails the tenant an invite containing the app download link, <strong>your agent code</strong> and their property address. The button label changes to <strong>Add property &amp; invite tenant</strong> when an email is entered.</li>
+</ol>
+<p>When the tenant installs the app, creates a <strong>customer</strong> account with that email and enters your code, you confirm them in the portal and they are <strong>auto-linked to this exact property</strong> — repairs are then one tap away for them.</p>
+<h3>3.2 Bulk import your portfolio</h3>
+<p>For an existing rent roll, use <strong>Import your portfolio</strong>:</p>
+<ol>
+<li>Click <strong>Download template</strong> — a CSV with the header <code>label,address,tenantName,tenantEmail</code>.</li>
+<li>Fill it in: <strong>one row per property</strong>. <code>label</code>, <code>tenantName</code> and <code>tenantEmail</code> are optional; <code>address</code> is required.</li>
+<li>Click <strong>Choose CSV file</strong> and select your file. The portal validates every row and shows what&#39;s ready and what has issues (missing address, invalid tenant email) before anything is imported.</li>
+<li>Click <strong>Import N properties</strong>. A progress counter runs as each row lands.</li>
+</ol>
+<p>Every row with a tenant email triggers the same invite email (app link + your code + their address), and each tenant <strong>auto-links to their own property</strong> when they confirm.</p>
+<blockquote>
+<p>💡 Rows with issues are skipped, not imported — fix them in the CSV and re-import just those rows.</p>
+</blockquote>
+<h3>3.3 Tenants: invite, link, unlink</h3>
+<p>Each property card on the portfolio list has its own tenant tools:</p>
+<ul>
+<li><strong>✉️ Invite tenant</strong> — type an email into the property&#39;s tenant box and send an invite tied to that property. The email shows as <strong>invited</strong> (amber chip) on the card until they confirm.</li>
+<li><strong>Link existing account</strong> — if the tenant already has a QuickieFix customer account, type their email and click <strong>Link existing account</strong>. Tenants who have already confirmed your agency code appear as <strong>suggestions</strong> in the box, so you can pick them without retyping.</li>
+<li><strong>Unlink</strong> — removes a tenant from the property. Their past jobs are unaffected.</li>
+<li><strong>Remove</strong> (top-right of the card) — removes the property from your portfolio. Any linked tenants lose the property in their app; <strong>past jobs and their records are unaffected</strong>.</li>
+</ul>
+<p><strong>Tenant confirmations.</strong> When an invited tenant enters your code in their app, they appear at the top of the Properties tab under <strong>Tenants waiting for confirmation</strong>. Clicking <strong>Confirm</strong> approves them <strong>and</strong> auto-attaches them to the property they were invited to (matched by email).</p>
+<blockquote>
+<p>⚠️ <strong>The amber warning card.</strong> If a tenant confirmed your code but their email didn&#39;t match any property invite, they show in an amber <strong>&quot;Confirmed tenants without a property&quot;</strong> card. These tenants <strong>cannot see their rental or raise repairs</strong> until you link them: find their property in the list and type their email into its tenant box (they&#39;ll appear in the suggestions), then click <strong>Link existing account</strong>.</p>
+</blockquote>
+<hr>
+<h2>4. Your tradie panel</h2>
+<p>Your panel is the closed list of tradies and trade companies allowed to receive jobs at your managed properties. Nothing dispatches off-panel at a managed property when the agency is paying.</p>
+<p><img src="images-v2/agency-panel.png" alt="The Tradie panel tab">
+<em>Tradie panel &amp; invites — send invites, action pending requests, and manage the approved list.</em></p>
+<h3>4.1 Invite tradies and trade companies</h3>
+<p>In <strong>Tradie panel → Invite a tradie or trade company</strong>, enter their email and click <strong>✉️ Send invite</strong>. The invite carries the app/portal link, <strong>your agent code</strong> and role-specific step-by-step instructions:</p>
+<ul>
+<li><strong>Sole tradie</strong> — downloads the app, signs up as a tradie, then enters your code under <strong>Profile → 🏢 Property agents</strong>.</li>
+<li><strong>Trade company</strong> — signs in at the Business Portal and enters your code under <strong>Settings → Property agents</strong>, choosing whether the membership covers their <strong>whole team</strong> or <strong>employees only</strong>.</li>
+</ul>
+<blockquote>
+<p>💡 Tenant invites do <strong>not</strong> live here — they&#39;re on the Properties tab, because a tenant invite is always tied to a specific property.</p>
+</blockquote>
+<h3>4.2 Approve or decline requests</h3>
+<p>Every membership request — tradie or company — waits in <strong>Waiting for your approval</strong> until <strong>you</strong> act on it. Click <strong>Approve</strong> or <strong>Decline</strong>; a confirmation dialog spells out exactly what approval means before you commit.</p>
+<p><img src="images-v2/agency-panel-approve-dialog.png" alt="The approve dialog">
+<em>The approval dialog — for a company it states whether the membership covers their whole team or employees only, and that jobs dispatch on your agency&#39;s commercial terms.</em></p>
+<h3>4.3 Individual tradie vs trade company membership</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Individual tradie</th>
+<th>Trade company</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Who serves you</strong></td>
+<td>That one tradie, as their <strong>own business</strong></td>
+<td>The company&#39;s team — <strong>their choice</strong> of the whole roster or <strong>employees only</strong> (contractors excluded)</td>
+</tr>
+<tr>
+<td><strong>Who chose the scope</strong></td>
+<td>n/a</td>
+<td>The company admin, when they entered your code</td>
+</tr>
+<tr>
+<td><strong>Billing chain</strong></td>
+<td>Agency → tradie</td>
+<td>Agency → <strong>company</strong> → tradie</td>
+</tr>
+</tbody></table>
+<p>A company membership means any covered, available team member with the right trade can be dispatched to your properties — the company handles its own people, and the commercial relationship runs agency → company → tradie.</p>
+<h3>4.4 Remove a panel member</h3>
+<p>Click <strong>Remove</strong> next to any approved member. They <strong>stop receiving jobs at your properties immediately</strong>. Jobs already in progress are unaffected.</p>
+<p><img src="images-v2/agency-panel-after.png" alt="The panel after approval">
+<em>The approved panel — each member shows their type (individual tradie or trade company, with scope) and can be removed at any time.</em></p>
+<hr>
+<h2>5. How tenant repairs work</h2>
+<p>Once a tenant is confirmed and linked, their property appears in the QuickieFix app as a one-tap job location. When they report a fault there — trade, description, photos — the app recognises it as an <strong>agency-managed property</strong> and asks one extra question: <strong>who&#39;s paying for this job?</strong></p>
+<p><img src="images-v2/customer-newjob-whopays.png" alt="The who-pays step in the tenant&#39;s app">
+<em>The tenant&#39;s phone — at a managed property, the tenant chooses who pays before dispatch.</em></p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>🏢 &quot;{Your agency} pays&quot;</strong> <em>(default)</em></td>
+<td>The job goes <strong>only to your approved panel</strong>. Rates are covered by your agency&#39;s agreement and are not shown or negotiated in-app. The <strong>billing contact is locked to your agency</strong> (name and email shown read-only, marked 🔒 can&#39;t be changed) — the completion record and any invoicing land with you, not the tenant. The job appears on your Jobs tab, and you&#39;re emailed.</td>
+</tr>
+<tr>
+<td><strong>👤 &quot;I&#39;ll pay myself&quot;</strong></td>
+<td>The tenant hires on the <strong>open market</strong> at their <strong>own cost</strong>: all available tradies, rates shown upfront, tenant pays the tradie directly.</td>
+</tr>
+</tbody></table>
+<p>The tenant tracks the job live in their app throughout — matched tradie, travelling, on site, complete — without ever calling your office.</p>
+<blockquote>
+<p>💡 The agency-pays option is pre-selected. Tenants have to actively opt out to pay themselves, so maintenance flows to your panel by default.</p>
+</blockquote>
+<hr>
+<h2>6. Desk dispatch — Request help</h2>
+<p>Some tenants will still ring the office. The <strong>Request help</strong> tab lets you raise the job for them while they&#39;re on the phone — same panel-only dispatch, same tenant tracking.</p>
+<p><img src="images-v2/agency-request-help.png" alt="The Request help tab">
+<em>Request help — pick the property, and the linked tenant auto-fills as the customer of record.</em></p>
+<ol>
+<li><strong>Pick the property.</strong> The linked tenant <strong>auto-fills as the customer of record</strong> (if the property has several tenants, pick the caller; if none are linked yet, the job is raised as the agency).</li>
+<li><strong>Pick the trade</strong> — plumber, electrician, and so on.</li>
+<li><strong>Describe the fault</strong> — a sentence is enough, e.g. <em>&quot;Hot water cylinder leaking in the garage&quot;</em>.</li>
+<li><strong>Check &quot;Available now on your panel.&quot;</strong> A live list appears of every approved panel tradie of that trade who is online right now, with their business name, star rating and <strong>distance from the property</strong> (this is why pinned addresses matter). </li>
+<li><strong>Dispatch.</strong> Leave <strong>⚡ Best match</strong> selected to ping the nearest available first with automatic escalation, or select a specific tradie and click <strong>Dispatch this tradie</strong>.</li>
+</ol>
+<p><img src="images-v2/agency-request-help-filled.png" alt="Request help, filled in">
+<em>A filled-in request — live panel availability with ratings and distances, best match or a hand-picked tradie.</em></p>
+<p>The moment you dispatch:</p>
+<ul>
+<li>The tenant <strong>tracks the job live in their own app</strong> — you can tell them so while they&#39;re still on the phone.</li>
+<li>The job lands on your <strong>Jobs tab automatically</strong> (the portal switches you there) and flows into owner reports.</li>
+<li>Rates are covered by your agency agreement — no pricing conversation happens.</li>
+</ul>
+<blockquote>
+<p>💡 If none of your panel tradies of that trade are online, you can <strong>still dispatch</strong> — they are pinged the moment they come back online.</p>
+</blockquote>
+<hr>
+<h2>7. The Jobs board</h2>
+<p>The <strong>Jobs</strong> tab is the single view of every job at your managed properties — tenant-reported and desk-dispatched alike.</p>
+<p><img src="images-v2/agency-jobs.png" alt="The Jobs tab">
+<em>All jobs at your properties — filter by property and by live/completed status.</em></p>
+<p><strong>Filters:</strong></p>
+<ul>
+<li><strong>Property dropdown</strong> — narrow to a single property.</li>
+<li><strong>All / Live / Completed</strong> — <em>Live</em> means searching, confirmed, travelling or on site.</li>
+</ul>
+<p><strong>Columns:</strong> Property · Trade · Issue · Tradie · Raised · On site (time from arrival to completion) · Status.</p>
+<p><strong>Statuses</strong> update live, no refresh needed:</p>
+<table>
+<thead>
+<tr>
+<th>Status</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>searching</code></td>
+<td>Pinging your panel for a match</td>
+</tr>
+<tr>
+<td><code>confirmed</code></td>
+<td>A tradie has accepted</td>
+</tr>
+<tr>
+<td><code>travelling</code></td>
+<td>Tradie en route to the property</td>
+</tr>
+<tr>
+<td><code>on site</code></td>
+<td>Tradie at the property, working</td>
+</tr>
+<tr>
+<td><code>completed</code></td>
+<td>Done — the record (and confirmation code) is generated</td>
+</tr>
+<tr>
+<td><code>cancelled</code></td>
+<td>Job was cancelled</td>
+</tr>
+<tr>
+<td><code>no tradie found</code></td>
+<td>No panel member picked it up — see <a href="#10-faq">FAQ</a></td>
+</tr>
+</tbody></table>
+<hr>
+<h2>8. Owner reports</h2>
+<p>The <strong>Owner reports</strong> tab is your deliverable to property owners: everything that happened at their asset, ready to attach to the monthly statement.</p>
+<p><img src="images-v2/agency-reports.png" alt="The Owner reports tab">
+<em>Owner reports — per-property job history export and the portfolio summary.</em></p>
+<h3>8.1 Per-property maintenance report (CSV export)</h3>
+<p>Click <strong>⬇ Export owner report (CSV)</strong> to download the full job history with one row per job:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Property</td>
+<td>Street address</td>
+</tr>
+<tr>
+<td>Trade</td>
+<td>e.g. Plumber</td>
+</tr>
+<tr>
+<td>Issue</td>
+<td>The fault description</td>
+</tr>
+<tr>
+<td>Tradie</td>
+<td>Who did the work</td>
+</tr>
+<tr>
+<td>Raised / Completed</td>
+<td>Dates</td>
+</tr>
+<tr>
+<td>On site (min)</td>
+<td>Minutes from arrival to completion</td>
+</tr>
+<tr>
+<td>Rating</td>
+<td>The tenant&#39;s star rating</td>
+</tr>
+<tr>
+<td><strong>Parts</strong></td>
+<td>Parts &amp; materials recorded at completion (description × qty)</td>
+</tr>
+<tr>
+<td><strong>Parts total ($)</strong></td>
+<td>The summed parts cost</td>
+</tr>
+</tbody></table>
+<p>The file is named <code>{your-agency}-owner-report-{date}.csv</code> — filter it by property in your spreadsheet tool and <strong>attach it straight to the monthly owner statement</strong>.</p>
+<h3>8.2 Portfolio summary</h3>
+<p>Below the export, a live summary table shows one row per property: <strong>Jobs · Completed · Avg response</strong> (time from raised to a tradie confirming) <strong>· Avg rating · Last job</strong>. Use it to spot slow-response properties or ones generating unusual volume at a glance.</p>
+<blockquote>
+<p>💡 Every completed job also generates a server-issued confirmation code (<code>QF-XXXXXX</code>) on its completion email — a tamper-proof reference if an owner or tradie ever queries an invoice.</p>
+</blockquote>
+<hr>
+<h2>9. Support &amp; Settings</h2>
+<h3>9.1 Support</h3>
+<p>The <strong>Support</strong> tab sends a ticket straight to the QuickieFix team — it&#39;s emailed to our ops desk immediately, and we reply to your agency admin email.</p>
+<p><img src="images-v2/agency-support.png" alt="The Support tab">
+<em>Support — tickets go directly to the QuickieFix team.</em></p>
+<h3>9.2 Settings</h3>
+<p><img src="images-v2/agency-settings.png" alt="The Settings tab">
+<em>Settings — rename the agency, and view/copy your agent code.</em></p>
+<ul>
+<li><strong>Agency name</strong> — edit and <strong>Save changes</strong>. The new name appears on future invites, dispatch messages and reports (refresh the portal to see it everywhere).</li>
+<li><strong>Account</strong> — shows your admin email, your <strong>agent code <code>QF-AG-XXXX</code></strong> with a one-click <strong>Copy</strong> button, and your agency ID (useful when contacting support).</li>
+</ul>
+<hr>
+<h2>10. FAQ</h2>
+<p><strong>A tenant confirmed my code but says they can&#39;t see their property in the app.</strong>
+Their invite email didn&#39;t match a property, so they confirmed without auto-linking. They&#39;ll be in the amber <strong>&quot;Confirmed tenants without a property&quot;</strong> card on the <strong>Properties</strong> tab. Find their property, type their email into its tenant box (they appear in the suggestions) and click <strong>Link existing account</strong>. The property appears in their app immediately and they can raise repairs.</p>
+<p><strong>What do tradies see on jobs at my properties?</strong>
+The work, the address, the fault description and photos — but <strong>no rates</strong>. Jobs at your managed properties run under your agency&#39;s commercial agreement, so there is no in-app price display or negotiation for those jobs.</p>
+<p><strong>What happens if no panel tradie is available?</strong>
+The job still dispatches and sits at <code>searching</code> — every matching panel member is pinged the moment they come online. The job <strong>never leaves your panel</strong>: QuickieFix will not send an off-panel tradie to a managed property on an agency-paid job. If nobody picks it up, it shows as <code>no tradie found</code> on your Jobs board — re-raise it later, dispatch a specific tradie from <strong>Request help</strong>, or widen your panel with more invites.</p>
+<p><strong>Can a tenant bypass my panel?</strong>
+Only by choosing <strong>&quot;I&#39;ll pay myself&quot;</strong> at the who-pays step — that&#39;s an open-market job at their own cost, with the tenant as the billing contact. Any job billed to your agency is panel-only, always.</p>
+<p><strong>Does removing a property or panel member destroy history?</strong>
+No. Past jobs keep their own stamped copies of the property and agency details — your Jobs board and owner reports are unaffected. Removing a panel member only stops <strong>future</strong> dispatches; removing a property only unlinks its tenants going forward.</p>
+<p><strong>Who pays QuickieFix?</strong>
+During the founding pilot, the portal is free for agencies. Work itself is billed under your commercial agreement with your panel — agency → tradie for individuals, agency → company → tradie for company members.</p>
+
+    <div class="footer">QuickieFix · On-demand, verified tradies · quickiefix.app</div>
+  </div>
+</body>
+</html>
