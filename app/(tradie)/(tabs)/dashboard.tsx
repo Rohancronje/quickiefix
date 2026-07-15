@@ -98,6 +98,13 @@ export default function TradieDashboard() {
     }
   };
   const declineSelection = (offer: JobOffer) => backend.declineSelection(offer.job.id, tradie.id);
+  const acceptOffer = async (offer: JobOffer) => {
+    try {
+      await backend.acceptJob(offer.job.id, tradie.id);
+    } catch (e) {
+      appAlert('Could not accept', (e as Error).message);
+    }
+  };
   const expressInterest = async (offer: JobOffer) => {
     try {
       await backend.expressInterest(offer.job.id, tradie.id);
@@ -193,6 +200,25 @@ export default function TradieDashboard() {
       {/* Availability — the most important control in the app, right under the greeting */}
       {isApproved && (
         <AvailabilityCard status={tradie.status} locating={locating} onToggle={toggleAvailability} />
+      )}
+
+      {/* INCOMING JOB OFFERS — the reason the app exists. Always first, loud,
+          never buried under stats. */}
+      {isApproved && !onActiveJob && offers.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="heading" color={colors.amberDark}>
+            ⚡ New job offer{offers.length > 1 ? `s (${offers.length})` : ''}
+          </Txt>
+          {offers.map((offer) => (
+            <OfferCard
+              key={offer.job.id}
+              offer={offer}
+              onAccept={() => acceptOffer(offer)}
+              onDecline={() => backend.declineJob(offer.job.id, tradie.id)}
+              onView={() => router.push({ pathname: '/job/[id]', params: { id: offer.job.id } })}
+            />
+          ))}
+        </View>
       )}
 
       {/* Operational summary — the numbers a working tradie actually cares about */}
@@ -330,6 +356,59 @@ function ScheduledLine({ ts }: { ts?: number }) {
 }
 
 /** Browse & choose: the customer picked this tradie — final accept/decline. */
+/** Auto-dispatch offer: first to accept gets it — accept from right here, or
+ *  open the job to see photos and message the customer first. */
+function OfferCard({
+  offer,
+  onAccept,
+  onDecline,
+  onView,
+}: {
+  offer: JobOffer;
+  onAccept: () => void;
+  onDecline: () => void;
+  onView: () => void;
+}) {
+  const meta = tradeMeta(offer.job.trade);
+  return (
+    <Card style={[styles.offer, { borderColor: colors.amber, borderWidth: 1.5 }]}>
+      <View style={[styles.requestedBanner, { backgroundColor: colors.warningSoft }]}>
+        <Txt variant="caption" color={colors.amberDark} style={{ fontWeight: '700' }}>
+          ⚡ First to accept gets it
+        </Txt>
+      </View>
+      <View style={styles.offerTop}>
+        <View style={styles.offerIcon}>
+          <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label">
+            {meta.label} · {offer.job.customerName}
+          </Txt>
+          <Txt variant="caption" color={colors.textMuted}>
+            {formatDistance(offer.distanceKm)} away · ~{offer.etaMinutes} min
+          </Txt>
+        </View>
+      </View>
+      <Txt variant="body" color={colors.text} numberOfLines={2}>
+        {offer.job.description}
+      </Txt>
+      <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
+        📍 {areaOnly(offer.job.location.address)} · exact address once it's yours
+      </Txt>
+      <Button title="View photos & ask a question" kind="secondary" small onPress={onView} />
+      <View style={styles.offerActions}>
+        <View style={{ flex: 1 }}>
+          <Button title="Decline" kind="ghost" small onPress={onDecline} />
+        </View>
+        <View style={{ flex: 2 }}>
+          <Button title="Accept job" kind="success" small onPress={onAccept} />
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 function SelectionCard({
   offer,
   onAccept,
