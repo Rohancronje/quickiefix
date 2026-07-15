@@ -485,13 +485,13 @@ function PartsEditor({
       {rows.map((r, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
           <View style={{ flex: 2.4 }}>
-            <Field placeholder="e.g. 15mm copper elbow" value={r.description} onChangeText={(t) => update(i, { description: t })} />
+            <Field placeholder="Part or material" value={r.description} onChangeText={(t) => update(i, { description: t })} />
           </View>
           <View style={{ flex: 0.8 }}>
             <Field placeholder="Qty" keyboardType="number-pad" value={r.qty} onChangeText={(t) => update(i, { qty: t })} />
           </View>
           <View style={{ flex: 1.2 }}>
-            <Field placeholder="$ each" keyboardType="decimal-pad" value={r.price} onChangeText={(t) => update(i, { price: t })} />
+            <Field placeholder="$0.00" keyboardType="decimal-pad" value={r.price} onChangeText={(t) => update(i, { price: t })} />
           </View>
           <Pressable hitSlop={8} onPress={() => setRows(rows.filter((_, idx) => idx !== i))}>
             <Txt style={{ fontSize: 18, color: colors.textMuted }}>✕</Txt>
