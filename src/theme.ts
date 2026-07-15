@@ -28,7 +28,9 @@ export const colors = {
   textMuted: '#5A6478',
   textFaint: '#8A93A6',
   onNavy: '#F4F6FB',
-  onNavyMuted: '#9AA5BD',
+  // Bright enough to read on real phone panels at auto-brightness (was
+  // #9AA5BD, which sank into the navy on OLED screens).
+  onNavyMuted: '#B9C3D8',
 
   // Semantic
   success: '#1FB471',
