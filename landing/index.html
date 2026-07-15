@@ -296,6 +296,83 @@
     .aud-card li { color: var(--on-navy-muted); font-size: var(--fs-body); line-height: 1.5; padding: 8px 0 8px 28px; position: relative; }
     .aud-card li::before { content: '✓'; position: absolute; left: 0; top: 8px; color: var(--amber); font-weight: 800; }
 
+    /* ---------- Motion: hook rotator, floating phone, dispatch scene ---------- */
+    .hook { min-height: 24px; margin-bottom: 14px; }
+    .hook span {
+      display: inline-block; color: var(--amber); font-weight: 800; font-size: 16px;
+      letter-spacing: 0.2px; animation: hookIn 0.45s ease;
+    }
+    @keyframes hookIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .floaty { animation: floaty 6.5s ease-in-out infinite; }
+    @keyframes floaty {
+      0%, 100% { transform: rotate(-2deg) translateY(0); }
+      50% { transform: rotate(-1.2deg) translateY(-10px); }
+    }
+
+    .dispatch-scene { margin: 40px auto 0; max-width: 900px; }
+    .dispatch-scene svg { width: 100%; height: auto; display: block; overflow: visible; }
+    .dispatch-scene * { transform-box: fill-box; }
+    /* One shared 9s timeline. Drip: 0–55%. Van: departs 8%, arrives 50%. Fix: 58%. */
+    .drop { animation: drip 9s linear infinite; }
+    .drop.d2 { animation-delay: 0.45s; }
+    .drop.d3 { animation-delay: 0.9s; }
+    @keyframes drip {
+      0%, 2% { opacity: 0; transform: translateY(0); }
+      4% { opacity: 1; }
+      12% { opacity: 1; transform: translateY(11px); }
+      13.4% { opacity: 0; transform: translateY(12px); }
+      13.5%, 15.5% { opacity: 0; transform: translateY(0); }
+      17.5% { opacity: 1; }
+      25.5% { opacity: 1; transform: translateY(11px); }
+      26.9% { opacity: 0; transform: translateY(12px); }
+      27%, 29% { opacity: 0; transform: translateY(0); }
+      31% { opacity: 1; }
+      39% { opacity: 1; transform: translateY(11px); }
+      40.4% { opacity: 0; transform: translateY(12px); }
+      40.5%, 42.5% { opacity: 0; transform: translateY(0); }
+      44.5% { opacity: 1; }
+      52.5% { opacity: 1; transform: translateY(11px); }
+      53.9% { opacity: 0; transform: translateY(12px); }
+      54%, 100% { opacity: 0; transform: translateY(0); }
+    }
+    .puddle { animation: puddle 9s linear infinite; }
+    @keyframes puddle {
+      0% { opacity: 0; transform: scaleX(0.3); }
+      45% { opacity: 1; transform: scaleX(1); }
+      55% { opacity: 1; transform: scaleX(1); }
+      68% { opacity: 0; transform: scaleX(0.3); }
+      100% { opacity: 0; }
+    }
+    .ping circle { animation: ping 9s linear infinite; stroke-width: 2.5; opacity: 0; }
+    .ping .p2 { animation-delay: 0.9s; }
+    @keyframes ping {
+      0%, 6% { opacity: 0; transform: scale(0.4); }
+      8% { opacity: 0.9; transform: scale(0.5); }
+      20% { opacity: 0; transform: scale(3.2); }
+      22%, 100% { opacity: 0; transform: scale(0.4); }
+    }
+    .van { animation: van 9s cubic-bezier(0.45, 0.05, 0.35, 1) infinite; transform: translateX(-90px); }
+    @keyframes van {
+      0%, 8% { transform: translateX(-90px); }
+      50% { transform: translateX(600px); }
+      88% { transform: translateX(600px); }
+      100% { transform: translateX(940px); }
+    }
+    .fixed-badge { animation: fixedPop 9s ease infinite; transform: scale(0); }
+    @keyframes fixedPop {
+      0%, 56% { transform: scale(0); opacity: 0; }
+      60% { transform: scale(1.2); opacity: 1; }
+      63% { transform: scale(1); }
+      85% { transform: scale(1); opacity: 1; }
+      92%, 100% { transform: scale(0); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .floaty, .drop, .puddle, .ping circle, .van, .fixed-badge, .hook span { animation: none !important; }
+      .van { transform: translateX(600px); }
+      .fixed-badge { transform: scale(1); opacity: 1; }
+    }
+
     /* ---------- Reassurance / card CTAs / FAQ ---------- */
     .reassure {
       text-align: center; color: var(--on-navy-muted); font-size: 14.5px; font-weight: 600;
@@ -356,6 +433,7 @@
     <header class="hero">
       <div class="hero-grid">
         <div class="hero-copy">
+          <div class="hook" aria-hidden="true"><span id="hookText">💧 Burst pipe?</span></div>
           <h1>Get trusted help<br /><span class="accent">fast.</span></h1>
           <p class="sub">
             QuickieFix dispatches verified, available tradies to your door in real time —
@@ -398,10 +476,52 @@
 
         <!-- The product, not just the promise: the live app in a phone frame -->
         <div class="hero-visual" aria-hidden="true">
-          <div class="phone">
+          <div class="phone floaty">
             <img src="phone-home-v4.png" alt="The QuickieFix app: verified tradies near you, dispatched in minutes" loading="lazy" />
           </div>
         </div>
+      </div>
+
+      <!-- The whole product in nine seconds: leak → dispatch ping → van → fixed. -->
+      <div class="dispatch-scene" role="img" aria-label="A leak springs at a house, QuickieFix dispatches a tradie, the van arrives and the leak is fixed">
+        <svg viewBox="0 0 900 150" preserveAspectRatio="xMidYMid meet">
+          <!-- road -->
+          <line x1="0" y1="122" x2="900" y2="122" stroke="rgba(231,234,240,0.18)" stroke-width="2" stroke-dasharray="10 12" />
+          <!-- house -->
+          <g stroke="rgba(231,234,240,0.55)" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M700 122 V72 L760 40 L820 72 V122 Z" />
+            <path d="M742 122 V96 H778 V122" />
+            <rect x="712" y="80" width="18" height="16" rx="2" />
+          </g>
+          <!-- dripping pipe -->
+          <g class="pipe">
+            <path d="M700 96 H676 V104" stroke="rgba(231,234,240,0.45)" stroke-width="3.5" fill="none" stroke-linecap="round" />
+            <circle class="drop d1" cx="676" cy="108" r="3.2" fill="#57A7FF" />
+            <circle class="drop d2" cx="676" cy="108" r="2.6" fill="#57A7FF" />
+            <circle class="drop d3" cx="676" cy="108" r="2.2" fill="#57A7FF" />
+            <ellipse class="puddle" cx="676" cy="121" rx="12" ry="2.4" fill="rgba(87,167,255,0.35)" />
+          </g>
+          <!-- dispatch ping -->
+          <g class="ping" fill="none" stroke="#F5A800">
+            <circle class="p1" cx="760" cy="66" r="6" />
+            <circle class="p2" cx="760" cy="66" r="6" />
+          </g>
+          <!-- tradie van -->
+          <g class="van">
+            <g stroke-linejoin="round">
+              <path d="M0 118 V96 Q0 92 4 92 H38 L52 100 H66 Q70 100 70 104 V118 Z" fill="#F5A800" />
+              <rect x="6" y="96" width="24" height="10" rx="2" fill="#0B1220" opacity="0.85" />
+              <circle cx="16" cy="118" r="6.5" fill="#0B1220" stroke="#F4F6FB" stroke-width="2" />
+              <circle cx="54" cy="118" r="6.5" fill="#0B1220" stroke="#F4F6FB" stroke-width="2" />
+              <text x="34" y="115" font-size="10" font-weight="800" fill="#0B1220" text-anchor="middle" font-family="Inter, sans-serif">QF</text>
+            </g>
+          </g>
+          <!-- fixed! -->
+          <g class="fixed-badge">
+            <circle cx="760" cy="20" r="13" fill="#12B76A" />
+            <path d="M753.5 20.5 L758 25 L767 15.5" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </g>
+        </svg>
       </div>
     </header>
 
@@ -569,6 +689,21 @@
     document.querySelectorAll('[data-join-role]').forEach((a) => {
       a.addEventListener('click', () => setRole(a.dataset.joinRole));
     });
+
+    // Rotating problem hook above the headline.
+    const HOOKS = ['💧 Burst pipe?', '🔌 No power?', '🔑 Locked out?', '🚿 No hot water?', '🚽 Blocked drain?'];
+    const hookEl = document.getElementById('hookText');
+    if (hookEl && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      let hi = 0;
+      let current = hookEl;
+      setInterval(() => {
+        hi = (hi + 1) % HOOKS.length;
+        const el = current.cloneNode(false); // fresh node restarts the entry animation
+        el.textContent = HOOKS[hi];
+        current.replaceWith(el);
+        current = el;
+      }, 2400);
+    }
 
     const form = document.getElementById('waitlistForm');
     const emailInput = document.getElementById('email');
