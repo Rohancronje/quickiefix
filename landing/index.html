@@ -118,7 +118,30 @@
     }
 
     /* ---------- Hero ---------- */
-    .hero { padding: 72px 0 48px; text-align: center; }
+    .hero { padding: 56px 0 48px; text-align: center; }
+    .hero-grid { display: grid; grid-template-columns: 1fr; gap: 48px; align-items: center; }
+    .hero-visual { display: flex; justify-content: center; }
+    .phone {
+      width: min(300px, 78vw);
+      aspect-ratio: 39 / 76;
+      border-radius: 44px;
+      border: 10px solid #060b16;
+      background: #060b16;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px var(--border-strong);
+      transform: rotate(0.001deg); /* forces GPU AA on the rounded corners */
+    }
+    .phone img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; }
+    .fineprint { color: var(--on-navy-muted); font-size: 12.5px; margin-top: 12px; }
+    @media (min-width: 960px) {
+      .hero { text-align: left; padding: 64px 0 56px; }
+      .hero-grid { grid-template-columns: 1.15fr 0.85fr; }
+      .hero-copy .sub { margin: 0 0 32px; max-width: 560px; }
+      .pills { justify-content: flex-start; }
+      .waitlist { margin: 44px 0 0; }
+      .hero-visual { justify-content: flex-end; padding-right: 24px; }
+      .phone { transform: rotate(-2deg); }
+    }
     .badge {
       display: inline-flex; align-items: center; gap: 8px;
       background: var(--surface); border: 1px solid var(--border-strong);
@@ -240,6 +263,8 @@
       .field-row { flex-direction: column; }
       .waitlist { padding: 32px 24px; }
       .nav-tag { display: none; }
+      /* Three trust pills must fit one row on a phone */
+      .pill { padding: 8px 12px; font-size: 12.5px; gap: 6px; }
     }
   </style>
 </head>
@@ -258,39 +283,51 @@
     </nav>
 
     <header class="hero">
-      <div class="badge"><span class="dot"></span> Now onboarding early tradies &amp; customers</div>
-      <h1>Get trusted help<br /><span class="accent">fast.</span></h1>
-      <p class="sub">
-        QuickieFix dispatches verified, available tradies to your door in real time —
-        like calling a ride, not searching a directory. No quotes, no waiting, no phone tag.
-      </p>
-      <div class="pills">
-        <div class="pill">✅ Verified pros</div>
-        <div class="pill">⚡ Live dispatch</div>
-        <div class="pill">⭐ Rated &amp; trusted</div>
-      </div>
-
-      <!-- Waitlist -->
-      <div class="waitlist" id="waitlist">
-        <div id="formView">
-          <h2>Be first in line</h2>
-          <p class="lead">Join the waitlist and we'll let you know the moment we launch in your area.</p>
-          <div class="role-toggle">
-            <button class="role-btn active" data-role="customer" type="button">I need a tradie</button>
-            <button class="role-btn" data-role="tradie" type="button">I'm a tradie</button>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="badge"><span class="dot"></span> Onboarding founding tradies now — customer launch soon</div>
+          <h1>Get trusted help<br /><span class="accent">fast.</span></h1>
+          <p class="sub">
+            QuickieFix dispatches verified, available tradies to your door in real time —
+            like calling a ride, not searching a directory. No quotes, no waiting, no phone tag.
+          </p>
+          <div class="pills">
+            <div class="pill">✅ Verified pros</div>
+            <div class="pill">⚡ Live dispatch</div>
+            <div class="pill">⭐ Rated &amp; trusted</div>
           </div>
-          <form id="waitlistForm">
-            <div class="field-row">
-              <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
-              <button class="submit" id="submitBtn" type="submit">Join waitlist</button>
+
+          <!-- Waitlist -->
+          <div class="waitlist" id="waitlist">
+            <div id="formView">
+              <h2>Be first in line</h2>
+              <p class="lead">Join the waitlist and we'll let you know the moment we launch in your area.</p>
+              <div class="role-toggle">
+                <button class="role-btn active" data-role="customer" type="button">I need a tradie</button>
+                <button class="role-btn" data-role="tradie" type="button">I'm a tradie</button>
+              </div>
+              <form id="waitlistForm">
+                <div class="field-row">
+                  <input type="email" id="email" placeholder="you@example.com" required autocomplete="email" />
+                  <button class="submit" id="submitBtn" type="submit">Join waitlist</button>
+                </div>
+                <div class="form-msg" id="formMsg"></div>
+              </form>
+              <p class="fineprint">No spam — one email when we go live in your area.</p>
             </div>
-            <div class="form-msg" id="formMsg"></div>
-          </form>
+            <div class="success-state" id="successView" style="display:none;">
+              <div class="check">🎉</div>
+              <h2>You're on the list!</h2>
+              <p class="lead" style="margin-top:8px;">We'll be in touch as soon as QuickieFix goes live near you.</p>
+            </div>
+          </div>
         </div>
-        <div class="success-state" id="successView" style="display:none;">
-          <div class="check">🎉</div>
-          <h2>You're on the list!</h2>
-          <p class="lead" style="margin-top:8px;">We'll be in touch as soon as QuickieFix goes live near you.</p>
+
+        <!-- The product, not just the promise: the live app in a phone frame -->
+        <div class="hero-visual" aria-hidden="true">
+          <div class="phone">
+            <img src="phone-home-v3.png" alt="The QuickieFix app: verified tradies near you, dispatched in minutes" loading="lazy" />
+          </div>
         </div>
       </div>
     </header>
@@ -303,17 +340,17 @@
       <div class="steps">
         <div class="step">
           <div class="num">1</div>
-          <h3>Describe the job</h3>
+          <h3>🔧 Describe the job</h3>
           <p>Pick a trade, tell us what's wrong, and share your location. Takes under a minute.</p>
         </div>
         <div class="step">
           <div class="num">2</div>
-          <h3>We dispatch instantly</h3>
+          <h3>⚡ We dispatch instantly</h3>
           <p>Nearby verified tradies get your request in real time. First to accept is yours.</p>
         </div>
         <div class="step">
           <div class="num">3</div>
-          <h3>Track &amp; done</h3>
+          <h3>✅ Track &amp; done</h3>
           <p>Watch them arrive, get the job completed, then rate the work. Everything logged.</p>
         </div>
       </div>
