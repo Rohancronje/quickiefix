@@ -50,6 +50,7 @@ import {
   FeeLineItem,
   GeoPoint,
   Job,
+  JobPart,
   JobStatus,
   Location,
   Message,
@@ -990,7 +991,7 @@ export class FirestoreBackend implements Backend {
     });
   }
 
-  async completeJob(jobId: string): Promise<void> {
+  async completeJob(jobId: string, parts?: JobPart[]): Promise<void> {
     await runTransaction(this.db, async (tx) => {
       const snap = await tx.get(this.jobRef(jobId));
       if (!snap.exists()) return;
@@ -999,9 +1000,17 @@ export class FirestoreBackend implements Backend {
       // Free the tradie for new offers — but never override an explicit
       // 'offline' (mirrors the cancel path / onJobReleased).
       const tradieSnap = job.tradieId ? await tx.get(this.userRef(job.tradieId)) : null;
+      const cleanParts = (parts ?? [])
+        .map((p) => ({
+          description: p.description.trim(),
+          qty: Math.max(1, Math.round(p.qty)),
+          unitPriceCents: Math.max(0, Math.round(p.unitPriceCents)),
+        }))
+        .filter((p) => p.description.length > 0);
       tx.update(this.jobRef(jobId), {
         status: 'completed',
         'timestamps.completedAt': Date.now(),
+        ...(cleanParts.length ? { parts: cleanParts } : {}),
       });
       // completedJobs is incremented by the onJobCompleted Cloud Function.
       if (job.tradieId && tradieSnap?.exists()) {

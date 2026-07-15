@@ -848,10 +848,24 @@ exports.onJobCompletionRecord = onDocumentUpdated(
     const rc = after.rateSnapshot && after.rateSnapshot.rateCard;
     const money = (c) => `$${(c / 100).toFixed(2)}`;
     const rates = rc
-      ? `<tr><td style="padding:4px 0;color:#5A6478">Hourly rate</td><td align="right"><b>${money(rc.hourlyRateCents)}</b></td></tr>` +
+      ? `<tr><td style="padding:4px 0;color:#5A6478">Hourly rate (labour)</td><td align="right"><b>${money(rc.hourlyRateCents)}</b></td></tr>` +
         (rc.calloutFeeCents != null
           ? `<tr><td style="padding:4px 0;color:#5A6478">Call-out fee</td><td align="right"><b>${money(rc.calloutFeeCents)}</b></td></tr>`
           : '')
+      : '';
+    // Parts & materials recorded at completion — agreed on site, billed by
+    // the tradie in addition to labour.
+    const parts = Array.isArray(after.parts) ? after.parts : [];
+    const partsTotal = parts.reduce((s, p) => s + (p.qty || 1) * (p.unitPriceCents || 0), 0);
+    const partsRows = parts.length
+      ? `<tr><td colspan="2" style="padding:10px 0 4px;color:#0B1220;font-weight:700">Parts &amp; materials (agreed on site)</td></tr>` +
+        parts
+          .map(
+            (p) =>
+              `<tr><td style="padding:3px 0;color:#5A6478">${String(p.description).slice(0, 120)}${(p.qty || 1) > 1 ? ` × ${p.qty}` : ''}</td><td align="right"><b>${money((p.qty || 1) * (p.unitPriceCents || 0))}</b></td></tr>`,
+          )
+          .join('') +
+        `<tr><td style="padding:6px 0;color:#0B1220;font-weight:700;border-top:1px solid #E2E7F1">Parts total</td><td align="right" style="border-top:1px solid #E2E7F1"><b>${money(partsTotal)}</b></td></tr>`
       : '';
 
     try {
@@ -867,10 +881,10 @@ exports.onJobCompletionRecord = onDocumentUpdated(
             <div style="color:#5A6478;font-size:13px">Completion confirmation code</div>
             <div style="font-size:28px;font-weight:800;letter-spacing:2px">${code}</div>
           </div>
-          <table width="100%" style="font-size:14px">${rates}</table>
-          <p style="color:#5A6478;font-size:13px">The tradie invoices you directly at the rates agreed
-          when you confirmed them. Quote the confirmation code on any invoice query — it's your
-          shared record of this job.</p>
+          <table width="100%" style="font-size:14px">${rates}${partsRows}</table>
+          <p style="color:#5A6478;font-size:13px">The tradie invoices you directly — labour at the
+          rates agreed when you confirmed them${parts.length ? ', plus the parts listed above' : ''}.
+          Quote the confirmation code on any invoice query — it's your shared record of this job.</p>
         </div>`,
       });
     } catch (e) {
@@ -1018,13 +1032,16 @@ async function notifyOfferCandidates(jobRef, job, jobId, ids) {
   if (!fresh.length) return;
   const tokens = await pushTokensFor(fresh);
   const trade = String(job.trade || 'job').replace(/_/g, ' ');
+  const tradeLabel = trade.charAt(0).toUpperCase() + trade.slice(1);
   await expoPush(
     tokens.map((to) => ({
       to,
-      title: job.isEmergency
-        ? `🚨 Emergency ${trade} job — ${job.customerName || 'a customer'}`
-        : `⚡ New ${trade} job — ${job.customerName || 'a customer'}`,
-      body: jobPushBody(job) || `${job.customerName || 'A customer'} needs a ${trade}.`,
+      // The offer must be parseable at a glance: what + how urgent up top,
+      // who/where/when in the body.
+      title: job.isEmergency ? `🚨 EMERGENCY — ${tradeLabel} needed` : `⚡ New job: ${tradeLabel}`,
+      body:
+        [`${job.customerName || 'A customer'}`, jobPushBody(job)].filter(Boolean).join(' — ') ||
+        `${job.customerName || 'A customer'} needs a ${trade}.`,
       sound: 'default',
       channelId: 'offers',
       priority: 'high',
@@ -1300,8 +1317,8 @@ exports.onJobPushUpdates = onDocumentUpdated('jobs/{jobId}', async (event) => {
     await expoPush(
       tokens.map((to) => ({
         to,
-        title: '✅ Job complete',
-        body: `${after.tradieName || 'Your tradie'} marked the job complete. View your record and leave a rating.`,
+        title: `✅ Job complete — rate ${after.tradieName || 'your tradie'}`,
+        body: 'Your record + confirmation code are in the app. A quick rating helps everyone.',
         sound: 'default',
         data: { jobId, role: 'customer' },
       })),

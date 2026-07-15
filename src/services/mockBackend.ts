@@ -15,6 +15,7 @@ import {
   Company,
   CompanyTag,
   Engagement,
+  JobPart,
   JobSource,
   Complaint,
   Customer,
@@ -893,11 +894,19 @@ class MockBackend implements Backend {
     });
   }
 
-  async completeJob(jobId: string): Promise<void> {
+  async completeJob(jobId: string, parts?: JobPart[]): Promise<void> {
     await this.transitionJob(jobId, (job) => {
       if (job.status !== 'on_site' && job.status !== 'travelling') return;
       job.status = 'completed';
       job.timestamps.completedAt = Date.now();
+      const cleanParts = (parts ?? [])
+        .map((p) => ({
+          description: p.description.trim(),
+          qty: Math.max(1, Math.round(p.qty)),
+          unitPriceCents: Math.max(0, Math.round(p.unitPriceCents)),
+        }))
+        .filter((p) => p.description.length > 0);
+      if (cleanParts.length) job.parts = cleanParts;
       // Deterministic confirmation code (the live backend's Cloud Function does
       // the same server-side): stable per job, unforgeable by construction.
       job.completionCode = `QF-${job.id.replace(/[^a-zA-Z0-9]/g, '').slice(-6).toUpperCase()}`;

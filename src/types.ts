@@ -324,6 +324,14 @@ export interface JobDispatch {
  *  Drives contractor branding + who they invoice (see Engagement). */
 export type JobSource = 'open_market' | 'own_panel' | 'company_panel';
 
+/** A parts/materials line item recorded by the tradie at completion —
+ *  agreed with the customer on site before fitting (see tradie terms). */
+export interface JobPart {
+  description: string;
+  qty: number;
+  unitPriceCents: number;
+}
+
 export interface Rating {
   stars: number; // 1..5
   review?: string;
@@ -399,6 +407,9 @@ export interface Job {
   /** Who pays for the work at a managed property: the agency (panel job on
    *  their terms) or the requesting customer (normal open-market job). */
   billTo?: 'agency' | 'customer';
+  /** Parts & materials used, recorded at completion (labour rates never
+   *  include parts — this is the transparency/audit trail). */
+  parts?: JobPart[];
 
   // Tradies who were offered this job and declined
   declinedBy: string[];

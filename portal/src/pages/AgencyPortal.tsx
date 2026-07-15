@@ -986,9 +986,14 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                     disabled={jobs.length === 0}
                     onClick={() => {
                       const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-                      const lines = ['Property,Trade,Issue,Tradie,Raised,Completed,On site (min),Rating'];
+                      const lines = ['Property,Trade,Issue,Tradie,Raised,Completed,On site (min),Rating,Parts,Parts total ($)'];
                       for (const j of jobs) {
                         const t = j.timestamps;
+                        const parts = j.parts ?? [];
+                        const partsDesc = parts
+                          .map((p) => `${p.description}${p.qty > 1 ? ` x${p.qty}` : ''}`)
+                          .join('; ');
+                        const partsTotal = parts.reduce((s, p) => s + p.qty * p.unitPriceCents, 0);
                         lines.push(
                           [
                             j.location.address,
@@ -999,6 +1004,8 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                             t.completedAt ? formatDate(t.completedAt) : '',
                             t.completedAt && t.onSiteAt ? String(Math.round((t.completedAt - t.onSiteAt) / 60000)) : '',
                             j.customerRating ? String(j.customerRating.stars) : '',
+                            partsDesc,
+                            partsTotal ? (partsTotal / 100).toFixed(2) : '',
                           ]
                             .map((v) => esc(String(v)))
                             .join(','),

@@ -21,6 +21,7 @@ import {
   FeeLineItem,
   GeoPoint,
   Job,
+  JobPart,
   Location,
   Message,
   Property,
@@ -223,7 +224,8 @@ export interface Backend {
   ): Unsubscribe;
   startTravelling(jobId: string): Promise<void>;
   arriveOnSite(jobId: string, source: 'gps' | 'manual'): Promise<void>;
-  completeJob(jobId: string): Promise<void>;
+  /** Mark the job complete, optionally recording parts & materials used. */
+  completeJob(jobId: string, parts?: JobPart[]): Promise<void>;
   rateAsTradie(jobId: string, rating: Rating): Promise<void>;
 
   // ---- Real-time subscriptions ----

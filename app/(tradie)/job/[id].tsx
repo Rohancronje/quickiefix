@@ -10,7 +10,7 @@ import { StatusPill } from '../../../src/components/JobCard';
 import { RatingForm } from '../../../src/components/RatingForm';
 import { Screen } from '../../../src/components/Screen';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
-import { ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
+import { formatMoney, ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
 import { useAgency, useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration, formatWhen } from '../../../src/lib/format';
@@ -19,7 +19,7 @@ import { hasCoords, watchPosition } from '../../../src/lib/location';
 import { openInMaps } from '../../../src/lib/maps';
 import { backend } from '../../../src/services';
 import { colors, font, radius, spacing } from '../../../src/theme';
-import { Job, Rating } from '../../../src/types';
+import { Job, JobPart, Rating } from '../../../src/types';
 
 /** Suburb/city portion of an address (street stripped) for pre-assignment
  *  privacy — candidates see the area, not the door number. */
@@ -169,8 +169,75 @@ export default function TradieJob() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* THE DECISION FIRST: open offers lead with the action card — the
+            details below fade slightly until the job is taken. */}
+        {isOpenOffer && chosenMe && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={[styles.gpsCard, { backgroundColor: colors.successSoft }]}>
+              <Txt variant="heading" color={colors.success}>
+                ⭐ You've been chosen
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {job.customerName} picked you. Accepting locks it in.
+              </Txt>
+            </Card>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Decline" kind="ghost" small onPress={declineJob} />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Button title="Accept — lock it in" kind="success" loading={accepting} onPress={acceptJob} />
+              </View>
+            </View>
+          </View>
+        )}
+        {isOpenOffer && isChoose && !chosenMe && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.gpsCard}>
+              <Txt variant="heading" color={colors.blue}>
+                👀 Customer is browsing tradies
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {alreadyInterested
+                  ? "You're on their list."
+                  : 'Put your hand up to get picked.'}
+              </Txt>
+            </Card>
+            {!alreadyInterested && (
+              <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                <View style={{ flex: 1 }}>
+                  <Button title="Not now" kind="ghost" small onPress={declineJob} />
+                </View>
+                <View style={{ flex: 2 }}>
+                  <Button title="I'm interested" onPress={expressInterest} />
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+        {isOpenOffer && !isChoose && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.gpsCard}>
+              <Txt variant="heading" color={colors.blue}>
+                ⚡ New job — first to accept gets it
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                Questions? Message the customer 💬 above.
+              </Txt>
+            </Card>
+            <View style={{ flexDirection: 'row', gap: spacing.md }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Decline" kind="ghost" small onPress={declineJob} />
+              </View>
+              <View style={{ flex: 2 }}>
+                <Button title="Accept job" kind="success" loading={accepting} onPress={acceptJob} />
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Customer + location */}
-        <Card style={{ gap: spacing.sm }}>
+        <Card style={[{ gap: spacing.sm }, isOpenOffer ? { opacity: 0.78 } : null]}>
           <Txt variant="label">Customer</Txt>
           <Txt variant="heading">{job.customerName}</Txt>
           <Txt variant="body" color={colors.textMuted}>
@@ -229,72 +296,6 @@ export default function TradieJob() {
             </ScrollView>
           )}
         </Card>
-
-        {/* Pre-accept: open offer — behaviour depends on the matching mode. */}
-        {isOpenOffer && chosenMe && (
-          <View style={{ gap: spacing.md }}>
-            <Card style={[styles.gpsCard, { backgroundColor: colors.successSoft }]}>
-              <Txt variant="label" color={colors.success}>
-                ⭐ {job.customerName} chose you for this job
-              </Txt>
-              <Txt variant="caption" color={colors.textMuted}>
-                Accepting locks it in immediately — no further confirmation needed.
-              </Txt>
-            </Card>
-            <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <Button title="Decline" kind="ghost" small onPress={declineJob} />
-              </View>
-              <View style={{ flex: 2 }}>
-                <Button title="Accept — lock it in" kind="success" loading={accepting} onPress={acceptJob} />
-              </View>
-            </View>
-          </View>
-        )}
-        {isOpenOffer && isChoose && !chosenMe && (
-          <View style={{ gap: spacing.md }}>
-            <Card style={styles.gpsCard}>
-              <Txt variant="label" color={colors.blue}>
-                👀 The customer is choosing a tradie
-              </Txt>
-              <Txt variant="caption" color={colors.textMuted}>
-                {alreadyInterested
-                  ? "You're on their list — answer any questions below to stand out."
-                  : 'Put yourself on their list, and answer any questions below to stand out.'}
-              </Txt>
-            </Card>
-            {!alreadyInterested && (
-              <View style={{ flexDirection: 'row', gap: spacing.md }}>
-                <View style={{ flex: 1 }}>
-                  <Button title="Not now" kind="ghost" small onPress={declineJob} />
-                </View>
-                <View style={{ flex: 2 }}>
-                  <Button title="I'm interested" onPress={expressInterest} />
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-        {isOpenOffer && !isChoose && (
-          <View style={{ gap: spacing.md }}>
-            <Card style={styles.gpsCard}>
-              <Txt variant="label" color={colors.blue}>
-                ⚡ This job is still open
-              </Txt>
-              <Txt variant="caption" color={colors.textMuted}>
-                Ask the customer a question below, or accept it — first to accept is locked in.
-              </Txt>
-            </Card>
-            <View style={{ flexDirection: 'row', gap: spacing.md }}>
-              <View style={{ flex: 1 }}>
-                <Button title="Decline" kind="ghost" small onPress={declineJob} />
-              </View>
-              <View style={{ flex: 2 }}>
-                <Button title="Accept job" kind="success" loading={accepting} onPress={acceptJob} />
-              </View>
-            </View>
-          </View>
-        )}
 
         {/* Taken by someone else while you were reading */}
         {!isOpenOffer && !isMine && job.status !== 'completed' && job.status !== 'cancelled' && (
@@ -434,6 +435,85 @@ export default function TradieJob() {
   );
 }
 
+/** One parts line while editing (strings so typing stays free-form). */
+interface PartRow {
+  description: string;
+  qty: string;
+  price: string;
+}
+
+const rowsToParts = (rows: PartRow[]): JobPart[] =>
+  rows
+    .map((r) => ({
+      description: r.description.trim(),
+      qty: Math.max(1, parseInt(r.qty, 10) || 1),
+      unitPriceCents: Math.max(0, Math.round((parseFloat(r.price) || 0) * 100)),
+    }))
+    .filter((p) => p.description.length > 0);
+
+/** Optional parts & materials capture — agreed with the customer on site. */
+function PartsEditor({
+  rows,
+  setRows,
+}: {
+  rows: PartRow[];
+  setRows: (r: PartRow[]) => void;
+}) {
+  const [show, setShow] = useState(false);
+  const totalCents = rowsToParts(rows).reduce((s, p) => s + p.qty * p.unitPriceCents, 0);
+
+  if (!show && rows.length === 0) {
+    return (
+      <Button
+        title="＋ Add parts & materials (optional)"
+        kind="ghost"
+        small
+        onPress={() => {
+          setShow(true);
+          setRows([{ description: '', qty: '1', price: '' }]);
+        }}
+      />
+    );
+  }
+
+  const update = (i: number, patch: Partial<PartRow>) =>
+    setRows(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Txt variant="label">Parts &amp; materials</Txt>
+      {rows.map((r, i) => (
+        <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+          <View style={{ flex: 2.4 }}>
+            <Field placeholder="e.g. 15mm copper elbow" value={r.description} onChangeText={(t) => update(i, { description: t })} />
+          </View>
+          <View style={{ flex: 0.8 }}>
+            <Field placeholder="Qty" keyboardType="number-pad" value={r.qty} onChangeText={(t) => update(i, { qty: t })} />
+          </View>
+          <View style={{ flex: 1.2 }}>
+            <Field placeholder="$ each" keyboardType="decimal-pad" value={r.price} onChangeText={(t) => update(i, { price: t })} />
+          </View>
+          <Pressable hitSlop={8} onPress={() => setRows(rows.filter((_, idx) => idx !== i))}>
+            <Txt style={{ fontSize: 18, color: colors.textMuted }}>✕</Txt>
+          </Pressable>
+        </View>
+      ))}
+      <Button
+        title="＋ Add another"
+        kind="ghost"
+        small
+        onPress={() => setRows([...rows, { description: '', qty: '1', price: '' }])}
+      />
+      {totalCents > 0 && (
+        <Txt variant="label">Parts total: {formatMoney(totalCents)}</Txt>
+      )}
+      <Txt variant="caption" color={colors.textFaint}>
+        Agreed with the customer on site before fitting.
+      </Txt>
+    </View>
+  );
+}
+
 /**
  * Completion flow: confirm the invoicing contact with the customer on-site
  * (prefilled from their account), then complete. The server then generates the
@@ -447,6 +527,7 @@ function CompleteJobSheet({ job }: { job: Job }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [partRows, setPartRows] = useState<PartRow[]>([]);
   const [busy, setBusy] = useState(false);
 
   // Prefill from the job / customer account once available.
@@ -462,7 +543,7 @@ function CompleteJobSheet({ job }: { job: Job }) {
     try {
       setBusy(true);
       await backend.setJobBilling(job.id, { contactName: name, contactEmail: email });
-      await backend.completeJob(job.id);
+      await backend.completeJob(job.id, rowsToParts(partRows));
     } catch (e) {
       appAlert('Could not complete', (e as Error).message);
       setBusy(false);
@@ -481,18 +562,18 @@ function CompleteJobSheet({ job }: { job: Job }) {
             contactEmail: agency.adminEmail,
           });
         }
-        await backend.completeJob(job.id);
+        await backend.completeJob(job.id, rowsToParts(partRows));
       } catch (e) {
         appAlert('Could not complete', (e as Error).message);
         setBusy(false);
       }
     };
     return (
-      <Card style={{ gap: spacing.sm }}>
+      <Card style={{ gap: spacing.md }}>
         <Txt variant="caption" color={colors.textMuted}>
-          🏢 Billed to {job.agencyName ?? 'the property agency'} under their agency agreement —
-          nothing to invoice the occupant. 🔒 Billing contact is set by the agency.
+          🏢 Billed to {job.agencyName ?? 'the property agency'} · 🔒 set by the agency.
         </Txt>
+        <PartsEditor rows={partRows} setRows={setPartRows} />
         <Button
           title="Complete job"
           icon="✅"
@@ -510,10 +591,9 @@ function CompleteJobSheet({ job }: { job: Job }) {
 
   return (
     <Card style={{ gap: spacing.md }}>
-      <Txt variant="label">Confirm invoicing details</Txt>
+      <Txt variant="label">Invoice details</Txt>
       <Txt variant="caption" color={colors.textMuted}>
-        Check these with the customer — their completion record and confirmation code are emailed
-        here, and your invoice references the same code.
+        The completion record + code go here. Your invoice references the code.
       </Txt>
       <Field label="Invoice contact" placeholder="Who the invoice goes to" value={name} onChangeText={setName} />
       <Field
@@ -524,6 +604,7 @@ function CompleteJobSheet({ job }: { job: Job }) {
         keyboardType="email-address"
         autoCapitalize="none"
       />
+      <PartsEditor rows={partRows} setRows={setPartRows} />
       <Button
         title="Confirm & complete job"
         icon="✅"

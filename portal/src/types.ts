@@ -150,6 +150,8 @@ export interface Job {
   tradieId?: string;
   tradieName?: string;
   isEmergency?: boolean;
+  /** Parts & materials recorded by the tradie at completion. */
+  parts?: { description: string; qty: number; unitPriceCents: number }[];
   // Stamped when the job is at a managed/owned property.
   propertyId?: string;
   landlordId?: string;

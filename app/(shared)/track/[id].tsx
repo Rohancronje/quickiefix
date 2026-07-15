@@ -242,10 +242,69 @@ export default function TrackJob() {
             </View>
           )}
 
-        {/* Completed summary + rating */}
+        {/* Completed: celebrate first, rate front-and-centre, details after. */}
         {job.status === 'completed' && (
           <>
-            {tradie && <TradieProfileCard tradie={tradie} />}
+            <Card style={{ alignItems: 'center', gap: spacing.xs, backgroundColor: colors.successSoft }}>
+              <Txt style={{ fontSize: 40 }}>✅</Txt>
+              <Txt variant="heading" color={colors.success}>
+                Job complete
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {job.tradieName ?? 'Your tradie'} finished{' '}
+                {job.timestamps.completedAt && job.timestamps.onSiteAt
+                  ? `after ${formatDuration(job.timestamps.completedAt - job.timestamps.onSiteAt)} on site`
+                  : 'the job'}
+                .
+              </Txt>
+            </Card>
+            {job.customerRating ? (
+              <Card style={{ alignItems: 'center', gap: spacing.xs }}>
+                <Txt style={{ fontSize: 36 }}>🌟</Txt>
+                <Txt variant="heading">Thanks for your rating!</Txt>
+                <Txt variant="caption" color={colors.textMuted}>
+                  You rated {job.customerRating.stars}/5.
+                </Txt>
+              </Card>
+            ) : (
+              <RatingForm
+                title={`Rate ${job.tradieName ?? 'your tradie'}`}
+                subtitle="30 seconds — it keeps quality high for everyone."
+                tags={['Professional', 'Friendly', 'On time', 'Excellent workmanship', 'Would recommend']}
+                onSubmit={submitRating}
+              />
+            )}
+            {job.parts && job.parts.length > 0 && (
+              <Card style={{ gap: spacing.sm }}>
+                <Txt variant="label">Parts &amp; materials used</Txt>
+                {job.parts.map((p, i) => (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Txt variant="body" color={colors.textMuted} style={{ flex: 1 }}>
+                      {p.description}
+                      {p.qty > 1 ? ` × ${p.qty}` : ''}
+                    </Txt>
+                    <Txt variant="label">{formatMoney(p.qty * p.unitPriceCents)}</Txt>
+                  </View>
+                ))}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    borderTopWidth: 1,
+                    borderTopColor: colors.line,
+                    paddingTop: spacing.xs,
+                  }}
+                >
+                  <Txt variant="label">Parts total</Txt>
+                  <Txt variant="label">
+                    {formatMoney(job.parts.reduce((s, p) => s + p.qty * p.unitPriceCents, 0))}
+                  </Txt>
+                </View>
+                <Txt variant="caption" color={colors.textFaint}>
+                  Agreed on site · billed by the tradie, in addition to labour.
+                </Txt>
+              </Card>
+            )}
             <Card style={{ gap: spacing.sm }}>
               <Txt variant="label">Job summary</Txt>
               {job.completionCode && (
@@ -276,22 +335,7 @@ export default function TrackJob() {
                 )}
               />
             </Card>
-            {job.customerRating ? (
-              <Card style={{ alignItems: 'center', gap: spacing.xs }}>
-                <Txt style={{ fontSize: 36 }}>🌟</Txt>
-                <Txt variant="heading">Thanks for your rating!</Txt>
-                <Txt variant="caption" color={colors.textMuted}>
-                  You rated {job.customerRating.stars}/5.
-                </Txt>
-              </Card>
-            ) : (
-              <RatingForm
-                title="How was your experience?"
-                subtitle={`Rate ${job.tradieName ?? 'your tradie'}`}
-                tags={['Professional', 'Friendly', 'On time', 'Excellent workmanship', 'Would recommend']}
-                onSubmit={submitRating}
-              />
-            )}
+            {tradie && <TradieProfileCard tradie={tradie} />}
             <ReportProblem job={job} />
           </>
         )}
