@@ -1,0 +1,75 @@
+name: Deploy to production (manual promotion)
+
+# Production is promoted BY HAND once a change has been verified on staging.
+# Run it from the GitHub UI: Actions -> "Deploy to production" -> Run workflow.
+# Deploys prod hosting + Firestore rules + Storage rules + Cloud Functions and
+# publishes the native OTA update (preview channel).
+#
+# Required repo secrets:
+#   FIREBASE_TOKEN  ->  output of `firebase login:ci`
+#   EXPO_TOKEN      ->  an Expo access token for the @rohan87 account
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  prod:
+    name: Build and deploy to production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install app deps
+        run: npm ci
+
+      - name: Typecheck gate
+        run: npm run typecheck
+
+      - name: Test gate
+        run: npm run test:ci
+
+      # No env var => default (production) Firebase config.
+      - name: Build web app (prod config)
+        run: npm run build:web
+
+      - name: Build back-office portal (prod config)
+        working-directory: portal
+        run: npm install --no-audit --no-fund && npm run build
+
+      - name: Deploy prod hosting + rules + storage
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only hosting,firestore:rules,storage
+          --project prod
+          --token "$FIREBASE_TOKEN"
+          --non-interactive
+
+      - name: Deploy Cloud Functions (prod)
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only functions
+          --project prod
+          --token "$FIREBASE_TOKEN"
+          --non-interactive
+
+      - name: Publish OTA update (EAS Update)
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: >
+          npx --yes eas-cli update
+          --branch preview
+          --message "Prod promotion ${{ github.sha }}"
+          --non-interactive

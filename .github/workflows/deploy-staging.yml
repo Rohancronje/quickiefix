@@ -1,0 +1,73 @@
+name: Deploy to staging (auto on merge to main)
+
+# Staging-first: every push to main deploys to the STAGING project after the
+# typecheck + test gates. Promote to production manually once staging looks
+# good, via the "Deploy to production" workflow (deploy-prod.yml). Native OTA is
+# NOT published here — staging is web + rules only; native updates ship with the
+# prod promotion.
+#
+# Required repo secret:
+#   FIREBASE_TOKEN  ->  output of `firebase login:ci` (owns both projects)
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: Build and deploy to staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install app deps
+        run: npm ci
+
+      - name: Typecheck gate
+        run: npm run typecheck
+
+      - name: Test gate
+        run: npm run test:ci
+
+      # Fresh CI runner => no Metro cache, so no --clear needed. The staging env
+      # var bakes the staging Firebase config into the bundle.
+      - name: Build web app (staging config)
+        run: npm run build:web && mv web-build web-build-staging
+        env:
+          EXPO_PUBLIC_FIREBASE_ENV: staging
+
+      - name: Build back-office portal (staging config)
+        working-directory: portal
+        run: npm install --no-audit --no-fund && npx tsc -b && npx vite build --outDir dist-staging
+        env:
+          VITE_FIREBASE_ENV: staging
+
+      - name: Deploy staging hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only hosting
+          --project staging
+          --config firebase.staging.json
+          --token "$FIREBASE_TOKEN"
+          --non-interactive
+
+      - name: Deploy staging Firestore rules
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only firestore:rules
+          --project staging
+          --token "$FIREBASE_TOKEN"
+          --non-interactive

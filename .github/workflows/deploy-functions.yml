@@ -1,9 +1,10 @@
-name: Deploy Cloud Functions
+name: Deploy Cloud Functions (staging)
 
-# Cloud Functions deploys are the slowest part of the pipeline, so they are
-# split out: this only runs when functions code actually changes on main, or
-# when triggered by hand. The BREVO_API_KEY stays in Google Secret Manager and
-# is bound to the functions there — it is never needed as a GitHub secret.
+# Staging-first: when functions code changes on main this deploys them to the
+# STAGING project (prod functions ship via the manual "Deploy to production"
+# workflow). Split out because functions deploys are the slowest step. The
+# BREVO_API_KEY stays in Google Secret Manager and is bound to the functions
+# there — it is never needed as a GitHub secret.
 #
 # Required repo secret:
 #   FIREBASE_TOKEN  ->  output of `firebase login:ci`
@@ -36,11 +37,12 @@ jobs:
         working-directory: functions
         run: npm ci
 
-      - name: Deploy functions
+      - name: Deploy functions (staging)
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: >
           npx --yes firebase-tools deploy
           --only functions
+          --project staging
           --token "$FIREBASE_TOKEN"
           --non-interactive
