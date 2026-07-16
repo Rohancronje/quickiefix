@@ -90,9 +90,16 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Companies are owned by their admin (created via the web portal).
+    // Companies are owned by their admin (created via the web portal). Reads are
+    // limited to the owning admin, the company's own tradies (members — they
+    // need the name + rate card at job acceptance), and platform admins — so a
+    // company's billing email / NZBN isn't world-readable to any signed-in user.
     match /companies/{companyId} {
-      allow read: if signedIn();
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        resource.data.adminUserId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('companyId', '') == companyId
+      );
       allow create: if signedIn() && request.resource.data.adminUserId == request.auth.uid;
       // Company admin manages their own doc (rate card, billing email); platform
       // admin may manage any (e.g. shared-credit pool).
