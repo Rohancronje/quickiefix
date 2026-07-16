@@ -580,7 +580,8 @@ export class FirestoreBackend implements Backend {
 
   /** Upload local photo URIs to Storage and return their download URLs. */
   private async uploadPhotos(jobId: string, uris: string[]): Promise<string[]> {
-    if (!storage || uris.length === 0) return uris;
+    const uid = this.auth.currentUser?.uid;
+    if (!storage || uris.length === 0 || !uid) return uris;
     const urls: string[] = [];
     for (let i = 0; i < uris.length; i++) {
       const uri = uris[i];
@@ -588,7 +589,9 @@ export class FirestoreBackend implements Backend {
         urls.push(uri); // already remote (e.g. re-submit)
         continue;
       }
-      const r = ref(storage, `jobs/${jobId}/photo_${i}`);
+      // uid in the path lets Storage rules lock writes to the uploader; parties
+      // view via the tokenized download URL saved on the (locked) job doc.
+      const r = ref(storage, `jobs/${jobId}/${uid}/photo_${i}`);
       try {
         let uploaded = false;
         try {
