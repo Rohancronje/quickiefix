@@ -248,12 +248,17 @@ export async function listCompanyJobs(companyId: string): Promise<Job[]> {
     .sort((a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0));
 }
 
-export async function getTradieJobs(tradieId: string): Promise<Job[]> {
+/** A tradie's jobs FOR THIS COMPANY. Scoped by companyId (not a bare
+ *  tradieId query) so the company only ever sees jobs sourced through it —
+ *  a contractor's own-client jobs stay private — and so the read satisfies
+ *  the tightened `jobs` security rule (company admin ⇒ companyId match). */
+export async function getTradieJobs(tradieId: string, companyId: string): Promise<Job[]> {
   const snap = await getDocs(
-    query(collection(db, 'jobs'), where('tradieId', '==', tradieId)),
+    query(collection(db, 'jobs'), where('companyId', '==', companyId)),
   );
   return snap.docs
     .map((d) => d.data() as Job)
+    .filter((j) => j.tradieId === tradieId)
     .sort((a, b) => (b.timestamps.completedAt ?? 0) - (a.timestamps.completedAt ?? 0));
 }
 

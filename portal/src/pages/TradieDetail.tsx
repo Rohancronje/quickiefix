@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../auth';
 import { computeStats, getTradie, getTradieJobs } from '../api';
 import { IconArrowRight, IconCheck, IconClock, IconJobs, IconMetrics } from '../backoffice/icons';
 import { formatDate, formatDuration, initials, stars } from '../lib';
@@ -7,6 +8,7 @@ import { Job, Tradie, TradieStats, tradeLabel } from '../types';
 
 export function TradieDetail() {
   const { id } = useParams<{ id: string }>();
+  const { company } = useAuth();
   const nav = useNavigate();
   const [tradie, setTradie] = useState<Tradie | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -14,16 +16,16 @@ export function TradieDetail() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !company) return;
     (async () => {
       setLoading(true);
-      const [t, j] = await Promise.all([getTradie(id), getTradieJobs(id)]);
+      const [t, j] = await Promise.all([getTradie(id), getTradieJobs(id, company.id)]);
       setTradie(t);
       setJobs(j);
       setStats(computeStats(j));
       setLoading(false);
     })();
-  }, [id]);
+  }, [id, company]);
 
   if (loading) {
     return (

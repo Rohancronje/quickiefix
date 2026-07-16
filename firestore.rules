@@ -218,7 +218,29 @@ service cloud.firestore {
     }
 
     match /jobs/{jobId} {
-      allow read: if signedIn();
+      // Reads are limited to the parties to a job — NEVER "any signed-in user",
+      // which would leak the customer's name, address and GPS coordinates to
+      // anyone who can guess/share a job id. Legitimate readers:
+      //  - the customer who created it,
+      //  - the assigned tradie,
+      //  - any tradie who was offered it (still in the dispatch pool),
+      //  - the browse-and-choose selected tradie,
+      //  - the managed-property landlord (owner reports),
+      //  - the company admin the job is stamped to (companyId), and
+      //  - the agency admin the job is stamped to (agencyId),
+      //  - platform admins.
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        resource.data.customerId == request.auth.uid ||
+        resource.data.get('tradieId', '') == request.auth.uid ||
+        request.auth.uid in resource.data.get('dispatch', {}).get('candidateIds', []) ||
+        resource.data.get('selectedTradieId', '') == request.auth.uid ||
+        resource.data.get('landlordId', '') == request.auth.uid ||
+        (resource.data.get('companyId', '') != '' &&
+          get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid) ||
+        (resource.data.get('agencyId', '') != '' &&
+          get(/databases/$(database)/documents/agencies/$(resource.data.agencyId)).data.adminUserId == request.auth.uid)
+      );
       // A customer can only create a job under their own id.
       allow create: if signedIn() && request.auth.uid == request.resource.data.customerId;
       // Who may advance a job:
