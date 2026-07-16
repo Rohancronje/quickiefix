@@ -309,29 +309,35 @@ service cloud.firestore {
       //    WHILE still searching — so they can accept/decline the selection even
       //    if they weren't in the original candidate pool, and
       //  - platform admins.
-      // completionCode is the server-generated completion record — no client
-      // (even the parties) may write it; the Cloud Function sets it (Admin SDK).
+      // Assignment + financial fields are written ONLY by Cloud Functions:
+      //  - completionCode by the completion function,
+      //  - tradieId / tradieName / company stamps / rateSnapshot / sourcedVia by
+      //    the acceptJob + releaseJob callables.
+      // No client (even the assigned parties) may set or clear them, so nobody
+      // can forge who's assigned or at what rate.
       allow update: if signedIn()
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['completionCode'])
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['completionCode', 'rateSnapshot', 'sourcedVia',
+                      'tradieId', 'tradieName', 'companyId', 'companyName'])
         && (
+        // The customer (confirm, cancel, pick a tradie) or the assigned tradie
+        // (travel, arrive, complete, cancel, location, billing).
         resource.data.customerId == request.auth.uid ||
         resource.data.tradieId == request.auth.uid ||
         (
           resource.data.status == 'searching' &&
-          request.auth.uid in resource.data.dispatch.candidateIds &&
           (
-            // Browse-and-choose: an UNCHOSEN candidate may decline or express
-            // interest, but may NOT take the job (status/tradieId) — only the
-            // tradie the customer picked can (covered by the clause below).
-            resource.data.get('assignmentMode', 'auto') != 'choose' ||
-            resource.data.get('selectedTradieId', '') == request.auth.uid ||
-            !request.resource.data.diff(resource.data).affectedKeys()
-              .hasAny(['status', 'tradieId', 'tradieName'])
+            // A pooled candidate may only decline or express interest —
+            // accepting is server-only (acceptJob callable).
+            (request.auth.uid in resource.data.get('dispatch', {}).get('candidateIds', []) &&
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['declinedBy', 'interestedTradies'])) ||
+            // The customer-selected tradie may decline (clears the selection +
+            // records the decline); accepting the selection is server-only.
+            (resource.data.get('selectedTradieId', '') == request.auth.uid &&
+              request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['declinedBy', 'interestedTradies', 'selectedTradieId']))
           )
-        ) ||
-        (
-          resource.data.status == 'searching' &&
-          resource.data.selectedTradieId == request.auth.uid
         ) ||
         isPlatformAdmin()
       );

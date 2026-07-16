@@ -681,6 +681,110 @@ exports.backfillAgencyData = onCall({ cors: true }, async (request) => {
   return { panels, stamped };
 });
 
+/* ---- Privileged job transitions (§ security) ----
+ * Accepting and releasing a job set/clear the assignment + the financial rate
+ * snapshot. Doing them server-side (Admin SDK) means a crafted client can never
+ * forge who's assigned or at what rate — the `jobs` update rule forbids clients
+ * from writing tradieId/rateSnapshot/sourcedVia/company stamps at all. */
+exports.acceptJob = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const jobId = String(request.data?.jobId ?? '');
+  if (!jobId) throw new HttpsError('invalid-argument', 'jobId required.');
+  const db = admin.firestore();
+  return db.runTransaction(async (tx) => {
+    const jobRef = db.collection('jobs').doc(jobId);
+    const jobSnap = await tx.get(jobRef);
+    if (!jobSnap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
+    const job = jobSnap.data();
+    if (job.status !== 'searching') throw new HttpsError('failed-precondition', 'Sorry, this job has already been taken.');
+    // Eligibility: browse-and-choose → only the customer-selected tradie; auto →
+    // any tradie still in the dispatch pool (legacy jobs have no pool).
+    const eligible = job.assignmentMode === 'choose'
+      ? job.selectedTradieId === uid
+      : (!job.dispatch || (job.dispatch.candidateIds || []).includes(uid));
+    if (!eligible) throw new HttpsError('failed-precondition', 'This job is no longer being offered to you.');
+    const tradieRef = db.collection('users').doc(uid);
+    const tradieSnap = await tx.get(tradieRef);
+    if (!tradieSnap.exists) throw new HttpsError('not-found', 'Tradie not found.');
+    const tradie = tradieSnap.data();
+    if (tradie.paymentHold) throw new HttpsError('failed-precondition', 'Your account is paused. Clear your balance to accept jobs.');
+    if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
+      throw new HttpsError('failed-precondition', 'Finish your current job before taking another.');
+    }
+    // sourcedVia: contractors carry the company badge ONLY on company-panel work.
+    const sourcedVia = job.agencyId
+      ? ((job.dispatch?.ownPanelIds || []).includes(uid) ? 'own_panel' : 'company_panel')
+      : 'open_market';
+    let company;
+    if (tradie.companyId) {
+      const cs = await tx.get(db.collection('companies').doc(tradie.companyId));
+      if (cs.exists) company = cs.data();
+    }
+    const useCompany = !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
+    const rateCard = useCompany ? (company.rateCard ?? tradie.rateCard) : tradie.rateCard;
+    const now = Date.now();
+    const stamp = { sourcedVia };
+    if (useCompany && company) { stamp.companyId = tradie.companyId; stamp.companyName = company.name; }
+    // Agency jobs: no rate snapshot — panel members bill on the agency's terms.
+    if (rateCard && !job.agencyId) {
+      stamp.rateSnapshot = {
+        rateCard,
+        source: useCompany && company?.rateCard ? 'company' : 'personal',
+        ...(useCompany && company ? { companyName: company.name } : {}),
+        capturedAt: now,
+      };
+    }
+    tx.update(jobRef, {
+      status: 'confirmed',
+      tradieId: uid,
+      tradieName: tradie.businessName,
+      'timestamps.acceptedAt': now,
+      'timestamps.confirmedAt': now,
+      ...stamp,
+    });
+    tx.update(tradieRef, { status: 'job_accepted', jobsAccepted: admin.firestore.FieldValue.increment(1) });
+    return { ok: true, jobId };
+  });
+});
+
+exports.releaseJob = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const jobId = String(request.data?.jobId ?? '');
+  if (!jobId) throw new HttpsError('invalid-argument', 'jobId required.');
+  const db = admin.firestore();
+  const FieldValue = admin.firestore.FieldValue;
+  return db.runTransaction(async (tx) => {
+    const jobRef = db.collection('jobs').doc(jobId);
+    const snap = await tx.get(jobRef);
+    if (!snap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
+    const job = snap.data();
+    if (job.tradieId !== uid) throw new HttpsError('permission-denied', 'Not your job.');
+    if (!['accepted', 'confirmed', 'travelling'].includes(job.status)) {
+      throw new HttpsError('failed-precondition', "You're already on site — finish up or ask the customer to cancel.");
+    }
+    const now = Date.now();
+    tx.update(jobRef, {
+      status: 'searching',
+      tradieId: FieldValue.delete(),
+      tradieName: FieldValue.delete(),
+      companyId: FieldValue.delete(),
+      companyName: FieldValue.delete(),
+      rateSnapshot: FieldValue.delete(),
+      sourcedVia: FieldValue.delete(),
+      tradieLocation: FieldValue.delete(),
+      selectedTradieId: FieldValue.delete(),
+      declinedBy: FieldValue.arrayUnion(uid),
+      'timestamps.searchingAt': now,
+      'dispatch.startedAt': now,
+      'dispatch.notifiedIds': [],
+    });
+    tx.update(db.collection('users').doc(uid), { status: 'available' });
+    return { ok: true, jobId };
+  });
+});
+
 /**
  * Completion record (billing handshake). When a job completes:
  *  - generate the deterministic confirmation code (QF-XXXXXX) server-side so

@@ -617,98 +617,14 @@ export class FirestoreBackend implements Backend {
     return urls;
   }
 
-  async acceptJob(jobId: string, tradieId: string): Promise<Job> {
-    return runTransaction(this.db, async (tx) => {
-      const jobSnap = await tx.get(this.jobRef(jobId));
-      if (!jobSnap.exists()) throw new Error('Job no longer exists.');
-      const job = jobSnap.data() as Job;
-      // First candidate to accept wins — the status guard makes this atomic.
-      if (job.status !== 'searching') {
-        throw new Error('Sorry, this job has already been taken.');
-      }
-      // Browse-and-choose: nobody can take the job until the customer picks
-      // a tradie, and then only that tradie can accept it.
-      if (job.assignmentMode === 'choose' && job.selectedTradieId !== tradieId) {
-        throw new Error(
-          "The customer is still choosing a tradie. Tap \"I'm interested\" so they can pick you.",
-        );
-      }
-      // Only a tradie in this job's dispatch pool may accept it. (Legacy jobs
-      // created before wave dispatch have no snapshot — skip the guard there.)
-      if (job.dispatch && !job.dispatch.candidateIds.includes(tradieId)) {
-        throw new Error('This job is no longer being offered to you.');
-      }
-      const tradieSnap = await tx.get(this.userRef(tradieId));
-      if (!tradieSnap.exists()) throw new Error('Tradie not found.');
-      const tradie = tradieSnap.data() as Tradie;
-      if (tradie.paymentHold) {
-        throw new Error('Your account is paused. Clear your balance to accept jobs.');
-      }
-      // One live job at a time — a double-booked tradie shadows one customer.
-      if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
-        throw new Error('Finish your current job before taking another.');
-      }
-
-      // Read the company (if any) before any writes, to stamp + snapshot rates.
-      // How did this tradie get access to this job? Contractors carry the
-      // company badge ONLY on company-sourced work (jobs unlocked by the
-      // company's agency-panel membership); their open-market and own-panel
-      // jobs stay under their own brand and rates. Employees are always the
-      // company. sourcedVia is stamped for reporting + month-end billing.
-      const sourcedVia: JobSource = job.agencyId
-        ? job.dispatch?.ownPanelIds?.includes(tradieId)
-          ? 'own_panel'
-          : 'company_panel'
-        : 'open_market';
-      const companySnap = tradie.companyId
-        ? await tx.get(this.companyRef(tradie.companyId))
-        : null;
-      const company = companySnap?.exists() ? (companySnap.data() as Company) : undefined;
-      const useCompany =
-        !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
-      const rateCard = useCompany ? (company?.rateCard ?? tradie.rateCard) : tradie.rateCard;
-      const now = Date.now();
-
-      const stamp: Partial<Job> = { sourcedVia };
-      if (useCompany && company) {
-        stamp.companyId = tradie.companyId;
-        stamp.companyName = company.name;
-      }
-      // Agency jobs: no rate snapshot — panel members bill on the agency's
-      // own commercial terms, so rates never show anywhere for these jobs.
-      if (rateCard && !job.agencyId) {
-        stamp.rateSnapshot = {
-          rateCard,
-          source: useCompany && company?.rateCard ? 'company' : 'personal',
-          ...(useCompany && company ? { companyName: company.name } : {}),
-          capturedAt: now,
-        };
-      }
-
-      // Auto-assign means exactly that: first to accept is locked in — no
-      // redundant customer-confirm step. Land straight at confirmed.
-      const updated: Job = {
-        ...job,
-        status: 'confirmed',
-        tradieId: tradie.id,
-        tradieName: tradie.businessName,
-        timestamps: { ...job.timestamps, acceptedAt: now, confirmedAt: now },
-        ...stamp,
-      };
-      tx.update(this.jobRef(jobId), {
-        status: 'confirmed',
-        tradieId: tradie.id,
-        tradieName: tradie.businessName,
-        'timestamps.acceptedAt': now,
-        'timestamps.confirmedAt': now,
-        ...stamp,
-      });
-      tx.update(this.userRef(tradieId), {
-        status: 'job_accepted',
-        jobsAccepted: increment(1),
-      });
-      return updated;
-    });
+  async acceptJob(jobId: string, _tradieId: string): Promise<Job> {
+    // Server-enforced (Admin SDK): the assignment + rate snapshot are computed
+    // and written server-side, so a crafted client can't forge who's assigned
+    // or at what rate. Handles both auto and browse-and-choose accepts.
+    if (!functions) throw new Error('Accepting jobs is unavailable right now.');
+    await httpsCallable(functions, 'acceptJob')({ jobId });
+    const snap = await getDoc(this.jobRef(jobId));
+    return snap.data() as Job;
   }
 
   async declineJob(jobId: string, tradieId: string): Promise<void> {
@@ -893,83 +809,9 @@ export class FirestoreBackend implements Backend {
   }
 
   async acceptSelection(jobId: string, tradieId: string): Promise<Job> {
-    return runTransaction(this.db, async (tx) => {
-      const jobSnap = await tx.get(this.jobRef(jobId));
-      if (!jobSnap.exists()) throw new Error('Job no longer exists.');
-      const job = jobSnap.data() as Job;
-      if (job.status !== 'searching') throw new Error('Sorry, this job has already been taken.');
-      if (job.selectedTradieId !== tradieId) {
-        throw new Error('This job is no longer being offered to you.');
-      }
-      const tradieSnap = await tx.get(this.userRef(tradieId));
-      if (!tradieSnap.exists()) throw new Error('Tradie not found.');
-      const tradie = tradieSnap.data() as Tradie;
-      if (tradie.paymentHold) {
-        throw new Error('Your account is paused. Clear your balance to accept jobs.');
-      }
-      // One live job at a time — a double-booked tradie shadows one customer.
-      if (tradie.status === 'job_accepted' || tradie.status === 'on_site') {
-        throw new Error('Finish your current job before taking another.');
-      }
-
-      // How did this tradie get access to this job? Contractors carry the
-      // company badge ONLY on company-sourced work (jobs unlocked by the
-      // company's agency-panel membership); their open-market and own-panel
-      // jobs stay under their own brand and rates. Employees are always the
-      // company. sourcedVia is stamped for reporting + month-end billing.
-      const sourcedVia: JobSource = job.agencyId
-        ? job.dispatch?.ownPanelIds?.includes(tradieId)
-          ? 'own_panel'
-          : 'company_panel'
-        : 'open_market';
-      const companySnap = tradie.companyId
-        ? await tx.get(this.companyRef(tradie.companyId))
-        : null;
-      const company = companySnap?.exists() ? (companySnap.data() as Company) : undefined;
-      const useCompany =
-        !!company && (tradie.engagement !== 'contractor' || sourcedVia === 'company_panel');
-      const rateCard = useCompany ? (company?.rateCard ?? tradie.rateCard) : tradie.rateCard;
-      const now = Date.now();
-
-      const stamp: Partial<Job> = { sourcedVia };
-      if (useCompany && company) {
-        stamp.companyId = tradie.companyId;
-        stamp.companyName = company.name;
-      }
-      // Agency jobs: no rate snapshot — panel members bill on the agency's
-      // own commercial terms, so rates never show anywhere for these jobs.
-      if (rateCard && !job.agencyId) {
-        stamp.rateSnapshot = {
-          rateCard,
-          source: useCompany && company?.rateCard ? 'company' : 'personal',
-          ...(useCompany && company ? { companyName: company.name } : {}),
-          capturedAt: now,
-        };
-      }
-
-      // The customer already chose them, so accepting lands straight at confirmed.
-      const updated: Job = {
-        ...job,
-        status: 'confirmed',
-        tradieId: tradie.id,
-        tradieName: tradie.businessName,
-        timestamps: { ...job.timestamps, acceptedAt: now, confirmedAt: now },
-        ...stamp,
-      };
-      tx.update(this.jobRef(jobId), {
-        status: 'confirmed',
-        tradieId: tradie.id,
-        tradieName: tradie.businessName,
-        'timestamps.acceptedAt': now,
-        'timestamps.confirmedAt': now,
-        ...stamp,
-      });
-      tx.update(this.userRef(tradieId), {
-        status: 'job_accepted',
-        jobsAccepted: increment(1),
-      });
-      return updated;
-    });
+    // Browse-and-choose accept — same server callable as acceptJob; the server
+    // derives eligibility (selected tradie vs candidate) from the job state.
+    return this.acceptJob(jobId, tradieId);
   }
 
   async declineSelection(jobId: string, tradieId: string): Promise<void> {
@@ -1064,33 +906,11 @@ export class FirestoreBackend implements Backend {
   /** Assigned tradie can't make it: hand the job back to dispatch. The job
    *  returns to `searching` with a fresh wave clock (this tradie excluded),
    *  the customer is pushed, and the tradie is freed for new offers. */
-  async releaseJob(jobId: string, tradieId: string): Promise<void> {
-    await runTransaction(this.db, async (tx) => {
-      const snap = await tx.get(this.jobRef(jobId));
-      if (!snap.exists()) return;
-      const job = snap.data() as Job;
-      if (job.tradieId !== tradieId) return;
-      if (!['accepted', 'confirmed', 'travelling'].includes(job.status)) {
-        throw new Error("You're already on site — finish up or ask the customer to cancel.");
-      }
-      const now = Date.now();
-      tx.update(this.jobRef(jobId), {
-        status: 'searching',
-        tradieId: deleteField(),
-        tradieName: deleteField(),
-        companyId: deleteField(),
-        companyName: deleteField(),
-        rateSnapshot: deleteField(),
-        tradieLocation: deleteField(),
-        selectedTradieId: deleteField(),
-        declinedBy: arrayUnion(tradieId),
-        'timestamps.searchingAt': now,
-        'dispatch.startedAt': now,
-        // Fresh push wave — everyone (minus this tradie) gets alerted again.
-        'dispatch.notifiedIds': [],
-      });
-      tx.update(this.userRef(tradieId), { status: 'available' });
-    });
+  async releaseJob(jobId: string, _tradieId: string): Promise<void> {
+    // Server-enforced: releasing clears the assignment + rate snapshot and
+    // re-dispatches — clients are forbidden from writing those fields directly.
+    if (!functions) throw new Error('Releasing jobs is unavailable right now.');
+    await httpsCallable(functions, 'releaseJob')({ jobId });
   }
 
   async rateAsCustomer(jobId: string, rating: Rating): Promise<void> {
