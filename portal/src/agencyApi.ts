@@ -106,9 +106,14 @@ export async function requestCompanyAgencyLink(
   scope: 'all' | 'employees',
 ): Promise<string> {
   const clean = code.trim().toUpperCase();
-  const agencySnap = await getDocs(query(collection(db, 'agencies'), where('code', '==', clean)));
-  if (agencySnap.empty) throw new Error('No property agency matches that code.');
-  const agency = agencySnap.docs[0].data() as Agency;
+  // Resolve the code server-side — agencies aren't client-readable by code.
+  const found = (await httpsCallable(functions, 'findAgencyByCode')({ code: clean })).data as {
+    found: boolean;
+    id?: string;
+    name?: string;
+  };
+  if (!found.found || !found.id) throw new Error('No property agency matches that code.');
+  const agency = { id: found.id, name: found.name ?? '' } as Agency;
   const existing = await getDocs(
     query(collection(db, 'agencyLinks'), where('memberId', '==', company.id)),
   );
@@ -196,6 +201,9 @@ export async function addAgencyProperty(
     createdAt: Date.now(),
     agencyId: agency.id,
     agencyName: agency.name,
+    // Denormalised billing contact shown read-only to tenants (agencies doc is
+    // not tenant-readable).
+    agencyBillingEmail: agency.adminEmail,
   });
   return ref.id;
 }

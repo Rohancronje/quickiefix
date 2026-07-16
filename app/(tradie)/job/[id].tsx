@@ -12,7 +12,7 @@ import { Screen } from '../../../src/components/Screen';
 import { Button, Card, Field, Txt } from '../../../src/components/ui';
 import { formatMoney, ON_SITE_RADIUS_KM, tradeMeta } from '../../../src/constants';
 import { useTradie } from '../../../src/context/AuthContext';
-import { useAgency, useJob, useUser } from '../../../src/hooks/useData';
+import { useJob, useUser } from '../../../src/hooks/useData';
 import { formatDuration, formatWhen } from '../../../src/lib/format';
 import { distanceKm, formatDistance } from '../../../src/lib/geo';
 import { hasCoords, watchPosition } from '../../../src/lib/location';
@@ -522,8 +522,8 @@ function PartsEditor({
 function CompleteJobSheet({ job }: { job: Job }) {
   const customer = useUser(job.customerId);
   // Agency-paid job: the invoice chain is fixed (agency → company → you), so
-  // there is nothing for the tradie to enter — fetch the agency contact.
-  const agency = useAgency(job.agencyId);
+  // there is nothing for the tradie to enter — the agency billing contact is
+  // denormalised onto the job (agencies collection is not tradie-readable).
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -556,10 +556,10 @@ function CompleteJobSheet({ job }: { job: Job }) {
     const completeAgencyJob = async () => {
       try {
         setBusy(true);
-        if (agency?.adminEmail) {
+        if (job.agencyBillingEmail) {
           await backend.setJobBilling(job.id, {
-            contactName: job.agencyName ?? agency.name,
-            contactEmail: agency.adminEmail,
+            contactName: job.agencyName ?? 'Property manager',
+            contactEmail: job.agencyBillingEmail,
           });
         }
         await backend.completeJob(job.id, rowsToParts(partRows));

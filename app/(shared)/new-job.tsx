@@ -19,7 +19,7 @@ import { AddressField } from '../../src/components/AddressField';
 import { Button, Chip, Field, Txt } from '../../src/components/ui';
 import { formatMoney, TRADES } from '../../src/constants';
 import { useAuth } from '../../src/context/AuthContext';
-import { useAgency, useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
+import { useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { isOnPanel } from '../../src/lib/panel';
 import { getCurrentLocation } from '../../src/lib/location';
 import { backend } from '../../src/services';
@@ -75,8 +75,6 @@ export default function NewJob() {
     setPayer('agency');
   }, [propertyId]);
   const panel = useAgencyPanel(isAgencyJob ? selectedProperty?.agencyId : undefined);
-  // Billing contact for the read-only card when the agency pays.
-  const billingAgency = useAgency(isAgencyJob ? selectedProperty?.agencyId : undefined);
 
   // Live match preview for the final step: who's actually available for this
   // trade near this address, right now. Panel-filtered for managed properties.
@@ -502,11 +500,11 @@ export default function NewJob() {
                       Billing contact (set by the property manager)
                     </Txt>
                     <Txt variant="label">
-                      {billingAgency?.name ?? selectedProperty?.agencyName ?? 'Property manager'}
+                      {selectedProperty?.agencyName ?? 'Property manager'}
                     </Txt>
-                    {billingAgency?.adminEmail && (
+                    {selectedProperty?.agencyBillingEmail && (
                       <Txt variant="caption" color={colors.textMuted}>
-                        {billingAgency.adminEmail} · 🔒 can't be changed
+                        {selectedProperty.agencyBillingEmail} · 🔒 can't be changed
                       </Txt>
                     )}
                   </View>

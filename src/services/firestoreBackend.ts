@@ -64,7 +64,7 @@ import {
 import { FREE_CREDITS_DEFAULT } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
-import { AgencyPanel, isOnPanel, panelFromLinks } from '../lib/panel';
+import { AgencyPanel, isOnPanel } from '../lib/panel';
 import { friendlyAuthError } from '../lib/authError';
 import { maskContactInfo } from '../lib/mask';
 import { genTagCode, TAG_TTL_MS } from '../lib/tags';
@@ -336,7 +336,16 @@ export class FirestoreBackend implements Backend {
           landlordId: property.landlordId,
           landlordName: property.landlordName,
           ...(agencyPays
-            ? { agencyId: property.agencyId, agencyName: property.agencyName, billTo: 'agency' as const }
+            ? {
+                agencyId: property.agencyId,
+                agencyName: property.agencyName,
+                // Denormalised billing contact so the assigned tradie can
+                // invoice the agency without reading the locked agencies doc.
+                ...(property.agencyBillingEmail
+                  ? { agencyBillingEmail: property.agencyBillingEmail }
+                  : {}),
+                billTo: 'agency' as const,
+              }
             : {}),
           ...(property.agencyId && !agencyPays ? { billTo: 'customer' as const } : {}),
         };
@@ -739,10 +748,11 @@ export class FirestoreBackend implements Backend {
   }
 
   async getAgencyPanel(agencyId: string): Promise<AgencyPanel> {
-    const snap = await getDocs(
-      query(collection(this.db, 'agencyLinks'), where('agencyId', '==', agencyId)),
-    );
-    return panelFromLinks(snap.docs.map((d) => d.data() as AgencyLink));
+    // Reads the non-PII projection maintained by the mirrorAgencyPanel function
+    // — agencyLinks itself is locked to the parties.
+    const snap = await getDoc(doc(this.db, 'agencyPanels', agencyId));
+    const d = snap.exists() ? (snap.data() as Partial<AgencyPanel>) : undefined;
+    return { tradieIds: d?.tradieIds ?? [], companyScope: d?.companyScope ?? {} };
   }
 
   async requestAgencyLink(
@@ -751,11 +761,16 @@ export class FirestoreBackend implements Backend {
     kind: 'tradie' | 'tenant',
   ): Promise<string> {
     const clean = code.trim().toUpperCase();
-    const snap = await getDocs(
-      query(collection(this.db, 'agencies'), where('code', '==', clean)),
-    );
-    if (snap.empty) throw new Error('No property agency matches that code. Double-check it with the agency.');
-    const agency = snap.docs[0].data() as Agency;
+    // Resolve the code server-side — the agencies collection is not client
+    // -readable by code (stops code enumeration + adminEmail harvest).
+    if (!functions) throw new Error('Agency linking is unavailable right now.');
+    const found = (await httpsCallable(functions, 'findAgencyByCode')({ code: clean })).data as {
+      found: boolean;
+      id?: string;
+      name?: string;
+    };
+    if (!found.found || !found.id) throw new Error('No property agency matches that code. Double-check it with the agency.');
+    const agency = { id: found.id, name: found.name ?? '' } as Agency;
     // Already linked/pending? Keep it idempotent and friendly.
     const existing = await getDocs(
       query(collection(this.db, 'agencyLinks'), where('memberId', '==', member.id)),

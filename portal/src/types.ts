@@ -158,6 +158,7 @@ export interface Job {
   landlordName?: string;
   agencyId?: string;
   agencyName?: string;
+  agencyBillingEmail?: string;
   timestamps: {
     createdAt: number;
     searchingAt?: number;
@@ -213,6 +214,7 @@ export interface Property {
   createdAt: number;
   agencyId?: string;
   agencyName?: string;
+  agencyBillingEmail?: string;
   /** Invited-by-email tenants who haven't claimed the code yet. */
   invitedTenantEmails?: string[];
 }

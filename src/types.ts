@@ -221,6 +221,9 @@ export interface Property {
    *  approved tradie panel, and rates are hidden (agency terms apply). */
   agencyId?: string;
   agencyName?: string;
+  /** Agency admin's email, denormalised as the read-only billing contact shown
+   *  to tenants (the agencies collection itself is not tenant-readable). */
+  agencyBillingEmail?: string;
   /** Tenants invited by email who haven't claimed the code yet — used to
    *  auto-link them to this property when the agency confirms them. */
   invitedTenantEmails?: string[];
@@ -404,6 +407,9 @@ export interface Job {
    *  hidden throughout (the agency's commercial terms apply off-platform). */
   agencyId?: string;
   agencyName?: string;
+  /** Agency billing contact, denormalised so the assigned tradie can invoice
+   *  the agency without reading the (locked) agencies collection. */
+  agencyBillingEmail?: string;
   /** Who pays for the work at a managed property: the agency (panel job on
    *  their terms) or the requesting customer (normal open-market job). */
   billTo?: 'agency' | 'customer';

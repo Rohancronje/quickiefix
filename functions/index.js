@@ -611,6 +611,76 @@ exports.claimSeatTag = onCall({ cors: true }, async (request) => {
   });
 });
 
+/* ---- Agency panel mirror + code lookup (§ security) ----
+ * agencyLinks carry member emails and the full membership graph, so they're
+ * locked to the parties. Dispatch + the request-flow preview instead read this
+ * distilled, non-PII projection — the approved panel {tradieIds, companyScope}
+ * — from agencyPanels/{agencyId}, and resolve join codes via a callable so the
+ * agencies collection never needs a client-side `where code==` query. */
+function agencyPanelFromLinks(links) {
+  const approved = links.filter((l) => l.status === 'approved');
+  return {
+    tradieIds: approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId),
+    companyScope: Object.fromEntries(
+      approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
+    ),
+  };
+}
+
+exports.mirrorAgencyPanel = onDocumentWritten('agencyLinks/{id}', async (event) => {
+  const link = event.data?.after?.data() ?? event.data?.before?.data();
+  const agencyId = link?.agencyId;
+  if (!agencyId) return;
+  const db = admin.firestore();
+  const links = await db.collection('agencyLinks').where('agencyId', '==', agencyId).get();
+  await db.collection('agencyPanels').doc(agencyId).set({
+    agencyId,
+    ...agencyPanelFromLinks(links.docs.map((d) => d.data())),
+    updatedAt: Date.now(),
+  });
+});
+
+/** Resolve an agency join code → minimal public identity (id + name, never
+ *  adminEmail). Replaces the client-side `agencies where code==` query. */
+exports.findAgencyByCode = onCall({ cors: true }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const code = String(request.data?.code ?? '').trim().toUpperCase();
+  if (!code) throw new HttpsError('invalid-argument', 'code required.');
+  const snap = await admin.firestore().collection('agencies').where('code', '==', code).limit(1).get();
+  if (snap.empty) return { found: false };
+  return { found: true, id: snap.docs[0].id, name: snap.docs[0].data().name ?? '' };
+});
+
+/** One-shot backfill: build agencyPanels for every agency and stamp
+ *  agencyBillingEmail onto managed properties. Platform admin only. */
+exports.backfillAgencyData = onCall({ cors: true }, async (request) => {
+  const email = request.auth?.token?.email;
+  if (!email || !PLATFORM_ADMINS.includes(email)) throw new HttpsError('permission-denied', 'Platform admin only.');
+  const db = admin.firestore();
+  const agencies = await db.collection('agencies').get();
+  let panels = 0;
+  for (const a of agencies.docs) {
+    const links = await db.collection('agencyLinks').where('agencyId', '==', a.id).get();
+    await db.collection('agencyPanels').doc(a.id).set({
+      agencyId: a.id, ...agencyPanelFromLinks(links.docs.map((d) => d.data())), updatedAt: Date.now(),
+    });
+    panels++;
+  }
+  const emailByAgency = Object.fromEntries(agencies.docs.map((a) => [a.id, a.data().adminEmail ?? null]));
+  const props = await db.collection('properties').get();
+  let stamped = 0, batch = db.batch(), n = 0;
+  for (const p of props.docs) {
+    const aid = p.data().agencyId;
+    if (aid && emailByAgency[aid]) {
+      batch.update(p.ref, { agencyBillingEmail: emailByAgency[aid] });
+      stamped++;
+      if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; }
+    }
+  }
+  if (n > 0) await batch.commit();
+  return { panels, stamped };
+});
+
 /**
  * Completion record (billing handshake). When a job completes:
  *  - generate the deterministic confirmation code (QF-XXXXXX) server-side so
@@ -916,7 +986,14 @@ exports.createAgencyJob = onCall({ cors: true }, async (request) => {
     propertyId: propSnap.id,
     landlordId: prop.landlordId,
     landlordName: prop.landlordName,
-    ...(prop.agencyId ? { agencyId: prop.agencyId, agencyName: prop.agencyName } : {}),
+    ...(prop.agencyId
+      ? {
+          agencyId: prop.agencyId,
+          agencyName: prop.agencyName,
+          // Caller is the agency admin, so their email is the billing contact.
+          agencyBillingEmail: prop.agencyBillingEmail ?? request.auth.token?.email ?? null,
+        }
+      : {}),
     raisedVia: 'agency_portal',
   });
   return { jobId: jobRef.id, candidateCount: candidateIds.length, customerName };

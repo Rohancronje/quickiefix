@@ -144,7 +144,11 @@ service cloud.firestore {
     // Property agencies (portal accounts). Readable by any signed-in user so
     // tradies can resolve an agent code; only the agency admin manages it.
     match /agencies/{id} {
-      allow read: if signedIn();
+      // adminEmail + join code are private: only the owning admin and platform
+      // admins read the agency doc. Members resolve a code via the
+      // findAgencyByCode callable; the billing contact is denormalised onto the
+      // property/job. The approved panel lives in agencyPanels (below).
+      allow read: if signedIn() && (isPlatformAdmin() || resource.data.adminUserId == request.auth.uid);
       allow create: if signedIn() && request.resource.data.adminUserId == request.auth.uid;
       allow update: if isPlatformAdmin() ||
         (signedIn() && resource.data.adminUserId == request.auth.uid);
@@ -158,7 +162,17 @@ service cloud.firestore {
       function agencyAdmin(agencyId) {
         return get(/databases/$(database)/documents/agencies/$(agencyId)).data.adminUserId == request.auth.uid;
       }
-      allow read: if signedIn();
+      // The graph carries member emails, so reads are limited to: the member
+      // themselves, the owning agency admin, the company admin of a company
+      // link, and platform admins. Dispatch reads the agencyPanels projection
+      // instead (below).
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        resource.data.memberId == request.auth.uid ||
+        agencyAdmin(resource.data.agencyId) ||
+        (resource.data.kind == 'company' &&
+          get(/databases/$(database)/documents/companies/$(resource.data.memberId)).data.adminUserId == request.auth.uid)
+      );
       allow create: if signedIn()
         && request.resource.data.status == 'pending'
         && (
@@ -170,6 +184,15 @@ service cloud.firestore {
         );
       allow update: if isPlatformAdmin() || (signedIn() && agencyAdmin(resource.data.agencyId));
       allow delete: if false;
+    }
+
+    // Approved-panel projection of each agency: {tradieIds, companyScope} only —
+    // no emails, no pending requests, no membership PII. Dispatch and the request
+    // preview read this instead of agencyLinks. Written only by the
+    // mirrorAgencyPanel function (Admin SDK).
+    match /agencyPanels/{agencyId} {
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     // Properties (property-light, §2). The landlord owns the doc; linked tenants
