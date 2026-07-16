@@ -576,6 +576,41 @@ exports.findUserIdByEmail = onCall({ cors: true }, async (request) => {
   return { found: true, id: snap.docs[0].id, firstName: u.firstName ?? '', lastName: u.lastName ?? '', role: u.role ?? null };
 });
 
+/** Claim a company seat by code. Server-side (Admin SDK) so the `companyTags`
+ *  collection can stay locked — the tradie never reads the tag (and its
+ *  issuedToEmail/Phone) directly. The caller is the claiming tradie. */
+exports.claimSeatTag = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const code = String(request.data?.code ?? '').trim().toUpperCase();
+  const engagement = request.data?.engagement === 'contractor' ? 'contractor' : 'employee';
+  if (!code) throw new HttpsError('invalid-argument', 'code required.');
+  const db = admin.firestore();
+  const found = await db.collection('companyTags').where('code', '==', code).limit(1).get();
+  if (found.empty) throw new HttpsError('not-found', 'That code is not valid.');
+  const tagRef = found.docs[0].ref;
+  return db.runTransaction(async (tx) => {
+    const tagSnap = await tx.get(tagRef);
+    const tag = tagSnap.data();
+    if (tag.status !== 'issued') throw new HttpsError('failed-precondition', 'That code has already been used.');
+    if (Date.now() > tag.expiresAt) throw new HttpsError('failed-precondition', 'That code has expired.');
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw new HttpsError('not-found', 'Tradie not found.');
+    if (userSnap.data().activeTagId) throw new HttpsError('failed-precondition', 'You already belong to a company.');
+    const companySnap = await tx.get(db.collection('companies').doc(tag.companyId));
+    if (!companySnap.exists) throw new HttpsError('failed-precondition', 'That company no longer exists.');
+    tx.update(tagRef, {
+      status: 'claimed',
+      claimedByUserId: uid,
+      claimedAt: Date.now(),
+      engagement: tag.engagement ?? engagement,
+    });
+    tx.update(userRef, { activeTagId: tag.id });
+    return { id: tag.companyId, name: tag.companyName };
+  });
+});
+
 /**
  * Completion record (billing handshake). When a job completes:
  *  - generate the deterministic confirmation code (QF-XXXXXX) server-side so

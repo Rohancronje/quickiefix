@@ -109,7 +109,15 @@ service cloud.firestore {
 
     // Company tags (seats) — the tag model (§6). Replaces invites.
     match /companyTags/{id} {
-      allow read: if signedIn();
+      // Tags carry the intended recipient's email/phone, so reads are limited to
+      // the owning company admin, the tradie who claimed the seat, and platform
+      // admins. Claiming a seat by code goes through the claimSeatTag function
+      // (Admin SDK) — a tradie never reads an unclaimed tag directly.
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        resource.data.get('claimedByUserId', '') == request.auth.uid ||
+        get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid
+      );
       // Company admin issues seats for their own company (platform admin too).
       allow create: if isPlatformAdmin() || (signedIn()
         && get(/databases/$(database)/documents/companies/$(request.resource.data.companyId)).data.adminUserId == request.auth.uid);

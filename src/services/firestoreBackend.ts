@@ -1383,36 +1383,15 @@ export class FirestoreBackend implements Backend {
     return snap.empty ? null : (snap.docs[0].data() as CompanyTag);
   }
 
-  async claimTag(code: string, tradieId: string, engagement: Engagement): Promise<Company> {
-    const snap = await getDocs(
-      query(collection(this.db, 'companyTags'), where('code', '==', code.trim().toUpperCase())),
-    );
-    if (snap.empty) throw new Error('That code is not valid.');
-    const tRef = snap.docs[0].ref;
-    return runTransaction(this.db, async (tx) => {
-      const tagSnap = await tx.get(tRef);
-      const tag = tagSnap.data() as CompanyTag;
-      if (tag.status !== 'issued') throw new Error('That code has already been used.');
-      if (Date.now() > tag.expiresAt) throw new Error('That code has expired.');
-      const userSnap = await tx.get(this.userRef(tradieId));
-      if (!userSnap.exists()) throw new Error('Tradie not found.');
-      if ((userSnap.data() as Tradie).activeTagId) {
-        throw new Error('You already belong to a company.');
-      }
-      const companySnap = await tx.get(this.companyRef(tag.companyId));
-      if (!companySnap.exists()) throw new Error('That company no longer exists.');
-      tx.update(tRef, {
-        status: 'claimed',
-        claimedByUserId: tradieId,
-        claimedAt: Date.now(),
-        // The company declares the engagement when issuing the seat — that
-        // tick is authoritative. The tradie's answer only fills the gap on
-        // older tags issued without one.
-        engagement: tag.engagement ?? engagement,
-      });
-      tx.update(this.userRef(tradieId), { activeTagId: tag.id });
-      return companySnap.data() as Company;
-    });
+  async claimTag(code: string, _tradieId: string, engagement: Engagement): Promise<Company> {
+    // Server-side (Admin SDK) so `companyTags` — which carries the intended
+    // recipient's email/phone — never needs to be client-readable by code.
+    if (!functions) throw new Error('Seat claiming is unavailable right now.');
+    const res = (await httpsCallable(functions, 'claimSeatTag')({
+      code: code.trim().toUpperCase(),
+      engagement,
+    })).data as { id: string; name: string };
+    return { id: res.id, name: res.name } as Company;
   }
 
   async validateTag(tagId: string): Promise<void> {
