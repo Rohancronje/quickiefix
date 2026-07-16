@@ -82,7 +82,9 @@ normal builds are unaffected. All staging logins use password `password`.
 | Server-side write transitions | ✅ done | **Done (prod, 17 Jul 2026):** the privileged transitions — accept (`acceptJob`) and release (`releaseJob`) — are Admin-SDK callables; the `jobs` update rule forbids every client from writing tradieId/tradieName/company stamps/rateSnapshot/sourcedVia/completionCode, so assignment + rates can't be forged. Rating aggregation was already server-side (`onJobRated`). Simpler party transitions (confirm, cancel, travel, arrive, complete, location, billing, decline, select) stay client-side, rule-constrained. Verified staging e2e + prod deploy. |
 | Callables → Sydney | ⬜ | `deleteMyAccount`, `createAgencyJob`, `sendAgencyInvite` etc. run in us-central1 while the DB is in Sydney (~150 ms penalty per call). Move region + update `getFunctions(app, 'australia-southeast1')` in app + portal in one coordinated deploy. |
 | Sentry (app+portal+functions) | ⬜ | Error/crash visibility before launch. |
-| CI → staging first | ⬜ | Point the GitHub workflow at staging; promote to prod manually. |
+| CI → staging first | ✅ done | **Done (17 Jul 2026):** `deploy-staging.yml` auto-deploys main to the staging project (hosting + rules) after the typecheck/test gates; `deploy-functions.yml` deploys functions to staging; `deploy-prod.yml` is a manual `workflow_dispatch` that builds + deploys prod hosting/rules/storage/functions + native OTA. Main can no longer push an unverified change straight to prod. |
+| Storage rules (job photos) | ✅ done | **Done (prod, 17 Jul 2026):** photos moved to `jobs/{jobId}/{uploaderUid}/…`; Storage reads+writes locked to the uploader (was any signed-in user). Parties still view via the tokenised download URL on the locked job doc. |
+| Staging Storage bucket | ⬜ | Staging has no default bucket yet, so staging photo uploads no-op. Create `quickiefix-staging.firebasestorage.app` (console: Storage → Get started, region australia-southeast1) + deploy `storage.rules` to staging. |
 
 ## Useful commands
 
