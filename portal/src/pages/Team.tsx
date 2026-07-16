@@ -44,6 +44,13 @@ export function Team() {
     () => [...(tagsLive ?? [])].sort((a, b) => b.createdAt - a.createdAt),
     [tagsLive],
   );
+  // Tradie emails come from the company's OWN seat tags (issuedToEmail), not the
+  // now-private users collection — the company already holds this contact info.
+  const emailByUid = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const t of tags) if (t.claimedByUserId && t.issuedToEmail) m[t.claimedByUserId] = t.issuedToEmail;
+    return m;
+  }, [tags]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   // Add-seat form
@@ -199,7 +206,7 @@ export function Team() {
                     </div>
                   </td>
                   <td>{tradeLabel(t.primaryTrade)}</td>
-                  <td className="co-sub">{t.email}</td>
+                  <td className="co-sub">{emailByUid[t.id] ?? '—'}</td>
                   <td />
                 </tr>
               ))}

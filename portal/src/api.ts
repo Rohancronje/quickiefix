@@ -20,8 +20,10 @@ import { Company, CompanyAdmin, CompanyTag, Engagement, FeeLineItem, Job, RateCa
 /* ---------------------------------------------------------- live queries --- */
 /* Query builders for useLive() — all narrow, account-scoped. */
 
+// Reads the public profile mirror, not `users` — company admins see their
+// tradies' display fields (name, trade, rating, approval), never email/token.
 export const companyTradiesQuery = (companyId: string) =>
-  query(collection(db, 'users'), where('companyId', '==', companyId));
+  query(collection(db, 'publicProfiles'), where('companyId', '==', companyId));
 export const companyTagsQuery = (companyId: string) =>
   query(collection(db, 'companyTags'), where('companyId', '==', companyId));
 export const companyJobsQuery = (companyId: string) =>
@@ -225,7 +227,7 @@ export async function removeTag(tagId: string): Promise<void> {
 
 export async function listCompanyTradies(companyId: string): Promise<Tradie[]> {
   const snap = await getDocs(
-    query(collection(db, 'users'), where('companyId', '==', companyId)),
+    query(collection(db, 'publicProfiles'), where('companyId', '==', companyId)),
   );
   return snap.docs
     .map((d) => d.data() as Tradie)
@@ -233,7 +235,7 @@ export async function listCompanyTradies(companyId: string): Promise<Tradie[]> {
 }
 
 export async function getTradie(tradieId: string): Promise<Tradie | null> {
-  const snap = await getDoc(doc(db, 'users', tradieId));
+  const snap = await getDoc(doc(db, 'publicProfiles', tradieId));
   return snap.exists() ? (snap.data() as Tradie) : null;
 }
 

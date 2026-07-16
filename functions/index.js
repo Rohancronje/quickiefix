@@ -7,7 +7,7 @@
  *   completed job — server-side so clients can't fake reputation.
  */
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
-const { onDocumentUpdated, onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentUpdated, onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -503,6 +503,77 @@ exports.onUserAudit = onDocumentUpdated('users/{uid}', async (event) => {
       ...base,
     });
   }
+});
+
+/**
+ * Public profile mirror (§ security). `users` docs hold PRIVATE fields (email,
+ * pushToken) and are locked to self + platform admin. Everything the rest of the
+ * app needs to display or match on — tradie name, trade, rating, rate card,
+ * availability — is mirrored here into `publicProfiles/{uid}`, which is readable
+ * by any signed-in user. Written ONLY by this trigger (Admin SDK), so clients
+ * can never inject email/pushToken into the readable copy.
+ */
+const PUBLIC_PROFILE_FIELDS = [
+  'role', 'firstName', 'lastName', 'photoUrl', 'createdAt',
+  // tradie profile + dispatch-matching fields
+  'businessName', 'tradingName', 'yearsExperience', 'companyId', 'companyName',
+  'engagement', 'rateCard', 'primaryTrade', 'secondaryTrades', 'qualifications',
+  'approval', 'status', 'serviceRadiusKm', 'baseLocation',
+  'ratingAvg', 'ratingCount', 'completedJobs', 'jobsOffered', 'jobsAccepted',
+  'paymentHold',
+];
+function publicProfileFrom(data) {
+  const out = { id: data.id };
+  for (const k of PUBLIC_PROFILE_FIELDS) {
+    if (data[k] !== undefined) out[k] = data[k];
+  }
+  return out;
+}
+
+exports.mirrorPublicProfile = onDocumentWritten('users/{uid}', async (event) => {
+  const uid = event.params.uid;
+  const ref = admin.firestore().collection('publicProfiles').doc(uid);
+  const after = event.data?.after?.data();
+  if (!after) {
+    await ref.delete().catch(() => {});
+    return;
+  }
+  await ref.set(publicProfileFrom({ id: uid, ...after }), { merge: false });
+});
+
+/** One-shot backfill of publicProfiles from existing users. Platform admin only.
+ *  Idempotent — safe to re-run. */
+exports.backfillPublicProfiles = onCall({ cors: true }, async (request) => {
+  const email = request.auth?.token?.email;
+  if (!email || !PLATFORM_ADMINS.includes(email)) {
+    throw new HttpsError('permission-denied', 'Platform admin only.');
+  }
+  const db = admin.firestore();
+  const users = await db.collection('users').get();
+  let written = 0;
+  let batch = db.batch();
+  let n = 0;
+  for (const doc of users.docs) {
+    batch.set(db.collection('publicProfiles').doc(doc.id), publicProfileFrom({ id: doc.id, ...doc.data() }), { merge: false });
+    written++;
+    if (++n === 400) { await batch.commit(); batch = db.batch(); n = 0; }
+  }
+  if (n > 0) await batch.commit();
+  return { written };
+});
+
+/** Resolve a registered user by email → minimal public identity. Replaces the
+ *  old client-side `users where email==` query (which required the users
+ *  collection to be world-readable). Any signed-in user may call it; it returns
+ *  only id + name + role, never contact details. */
+exports.findUserIdByEmail = onCall({ cors: true }, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const email = String(request.data?.email ?? '').trim().toLowerCase();
+  if (!email) throw new HttpsError('invalid-argument', 'email required.');
+  const snap = await admin.firestore().collection('users').where('email', '==', email).limit(1).get();
+  if (snap.empty) return { found: false };
+  const u = snap.docs[0].data();
+  return { found: true, id: snap.docs[0].id, firstName: u.firstName ?? '', lastName: u.lastName ?? '', role: u.role ?? null };
 });
 
 /**

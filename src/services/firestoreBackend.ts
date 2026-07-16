@@ -193,6 +193,12 @@ export class FirestoreBackend implements Backend {
     );
   }
 
+  subscribePublicProfile(id: string, cb: (user: AppUser | null) => void): Unsubscribe {
+    return onSnapshot(doc(this.db, 'publicProfiles', id), (snap) =>
+      cb(snap.exists() ? (snap.data() as AppUser) : null),
+    );
+  }
+
   /** Resolve the persisted auth session once, then load the user doc. A hard
    *  timeout guarantees startup never blocks forever if auth state stalls. */
   getSessionUser(): Promise<AppUser | null> {
@@ -428,7 +434,7 @@ export class FirestoreBackend implements Backend {
     // Query available tradies, then filter by trade/approval client-side to
     // avoid a composite index.
     const snap = await getDocs(
-      query(collection(this.db, 'users'), where('status', '==', 'available')),
+      query(collection(this.db, 'publicProfiles'), where('status', '==', 'available')),
     );
     const candidates: TradieCandidate[] = [];
     for (const d of snap.docs) {
@@ -451,7 +457,7 @@ export class FirestoreBackend implements Backend {
 
   subscribeSupply(location: GeoPoint | undefined, cb: (s: SupplySnapshot) => void): Unsubscribe {
     return onSnapshot(
-      query(collection(this.db, 'users'), where('status', '==', 'available')),
+      query(collection(this.db, 'publicProfiles'), where('status', '==', 'available')),
       (snap) => {
         let count = 0;
         let nearestKm: number | null = null;
@@ -490,7 +496,7 @@ export class FirestoreBackend implements Backend {
     trade: TradeCategory,
     location: Location,
   ): Promise<TradieCandidate[]> {
-    const snap = await getDocs(query(collection(this.db, 'users'), where('role', '==', 'tradie')));
+    const snap = await getDocs(query(collection(this.db, 'publicProfiles'), where('role', '==', 'tradie')));
     const candidates: TradieCandidate[] = [];
     for (const d of snap.docs) {
       const u = d.data() as AppUser;
@@ -516,7 +522,7 @@ export class FirestoreBackend implements Backend {
     cb: (tradies: TradieCandidate[]) => void,
   ): Unsubscribe {
     return onSnapshot(
-      query(collection(this.db, 'users'), where('status', '==', 'available')),
+      query(collection(this.db, 'publicProfiles'), where('status', '==', 'available')),
       (snap) => {
         const out: TradieCandidate[] = [];
         for (const d of snap.docs) {
@@ -1569,27 +1575,28 @@ export class FirestoreBackend implements Backend {
   }
 
   async linkTenant(propertyId: string, tenantEmail: string): Promise<void> {
+    if (!functions) throw new Error('Tenant linking is unavailable right now.');
     const email = tenantEmail.trim().toLowerCase();
-    const usnap = await getDocs(
-      query(collection(this.db, 'users'), where('email', '==', email)),
-    );
-    const user = usnap.docs.map((d) => d.data() as AppUser).find((u) => u.role === 'customer');
-    if (!user) {
+    // Resolve the email → user id server-side (the `users` collection is no
+    // longer client-readable; this callable returns only id + role).
+    const res = (await httpsCallable(functions, 'findUserIdByEmail')({ email })).data as {
+      found: boolean;
+      id?: string;
+      role?: string;
+    };
+    if (!res.found || res.role !== 'customer' || !res.id) {
       throw new Error('No QuickieFix customer account with that email. Ask them to sign up first.');
     }
     await updateDoc(this.propertyRef(propertyId), {
-      tenantIds: arrayUnion(user.id),
+      tenantIds: arrayUnion(res.id),
       tenantEmails: arrayUnion(email),
     });
   }
 
-  async unlinkTenant(propertyId: string, tenantId: string): Promise<void> {
-    const usnap = await getDoc(this.userRef(tenantId));
+  async unlinkTenant(propertyId: string, tenantId: string, tenantEmail?: string): Promise<void> {
     await updateDoc(this.propertyRef(propertyId), {
       tenantIds: arrayRemove(tenantId),
-      ...(usnap.exists()
-        ? { tenantEmails: arrayRemove((usnap.data() as AppUser).email.toLowerCase()) }
-        : {}),
+      ...(tenantEmail ? { tenantEmails: arrayRemove(tenantEmail.trim().toLowerCase()) } : {}),
     });
   }
 

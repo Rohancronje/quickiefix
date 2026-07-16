@@ -182,11 +182,15 @@ export function useTradieFees(tradieId: string | undefined): FeeLineItem[] {
   }, [tradieId]);
   return fees;
 }
+/** Public profile of ANOTHER user (a customer viewing their tradie, a tradie
+ *  viewing their customer). Reads the publicProfiles mirror — the private
+ *  `users` doc is only readable by its owner. For the signed-in user's OWN doc
+ *  use AuthContext, which subscribes to `users` directly. */
 export function useUser(userId: string | undefined): AppUser | null {
   const [user, setUser] = useState<AppUser | null>(null);
   useEffect(() => {
     if (!userId) return;
-    return backend.subscribeUser(userId, setUser);
+    return backend.subscribePublicProfile(userId, setUser);
   }, [userId]);
   return user;
 }

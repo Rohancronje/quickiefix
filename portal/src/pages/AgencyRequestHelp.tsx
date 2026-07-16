@@ -60,7 +60,7 @@ export function AgencyRequestHelp({
     let live = true;
     void Promise.all(
       property.tenantIds.map(async (id) => {
-        const snap = await getDoc(doc(db, 'users', id));
+        const snap = await getDoc(doc(db, 'publicProfiles', id));
         const d = snap.data() as { firstName?: string; lastName?: string } | undefined;
         return { id, name: d ? `${d.firstName ?? ''} ${d.lastName ?? ''}`.trim() : 'Tenant' };
       }),
@@ -76,7 +76,7 @@ export function AgencyRequestHelp({
 
   // Live availability: who on the approved panel could take this job right now.
   const availableLive = useLive<Tradie>('available:tradies', () =>
-    query(collection(db, 'users'), where('status', '==', 'available')),
+    query(collection(db, 'publicProfiles'), where('status', '==', 'available')),
   );
   const panel = useMemo(() => {
     const approved = links.filter((l) => l.status === 'approved' && l.kind !== 'tenant');

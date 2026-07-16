@@ -240,7 +240,7 @@ function OwnedProperty({ property }: { property: Property }) {
             fullWidth={false}
             onPress={() => {
               const id = property.tenantIds[property.tenantEmails.indexOf(e)];
-              if (id) backend.unlinkTenant(property.id, id);
+              if (id) backend.unlinkTenant(property.id, id, e);
             }}
           />
         </View>

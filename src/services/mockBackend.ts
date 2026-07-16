@@ -246,6 +246,11 @@ class MockBackend implements Backend {
     return this.subscribe(() => this.db.users[id] ?? null, cb);
   }
 
+  subscribePublicProfile(id: string, cb: (user: AppUser | null) => void): Unsubscribe {
+    // Mock has no rules; the split only matters in production. Proxy to the user.
+    return this.subscribe(() => this.db.users[id] ?? null, cb);
+  }
+
   async logout(): Promise<void> {
     await AsyncStorage.removeItem(SESSION_KEY);
   }
@@ -1473,16 +1478,14 @@ class MockBackend implements Backend {
     this.commit();
   }
 
-  async unlinkTenant(propertyId: string, tenantId: string): Promise<void> {
+  async unlinkTenant(propertyId: string, tenantId: string, tenantEmail?: string): Promise<void> {
     await this.ensureLoaded();
     const property = this.db.properties[propertyId];
     if (!property) return;
-    const user = this.db.users[tenantId];
+    const email = (tenantEmail ?? this.db.users[tenantId]?.email)?.toLowerCase();
     property.tenantIds = property.tenantIds.filter((id) => id !== tenantId);
-    if (user) {
-      property.tenantEmails = property.tenantEmails.filter(
-        (e) => e !== user.email.toLowerCase(),
-      );
+    if (email) {
+      property.tenantEmails = property.tenantEmails.filter((e) => e !== email);
     }
     this.commit();
   }

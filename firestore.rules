@@ -22,7 +22,16 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if signedIn();
+      // Private: holds email + pushToken. Readable only by the owner, platform
+      // admins, and the company admin whose company this tradie belongs to (a
+      // bounded relationship — needed for seat removal). Everyone else reads the
+      // safe subset from publicProfiles.
+      allow read: if signedIn() && (
+        request.auth.uid == userId ||
+        isPlatformAdmin() ||
+        (resource.data.get('companyId', '') != '' &&
+          get(/databases/$(database)/documents/companies/$(resource.data.companyId)).data.adminUserId == request.auth.uid)
+      );
       // You may only create your own user document (during registration).
       allow create: if signedIn() && request.auth.uid == userId;
       // Owner may update their own profile; platform admin may manage users; a
@@ -61,6 +70,15 @@ service cloud.firestore {
         )
       );
       allow delete: if false;
+    }
+
+    // Public profile mirror: the safe, display-only subset of each user (name,
+    // trade, rating, rate card, availability) — NO email or pushToken. Readable
+    // by any signed-in user; written ONLY by the mirrorPublicProfile function
+    // (Admin SDK), so clients can never seed private fields into it.
+    match /publicProfiles/{userId} {
+      allow read: if signedIn();
+      allow write: if false;
     }
 
     // Public landing-page waitlist: anyone may add their email; only platform

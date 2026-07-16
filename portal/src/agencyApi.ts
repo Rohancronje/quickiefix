@@ -4,6 +4,7 @@
  * only to the panel, with rates hidden (agency commercial terms apply).
  */
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 import {
   collection,
   deleteDoc,
@@ -14,7 +15,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, db, functions } from './firebase';
 import { Agency, AgencyLink, Company, Job, Property } from './types';
 
 /* ---------------------------------------------------------- live queries --- */
@@ -276,14 +277,16 @@ export function parsePortfolioCsv(text: string): PortfolioRow[] {
 
 export async function linkTenantByEmail(property: Property, email: string): Promise<void> {
   const clean = email.trim().toLowerCase();
-  // Emails are stored as-typed — match case-insensitively (pilot-scale scan).
-  const snap = await getDocs(collection(db, 'users'));
-  const user = snap.docs
-    .map((d) => d.data() as { id: string; role: string; email?: string })
-    .find((u) => u.role === 'customer' && (u.email ?? '').toLowerCase() === clean);
-  if (!user) throw new Error('No QuickieFix customer account with that email. Ask them to sign up in the app first.');
+  // Resolve email → user id server-side (users collection is no longer readable).
+  const res = (await httpsCallable(functions, 'findUserIdByEmail')({ email: clean })).data as {
+    found: boolean;
+    id?: string;
+    role?: string;
+  };
+  if (!res.found || res.role !== 'customer' || !res.id)
+    throw new Error('No QuickieFix customer account with that email. Ask them to sign up in the app first.');
   await updateDoc(doc(db, 'properties', property.id), {
-    tenantIds: [...new Set([...property.tenantIds, user.id])],
+    tenantIds: [...new Set([...property.tenantIds, res.id])],
     tenantEmails: [...new Set([...property.tenantEmails, clean])],
   });
 }

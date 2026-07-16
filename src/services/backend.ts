@@ -119,8 +119,11 @@ export interface Backend {
   registerCustomer(input: CustomerRegistration): Promise<Customer>;
   registerTradie(input: TradieRegistration): Promise<Tradie>;
   getUser(id: string): Promise<AppUser | null>;
-  /** Live subscription to a single user doc (status, reputation, etc.). */
+  /** Live subscription to the signed-in user's OWN doc (status, reputation). */
   subscribeUser(id: string, cb: (user: AppUser | null) => void): Unsubscribe;
+  /** Live subscription to ANOTHER user's PUBLIC profile (name, trade, rating —
+   *  no email/pushToken). Backed by the publicProfiles mirror. */
+  subscribePublicProfile(id: string, cb: (user: AppUser | null) => void): Unsubscribe;
   /** Restore the currently signed-in user (persisted session), or null. */
   getSessionUser(): Promise<AppUser | null>;
   logout(): Promise<void>;
@@ -301,8 +304,9 @@ export interface Backend {
   subscribeTenantProperties(tenantId: string, cb: (p: Property[]) => void): Unsubscribe;
   /** Link a tenant to a property by their QuickieFix email (must have an account). */
   linkTenant(propertyId: string, tenantEmail: string): Promise<void>;
-  /** Unlink a tenant from a property. */
-  unlinkTenant(propertyId: string, tenantId: string): Promise<void>;
+  /** Unlink a tenant from a property. Pass the tenant's email to tidy the
+   *  denormalised tenantEmails array (the users collection is not readable). */
+  unlinkTenant(propertyId: string, tenantId: string, tenantEmail?: string): Promise<void>;
   /** Remove a property (owner only). Past jobs keep their own stamps. */
   removeProperty(propertyId: string): Promise<void>;
   /** Live feed of jobs at a landlord's properties (visibility only). */
