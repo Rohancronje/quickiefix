@@ -1,6 +1,0 @@
-
-[1m[37m===[39m Deploying to 'quickiefix-2ea2a'...[22m
-
-[36m[1mi [22m[39m deploying [1mhosting[22m
-
-[1m[31mError:[39m[22m could not find site "quickiefix-app" for project "quickiefix-2ea2a"
