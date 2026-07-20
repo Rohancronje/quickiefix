@@ -47,6 +47,8 @@ export function AgencyRequestHelp({
   const [trade, setTrade] = useState('');
   const [description, setDescription] = useState('');
   const [preferred, setPreferred] = useState(''); // '' = best match (auto)
+  const [mode, setMode] = useState<'now' | 'later'>('now');
+  const [scheduleAt, setScheduleAt] = useState(''); // datetime-local value
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -117,6 +119,12 @@ export function AgencyRequestHelp({
 
   const dispatch = async () => {
     if (!property || !trade || !description.trim()) return;
+    const scheduledForMs =
+      mode === 'later' && scheduleAt ? new Date(scheduleAt).getTime() : undefined;
+    if (mode === 'later' && (!scheduledForMs || scheduledForMs <= Date.now())) {
+      flash('Pick a future date and time for the booking.');
+      return;
+    }
     setBusy(true);
     try {
       const res = await httpsCallable(functions, 'createAgencyJob')({
@@ -125,15 +133,37 @@ export function AgencyRequestHelp({
         description,
         tenantId: tenantId || undefined,
         preferredTradieId: preferred || undefined,
+        ...(scheduledForMs ? { scheduledFor: scheduledForMs } : {}),
       });
-      const d = res.data as { candidateCount: number; customerName: string };
+      const d = res.data as {
+        candidateCount?: number;
+        customerName?: string;
+        booked?: boolean;
+        assignedTradieName?: string;
+        scheduledFor?: number;
+      };
       setDescription('');
       setPreferred('');
-      flash(
-        `Dispatched ✓ — ${d.candidateCount} tradie${d.candidateCount === 1 ? '' : 's'} pinged. ${
-          tenantId ? `${d.customerName} can track it live in their app.` : ''
-        }`,
-      );
+      setScheduleAt('');
+      setMode('now');
+      if (d.booked) {
+        const at = new Date(d.scheduledFor ?? scheduledForMs!).toLocaleString('en-NZ', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+        flash(
+          `Booked ✓ — ${d.assignedTradieName ?? 'a panel tradie'} is booked for ${at}. They'll confirm, and you'll be alerted if anything's at risk.`,
+        );
+      } else {
+        flash(
+          `Dispatched ✓ — ${d.candidateCount ?? 0} tradie${d.candidateCount === 1 ? '' : 's'} pinged. ${
+            tenantId ? `${d.customerName} can track it live in their app.` : ''
+          }`,
+        );
+      }
       setTimeout(onDispatched, 1200);
     } catch (e) {
       flash(`Could not dispatch: ${(e as Error).message}`);
@@ -142,7 +172,12 @@ export function AgencyRequestHelp({
     }
   };
 
-  const canDispatch = !!property && !!trade && description.trim().length >= 5 && !busy;
+  const canDispatch =
+    !!property &&
+    !!trade &&
+    description.trim().length >= 5 &&
+    !busy &&
+    (mode === 'now' || !!scheduleAt);
 
   return (
     <>
@@ -216,6 +251,33 @@ export function AgencyRequestHelp({
           </div>
         </div>
 
+        {/* Now vs scheduled booking. A scheduled job books ONE tradie ahead of
+            time; they get reminders, confirm attendance, then tap "Go now". */}
+        <div className="co-formrow cols-2" style={{ marginBottom: 12 }}>
+          <div className="co-field">
+            <label>When</label>
+            <select
+              className="co-input"
+              value={mode}
+              onChange={(e) => setMode(e.target.value as 'now' | 'later')}
+            >
+              <option value="now">Now — dispatch to available tradies</option>
+              <option value="later">Schedule for later — book a tradie</option>
+            </select>
+          </div>
+          {mode === 'later' && (
+            <div className="co-field">
+              <label>Date &amp; time</label>
+              <input
+                type="datetime-local"
+                className="co-input"
+                value={scheduleAt}
+                onChange={(e) => setScheduleAt(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Live availability, panel-only — pick a specific tradie or best match. */}
         {trade && property && (
           <div style={{ marginBottom: 14 }}>
@@ -272,7 +334,15 @@ export function AgencyRequestHelp({
           }
           onClick={dispatch}
         >
-          {busy ? 'Dispatching…' : preferred ? 'Dispatch this tradie' : 'Dispatch best match'}
+          {busy
+            ? 'Working…'
+            : mode === 'later'
+              ? preferred
+                ? 'Book this tradie'
+                : 'Book best match'
+              : preferred
+                ? 'Dispatch this tradie'
+                : 'Dispatch best match'}
         </button>
         {properties.length === 0 && (
           <p className="co-help" style={{ marginTop: 8 }}>

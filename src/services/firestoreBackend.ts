@@ -916,6 +916,37 @@ export class FirestoreBackend implements Backend {
     await httpsCallable(functions, 'releaseJob')({ jobId });
   }
 
+  /* ------------------------------------------------ scheduled bookings -- */
+
+  async confirmAttendance(jobId: string): Promise<void> {
+    if (!functions) throw new Error('Confirming a booking is unavailable right now.');
+    await httpsCallable(functions, 'confirmAttendance')({ jobId });
+  }
+
+  async goNowBooking(jobId: string): Promise<{ address: string }> {
+    // Server-side (Admin SDK): reveals the exact address held in jobPrivate and
+    // moves booked → travelling, which fires the "on the way" push.
+    if (!functions) throw new Error('Starting a booking is unavailable right now.');
+    const res = (await httpsCallable(functions, 'goNow')({ jobId })).data as { address?: string };
+    return { address: res?.address ?? '' };
+  }
+
+  async declineBooking(jobId: string): Promise<void> {
+    if (!functions) throw new Error('Handing back a booking is unavailable right now.');
+    await httpsCallable(functions, 'declineBooking')({ jobId });
+  }
+
+  subscribeTradieBookings(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe {
+    const q = query(collection(this.db, 'jobs'), where('tradieId', '==', tradieId));
+    return onSnapshot(q, (snap) => {
+      const jobs = snap.docs
+        .map((d) => d.data() as Job)
+        .filter((j) => j.status === 'booked')
+        .sort((a, b) => (a.scheduledFor ?? 0) - (b.scheduledFor ?? 0));
+      cb(jobs);
+    });
+  }
+
   async rateAsCustomer(jobId: string, rating: Rating): Promise<void> {
     // Only records the rating on the job. The tradie's rating aggregate is
     // recomputed by the onJobRated Cloud Function (Admin SDK) so it can't be

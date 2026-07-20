@@ -58,6 +58,7 @@ export const jobStatusMeta: Record<JobStatus, StatusMeta> = {
   draft: { label: 'Draft', color: colors.textMuted, soft: colors.surfaceAlt },
   searching: { label: 'Finding a tradie', color: colors.amberDark, soft: colors.warningSoft },
   no_tradie_found: { label: 'No tradie found', color: colors.danger, soft: colors.dangerSoft },
+  booked: { label: 'Booked', color: colors.blue, soft: colors.infoSoft },
   accepted: { label: 'Accepted — confirm', color: colors.blue, soft: colors.infoSoft },
   confirmed: { label: 'Confirmed', color: colors.blue, soft: colors.infoSoft },
   travelling: { label: 'On the way', color: colors.blue, soft: colors.infoSoft },
@@ -86,6 +87,25 @@ export const WAVE = {
   emergencyAutoConfirmMs: 180_000,
   /** Standard jobs give the customer this long to confirm explicitly. */
   standardConfirmWindowMs: 600_000,
+} as const;
+
+/**
+ * Scheduled-booking timing. A `booked` job (pre-assigned to a tradie for a
+ * future time) fires two lead-up reminders and a no-show check, all driven by
+ * the 1-minute dispatchSweep. These mirror BOOKING in functions/index.js — keep
+ * them in sync.
+ *
+ *  - confirmLeadMs: T-2h "confirm you'll attend" nudge.
+ *  - reminderLeadMs: T-1h "job soon"; if still unconfirmed → the PM is alerted.
+ *  - noShowGraceMs: if no "Go now" by scheduledFor + this grace → PM alerted.
+ *  - conflictWindowMs: accepting an on-demand job with a booking this close
+ *    triggers the clash warning (mirrors confirmLeadMs — the whole lead-up).
+ */
+export const BOOKING = {
+  confirmLeadMs: 2 * 60 * 60 * 1000, // 2 hours
+  reminderLeadMs: 60 * 60 * 1000, // 1 hour
+  noShowGraceMs: 10 * 60 * 1000, // 10 minutes past the booked time
+  conflictWindowMs: 2 * 60 * 60 * 1000, // warn if a booking is within 2h
 } as const;
 
 export const tradieStatusMeta: Record<TradieStatus, StatusMeta> = {

@@ -159,6 +159,19 @@ export interface Job {
   agencyId?: string;
   agencyName?: string;
   agencyBillingEmail?: string;
+  /** Scheduled (pre-assigned) booking time. Present on `booked` jobs. */
+  scheduledFor?: number;
+  /** Scheduling state for a `booked` job — reminders, attendance confirmation
+   *  and the no-show flag the PM watches. */
+  booking?: {
+    confirmLeadMs?: number;
+    reminderLeadMs?: number;
+    remindedT2hAt?: number;
+    remindedT1hAt?: number;
+    attendanceConfirmedAt?: number;
+    departedAt?: number;
+    noShowFlaggedAt?: number;
+  };
   timestamps: {
     createdAt: number;
     searchingAt?: number;

@@ -215,6 +215,24 @@ export default function TrackJob() {
           </Card>
         )}
 
+        {/* Booked (scheduled, pre-assigned) — waiting for the day */}
+        {job.status === 'booked' && (
+          <View style={{ gap: spacing.sm }}>
+            <Card style={styles.searchHero}>
+              <Txt style={{ fontSize: 30 }}>🗓️</Txt>
+              <Txt variant="heading" color={colors.white} style={{ textAlign: 'center' }}>
+                Booked for {job.scheduledFor != null ? formatWhen(job.scheduledFor) : 'your scheduled time'}
+              </Txt>
+              <Txt variant="caption" color={colors.onNavyMuted} style={{ textAlign: 'center' }}>
+                {job.tradieName ? `${job.tradieName} is booked in` : 'A tradie is booked in'}
+                {job.booking?.attendanceConfirmedAt ? ' and has confirmed. ' : '. '}
+                You'll get a notification when they're on the way.
+              </Txt>
+            </Card>
+            {tradie && <TradieProfileCard tradie={tradie} />}
+          </View>
+        )}
+
         {/* Confirmed / en route / on site — assigned tradie profile */}
         {tradie &&
           (job.status === 'confirmed' || job.status === 'travelling' || job.status === 'on_site') && (
@@ -398,8 +416,8 @@ export default function TrackJob() {
         </Card>
 
         {/* Cancel action */}
-        {['searching', 'accepted', 'confirmed', 'travelling'].includes(job.status) && (
-          <Button title="Cancel job" kind="ghost" onPress={cancel} />
+        {['searching', 'booked', 'accepted', 'confirmed', 'travelling'].includes(job.status) && (
+          <Button title={job.status === 'booked' ? 'Cancel booking' : 'Cancel job'} kind="ghost" onPress={cancel} />
         )}
       </ScrollView>
     </SafeAreaView>

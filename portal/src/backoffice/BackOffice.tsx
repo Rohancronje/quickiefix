@@ -122,7 +122,7 @@ function currentMonthKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-const ACTIVE_STATUSES = ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'];
+const ACTIVE_STATUSES = ['searching', 'booked', 'accepted', 'confirmed', 'travelling', 'on_site'];
 
 /* ------------------------------------------------- Status chip system ---- */
 
@@ -138,6 +138,7 @@ function statusTone(status: string): ChipTone {
   switch (status) {
     case 'searching':
       return 'bo-chip-grey';
+    case 'booked':
     case 'accepted':
     case 'confirmed':
       return 'bo-chip-blue';

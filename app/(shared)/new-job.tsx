@@ -1,7 +1,7 @@
 import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -22,16 +22,42 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useAgencyPanel, useAvailableTradies, useLandlordProperties, useTenantProperties } from '../../src/hooks/useData';
 import { isOnPanel } from '../../src/lib/panel';
 import { getCurrentLocation } from '../../src/lib/location';
+import { formatWhen } from '../../src/lib/format';
+import { useNow } from '../../src/hooks/useNow';
 import { backend } from '../../src/services';
 import { colors, font, radius, spacing } from '../../src/theme';
 import { AssignmentMode, Location, TradeCategory } from '../../src/types';
 
 const STEPS = ['Service', 'Details', 'Location', 'Review'];
 
+/** Friendly future-booking time slots — avoids a native date picker (OTA-safe). */
+const TIME_SLOTS = [
+  { label: 'Morning', hour: 8 },
+  { label: 'Midday', hour: 12 },
+  { label: 'Afternoon', hour: 15 },
+  { label: 'Evening', hour: 18 },
+];
+
+/** Absolute ms for a slot on a given day offset (0 = today), based on a
+ *  render-stable `now` so it stays pure during render. */
+function slotTime(now: number, dayOffset: number, hour: number): number {
+  const d = new Date(now);
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Compact 12-hour label, e.g. 8 -> "8am", 15 -> "3pm". */
+function fmtHour(h: number): string {
+  const ampm = h < 12 ? 'am' : 'pm';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}${ampm}`;
+}
+
 export default function NewJob() {
   const router = useRouter();
   const { user } = useAuth();
-  const params = useLocalSearchParams<{ trade?: string }>();
+  const params = useLocalSearchParams<{ trade?: string; schedule?: string }>();
 
   const preTrade = TRADES.find((t) => t.key === params.trade)?.key ?? null;
   const [step, setStep] = useState(preTrade ? 1 : 0);
@@ -41,11 +67,39 @@ export default function NewJob() {
   const [address, setAddress] = useState('');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [locating, setLocating] = useState(false);
-  // Future bookings are off the menu — QuickieFix is about help NOW.
   const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('auto');
   const [isEmergency, setIsEmergency] = useState(false);
-  // Emergencies can't wait to browse — force auto-assign.
-  const effectiveMode: AssignmentMode = isEmergency ? 'auto' : assignmentMode;
+  // Scheduling — "now" or a future booking. A booking dispatches to nearby pros
+  // at the chosen time (panel-filtered at managed properties); the day + time
+  // slot avoid needing a native date picker (OTA-friendly).
+  const now = useNow(30000);
+  const [when, setWhen] = useState<'now' | 'later'>(params.schedule === '1' ? 'later' : 'now');
+  const [dayOffset, setDayOffset] = useState(0);
+  const [slotHour, setSlotHour] = useState<number | null>(null);
+  const scheduledFor = useMemo(
+    () => (when === 'later' && slotHour != null ? slotTime(now, dayOffset, slotHour) : null),
+    [when, dayOffset, slotHour, now],
+  );
+  const scheduleValid = when === 'now' || (scheduledFor != null && scheduledFor > now);
+  const days = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => ({
+        offset: i,
+        label:
+          i === 0
+            ? 'Today'
+            : i === 1
+              ? 'Tomorrow'
+              : new Date(now + i * 86400000).toLocaleDateString([], {
+                  weekday: 'short',
+                  day: 'numeric',
+                }),
+      })),
+    [now],
+  );
+  // Emergencies and future bookings both force auto-assign (no time / no point
+  // browsing who's free "now" for a job that's later).
+  const effectiveMode: AssignmentMode = isEmergency || when === 'later' ? 'auto' : assignmentMode;
   const [propertyId, setPropertyId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -117,7 +171,7 @@ export default function NewJob() {
       case 2:
         return address.trim().length > 0;
       case 3:
-        return true;
+        return scheduleValid;
       default:
         return true;
     }
@@ -176,6 +230,7 @@ export default function NewJob() {
     if (!user) return;
     try {
       setSubmitting(true);
+      const booking = when === 'later' && scheduledFor != null && scheduledFor > Date.now();
       const job = await backend.createJob(
         { id: user.id, name: `${user.firstName} ${user.lastName}` },
         {
@@ -183,8 +238,10 @@ export default function NewJob() {
           description: description.trim(),
           photos,
           location: jobLocation,
-          urgency: 'now',
-          isEmergency,
+          urgency: booking ? 'scheduled' : 'now',
+          scheduledFor: booking ? scheduledFor ?? undefined : undefined,
+          // A booking is never an emergency (those are now-only).
+          isEmergency: booking ? false : isEmergency,
           assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
           // Only meaningful at managed properties: who pays for the work.
@@ -246,7 +303,7 @@ export default function NewJob() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Header + progress */}
         <View style={styles.header}>
@@ -440,7 +497,75 @@ export default function NewJob() {
           )}
 
           {step === 3 && (
-            <Step title="Ready to go — how do you want to match?">
+            <Step title={when === 'later' ? 'When & how' : 'Ready to go — how do you want to match?'}>
+              {/* When — help now, or book a future time. */}
+              <View style={{ gap: spacing.sm }}>
+                <Txt variant="label">When do you need this?</Txt>
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  <Pressable
+                    style={[styles.whenBtn, when === 'now' && styles.optionActive]}
+                    onPress={() => setWhen('now')}
+                  >
+                    <Txt variant="label">⚡ Now</Txt>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      Dispatch ASAP
+                    </Txt>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.whenBtn, when === 'later' && styles.optionActive]}
+                    onPress={() => {
+                      setWhen('later');
+                      setIsEmergency(false);
+                    }}
+                  >
+                    <Txt variant="label">🗓️ Later</Txt>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      Book a time
+                    </Txt>
+                  </Pressable>
+                </View>
+                {when === 'later' && (
+                  <View style={{ gap: spacing.sm }}>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      Day
+                    </Txt>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                        {days.map((d) => (
+                          <Chip
+                            key={d.offset}
+                            label={d.label}
+                            selected={dayOffset === d.offset}
+                            onPress={() => {
+                              setDayOffset(d.offset);
+                              setSlotHour(null);
+                            }}
+                          />
+                        ))}
+                      </View>
+                    </ScrollView>
+                    <Txt variant="caption" color={colors.textMuted}>
+                      Time
+                    </Txt>
+                    <View style={styles.chipRow}>
+                      {TIME_SLOTS.filter((s) => slotTime(now, dayOffset, s.hour) > now).map((s) => (
+                        <Chip
+                          key={s.hour}
+                          label={`${s.label} · ${fmtHour(s.hour)}`}
+                          selected={slotHour === s.hour}
+                          onPress={() => setSlotHour(s.hour)}
+                        />
+                      ))}
+                    </View>
+                    {TIME_SLOTS.every((s) => slotTime(now, dayOffset, s.hour) <= now) && (
+                      <Txt variant="caption" color={colors.textFaint}>
+                        No more slots today — pick another day.
+                      </Txt>
+                    )}
+                  </View>
+                )}
+              </View>
+
               {/* Managed property: the requester decides who pays. Agency pays
                   → panel job on agency terms; customer pays → open market. */}
               {isManagedProperty && (
@@ -476,6 +601,8 @@ export default function NewJob() {
                 </View>
               )}
 
+              {when === 'now' ? (
+                <>
               {/* Agency pays: panel-only preview, no rates, locked billing. */}
               {isAgencyJob && (
                 <View style={[styles.previewCard, { backgroundColor: colors.infoSoft }]}>
@@ -641,6 +768,22 @@ export default function NewJob() {
                   />
                 </View>
               )}
+                </>
+              ) : (
+                <View style={[styles.previewCard, { backgroundColor: colors.infoSoft }]}>
+                  <Txt variant="label" color={colors.blue}>
+                    🗓️{' '}
+                    {scheduledFor != null
+                      ? `Scheduled for ${formatWhen(scheduledFor)}`
+                      : 'Pick a day & time above'}
+                  </Txt>
+                  <Txt variant="caption" color={colors.textMuted}>
+                    At your booked time we alert{' '}
+                    {isAgencyJob ? 'your property manager’s approved panel' : 'the nearest verified pros'}{' '}
+                    and the first to accept locks it in. You can cancel any time before then.
+                  </Txt>
+                </View>
+              )}
             </Step>
           )}
 
@@ -651,16 +794,28 @@ export default function NewJob() {
           <Button
             title={
               step === STEPS.length - 1
-                ? effectiveMode === 'choose'
-                  ? 'Browse tradies'
-                  : nearestEta != null
-                    ? `Find me a tradie · ~${nearestEta} min`
-                    : 'Find me a tradie'
+                ? when === 'later'
+                  ? scheduleValid
+                    ? `Book for ${formatWhen(scheduledFor!)}`
+                    : 'Pick a day & time'
+                  : effectiveMode === 'choose'
+                    ? 'Browse tradies'
+                    : nearestEta != null
+                      ? `Find me a tradie · ~${nearestEta} min`
+                      : 'Find me a tradie'
                 : canNext()
                   ? 'Continue'
                   : ['Pick a trade to continue', 'Add a few details to continue', 'Enter the job address'][step]
             }
-            icon={step === STEPS.length - 1 && canNext() ? (effectiveMode === 'choose' ? '👀' : '⚡') : undefined}
+            icon={
+              step === STEPS.length - 1 && canNext()
+                ? when === 'later'
+                  ? '🗓️'
+                  : effectiveMode === 'choose'
+                    ? '👀'
+                    : '⚡'
+                : undefined
+            }
             disabled={!canNext()}
             loading={submitting}
             onPress={next}
@@ -729,6 +884,15 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   optionActive: { borderColor: colors.amber, backgroundColor: colors.warningSoft },
+  whenBtn: {
+    flex: 1,
+    gap: 2,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.line,
+  },
   emergency: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -195,6 +195,20 @@ export interface Backend {
    *  to searching with this tradie excluded; the customer is notified). */
   releaseJob(jobId: string, tradieId: string): Promise<void>;
 
+  // ---- Scheduled bookings (pre-assigned) ----
+  /** The tradie confirms they'll attend a `booked` job (T-2h prompt). Records
+   *  intent only — does NOT reveal the address or notify the customer. */
+  confirmAttendance(jobId: string): Promise<void>;
+  /** The tradie taps "Go now": reveals the exact address, moves the booking to
+   *  `travelling` and notifies the customer. Returns the revealed full address. */
+  goNowBooking(jobId: string): Promise<{ address: string }>;
+  /** The tradie hands a booking back — it reassigns to the next nearest panel
+   *  backup, or falls to no_tradie_found if the panel is exhausted. */
+  declineBooking(jobId: string): Promise<void>;
+  /** Live feed of upcoming bookings pre-assigned to this tradie (status
+   *  `booked`), soonest first. */
+  subscribeTradieBookings(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe;
+
   // ---- Property agencies (approved-panel model) ----
   /** Permanently delete the signed-in user's account and personal data
    *  (Google Play requirement). Completed-job records are de-identified. */

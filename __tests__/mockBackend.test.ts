@@ -452,3 +452,66 @@ describe('job completion', () => {
     expect(fees[0].status).toBe('waived_credit');
   });
 });
+
+describe('scheduled bookings', () => {
+  const soon = () => Date.now() + 3 * 60 * 60 * 1000; // in 3 hours
+
+  it('surfaces in the tradie bookings feed and confirms attendance without moving status', async () => {
+    const cust = await newCustomer();
+    const tr = await readyTradie();
+    const b = await mockBackend.createBookingForTest(
+      { id: cust.id, name: 'C D' },
+      tr.id,
+      { trade: 'electrician', address: '1 Test St, Auckland', scheduledFor: soon() },
+    );
+    expect(b.status).toBe('booked');
+
+    const feed = await once<Job[]>((cb) => mockBackend.subscribeTradieBookings(tr.id, cb));
+    expect(feed.some((j) => j.id === b.id)).toBe(true);
+
+    await mockBackend.confirmAttendance(b.id);
+    const after = await once<Job | null>((cb) => mockBackend.subscribeJob(b.id, cb));
+    expect(after!.status).toBe('booked'); // confirming intent doesn't reveal/dispatch
+    expect(after!.booking?.attendanceConfirmedAt).toBeGreaterThan(0);
+  });
+
+  it('goNow reveals the address, moves to travelling and runs through to completion', async () => {
+    const cust = await newCustomer();
+    const tr = await readyTradie();
+    const b = await mockBackend.createBookingForTest(
+      { id: cust.id, name: 'C D' },
+      tr.id,
+      { trade: 'electrician', address: '5 Queen St, Auckland', scheduledFor: soon() },
+    );
+
+    const res = await mockBackend.goNowBooking(b.id);
+    expect(res.address).toBe('5 Queen St, Auckland');
+
+    const enRoute = await once<Job | null>((cb) => mockBackend.subscribeJob(b.id, cb));
+    expect(enRoute!.status).toBe('travelling');
+    expect(enRoute!.booking?.departedAt).toBeGreaterThan(0);
+    expect((await mockBackend.getTradie(tr.id))!.status).toBe('job_accepted');
+
+    // From here it rejoins the normal on-demand flow.
+    await mockBackend.arriveOnSite(b.id, 'manual');
+    await mockBackend.completeJob(b.id);
+    const done = await once<Job | null>((cb) => mockBackend.subscribeJob(b.id, cb));
+    expect(done!.status).toBe('completed');
+  });
+
+  it('declineBooking hands it back (no panel backups in the mock → no_tradie_found)', async () => {
+    const cust = await newCustomer();
+    const tr = await readyTradie();
+    const b = await mockBackend.createBookingForTest(
+      { id: cust.id, name: 'C D' },
+      tr.id,
+      { trade: 'electrician', address: '9 Dock St, Auckland', scheduledFor: soon() },
+    );
+
+    await mockBackend.declineBooking(b.id);
+    const after = await once<Job | null>((cb) => mockBackend.subscribeJob(b.id, cb));
+    expect(after!.status).toBe('no_tradie_found');
+    expect(after!.tradieId).toBeUndefined();
+    expect(after!.declinedBy).toContain(tr.id);
+  });
+});

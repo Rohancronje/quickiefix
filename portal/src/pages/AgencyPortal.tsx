@@ -36,7 +36,7 @@ import { SupportForm } from '../components/SupportForm';
 import { AgencyRequestHelp } from './AgencyRequestHelp';
 import { useLive } from '../live';
 import { updateAgencyName } from '../agencyApi';
-import { formatDate, formatDuration } from '../lib';
+import { formatDate, formatDuration, formatWhen } from '../lib';
 import { Agency, AgencyLink, Job, Property, tradeLabel } from '../types';
 
 type Tab =
@@ -57,6 +57,7 @@ const KIND_LABEL: Record<AgencyLink['kind'], string> = {
 
 const STATUS_CHIP: Record<string, string> = {
   searching: 'co-chip-amber',
+  booked: 'co-chip-blue',
   confirmed: 'co-chip-blue',
   travelling: 'co-chip-blue',
   on_site: 'co-chip-blue',
@@ -64,6 +65,39 @@ const STATUS_CHIP: Record<string, string> = {
   cancelled: 'co-chip-grey',
   no_tradie_found: 'co-chip-amber',
 };
+
+/** True when a scheduled booking needs the PM's attention: the tradie has
+ *  been flagged as a no-show risk, or hasn't confirmed attendance yet. */
+function bookingAtRisk(j: Job): boolean {
+  return j.status === 'booked' && (!!j.booking?.noShowFlaggedAt || !j.booking?.attendanceConfirmedAt);
+}
+
+/** Status cell that understands bookings — shows the scheduled time and a
+ *  confirmed / unconfirmed / no-show-risk state for `booked` jobs. */
+function JobStatusCell({ job }: { job: Job }) {
+  if (job.status === 'booked') {
+    const b = job.booking;
+    const cls = b?.noShowFlaggedAt ? 'co-chip-red' : b?.attendanceConfirmedAt ? 'co-chip-blue' : 'co-chip-amber';
+    const label = b?.noShowFlaggedAt
+      ? '⚠️ no-show risk'
+      : b?.attendanceConfirmedAt
+        ? 'booked · confirmed'
+        : 'booked · unconfirmed';
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+        <span className={`co-chip ${cls}`}>{label}</span>
+        {job.scheduledFor != null && (
+          <span className="co-sub" style={{ fontSize: 11.5 }}>🗓️ {formatWhen(job.scheduledFor)}</span>
+        )}
+      </div>
+    );
+  }
+  return (
+    <span className={`co-chip ${STATUS_CHIP[job.status] ?? 'co-chip-grey'}`}>
+      {job.status.replace(/_/g, ' ')}
+    </span>
+  );
+}
 
 /** Property-agency portal: dashboard, approved panel, portfolio. */
 export function AgencyPortal({ agency }: { agency: Agency }) {
@@ -107,7 +141,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const [importing, setImporting] = useState(false);
   const [importProgress, setImportProgress] = useState('');
   // Jobs tab filters
-  const [jobFilter, setJobFilter] = useState<'All' | 'Live' | 'Completed'>('All');
+  const [jobFilter, setJobFilter] = useState<'All' | 'Live' | 'Booked' | 'Completed'>('All');
   const [jobProperty, setJobProperty] = useState('All');
   // Settings
   const [agencyName, setAgencyName] = useState(agency.name);
@@ -132,8 +166,11 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
   const tenantsLinked = properties.reduce((s, p) => s + p.tenantIds.length, 0);
   const completedJobs = jobs.filter((j) => j.status === 'completed').length;
   const activeJobs = jobs.filter((j) =>
-    ['searching', 'confirmed', 'travelling', 'on_site'].includes(j.status),
+    ['searching', 'booked', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   ).length;
+  // Upcoming scheduled bookings, and those needing the PM's attention.
+  const bookings = jobs.filter((j) => j.status === 'booked');
+  const atRiskBookings = bookings.filter(bookingAtRisk);
 
   /* ------------------------------------------------------------ actions -- */
 
@@ -545,6 +582,54 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                   </div>
                 </section>
 
+                {bookings.length > 0 && (
+                  <div
+                    className="co-card"
+                    style={{
+                      marginBottom: 16,
+                      ...(atRiskBookings.length > 0
+                        ? { border: '1px solid #E8B33C', background: '#FFF9EC' }
+                        : {}),
+                    }}
+                  >
+                    <div className="co-sectionhead">
+                      🗓️ Upcoming bookings ({bookings.length})
+                      {atRiskBookings.length > 0 ? ` · ${atRiskBookings.length} need attention` : ''}
+                    </div>
+                    <table className="co-table">
+                      <thead>
+                        <tr>
+                          <th>Property</th>
+                          <th>Trade</th>
+                          <th>When</th>
+                          <th>Tradie</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...bookings]
+                          .sort((a, b) => (a.scheduledFor ?? 0) - (b.scheduledFor ?? 0))
+                          .slice(0, 15)
+                          .map((j) => (
+                            <tr key={j.id}>
+                              <td className="co-sub">{j.location.address}</td>
+                              <td>{tradeLabel(j.trade)}</td>
+                              <td>{formatWhen(j.scheduledFor)}</td>
+                              <td>{j.tradieName ?? '—'}</td>
+                              <td>
+                                <JobStatusCell job={j} />
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                    <p className="co-help" style={{ marginTop: 8 }}>
+                      We remind the tradie 2 hours and 1 hour before, and email you if a booking isn't
+                      confirmed or the tradie hasn't set off by the scheduled time.
+                    </p>
+                  </div>
+                )}
+
                 <div className="co-card flush">
                   <div className="co-card-head">
                     <span className="co-card-title">Jobs at your properties</span>
@@ -580,9 +665,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                             <td>{j.tradieName ?? '—'}</td>
                             <td>{formatDate(j.timestamps.createdAt)}</td>
                             <td>
-                              <span className={`co-chip ${STATUS_CHIP[j.status] ?? 'co-chip-grey'}`}>
-                                {j.status.replace(/_/g, ' ')}
-                              </span>
+                              <JobStatusCell job={j} />
                             </td>
                           </tr>
                         ))}
@@ -912,7 +995,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                         </option>
                       ))}
                     </select>
-                    {(['All', 'Live', 'Completed'] as const).map((f) => (
+                    {(['All', 'Live', 'Booked', 'Completed'] as const).map((f) => (
                       <button
                         key={f}
                         className={`co-btn co-btn-sm ${jobFilter === f ? 'co-btn-primary' : 'co-btn-ghost'}`}
@@ -937,13 +1020,15 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                   </thead>
                   <tbody>
                     {jobs
-                      .filter((j) =>
-                        jobFilter === 'All'
-                          ? true
-                          : jobFilter === 'Live'
-                            ? ['searching', 'confirmed', 'travelling', 'on_site'].includes(j.status)
-                            : j.status === 'completed',
-                      )
+                      .filter((j) => {
+                        if (jobFilter === 'All') return true;
+                        if (jobFilter === 'Booked') return j.status === 'booked';
+                        if (jobFilter === 'Live')
+                          return ['searching', 'booked', 'confirmed', 'travelling', 'on_site'].includes(
+                            j.status,
+                          );
+                        return j.status === 'completed';
+                      })
                       .filter((j) => jobProperty === 'All' || j.location.address === jobProperty)
                       .map((j) => (
                         <tr key={j.id}>
@@ -960,9 +1045,7 @@ export function AgencyPortal({ agency }: { agency: Agency }) {
                               : '—'}
                           </td>
                           <td>
-                            <span className={`co-chip ${STATUS_CHIP[j.status] ?? 'co-chip-grey'}`}>
-                              {j.status.replace(/_/g, ' ')}
-                            </span>
+                            <JobStatusCell job={j} />
                           </td>
                         </tr>
                       ))}

@@ -6,7 +6,7 @@ import { Screen } from '../../../src/components/Screen';
 import { AvailabilityCard } from '../../../src/components/AvailabilityCard';
 import { JobCard } from '../../../src/components/JobCard';
 import { Button, Card, Txt } from '../../../src/components/ui';
-import { formatMoney, GST_ENABLED, monthKey, tradeMeta, tradieStatusMeta } from '../../../src/constants';
+import { BOOKING, tradeMeta, tradieStatusMeta } from '../../../src/constants';
 import { greeting } from '../../../src/lib/greeting';
 import { useTradie } from '../../../src/context/AuthContext';
 import {
@@ -14,7 +14,7 @@ import {
   useCustomerJobs,
   useJobOffers,
   useTradieActiveJob,
-  useTradieFees,
+  useTradieBookings,
   useTradieHistory,
 } from '../../../src/hooks/useData';
 import { useNow } from '../../../src/hooks/useNow';
@@ -22,7 +22,7 @@ import { waveEligible } from '../../../src/lib/dispatch';
 import { formatDistance } from '../../../src/lib/geo';
 import { getCurrentLocation } from '../../../src/lib/location';
 import { backend, JobOffer } from '../../../src/services';
-import { FeeLineItem } from '../../../src/types';
+import { Job } from '../../../src/types';
 import { colors, font, radius, spacing } from '../../../src/theme';
 
 export default function TradieDashboard() {
@@ -31,6 +31,7 @@ export default function TradieDashboard() {
   const allOffers = useJobOffers(tradie.id);
   const chooseFeed = useChooseFeed(tradie.id);
   const activeJob = useTradieActiveJob(tradie.id);
+  const bookings = useTradieBookings(tradie.id); // upcoming scheduled jobs pre-assigned to me
   const myRequests = useCustomerJobs(tradie.id); // jobs this tradie booked as a customer
   const now = useNow(5000); // fast tick so offers surface as each wave widens
   // Only show jobs whose current wave includes this tradie (widens over time).
@@ -40,7 +41,6 @@ export default function TradieDashboard() {
     ['searching', 'accepted', 'confirmed', 'travelling', 'on_site'].includes(j.status),
   );
   const history = useTradieHistory(tradie.id);
-  const fees = useTradieFees(tradie.id);
 
   const [locating, setLocating] = useState(false);
   const isApproved = tradie.approval === 'approved';
@@ -88,23 +88,57 @@ export default function TradieDashboard() {
     }
   };
 
+  // ---- Booking clash guard ----
+  // The tradie stays available in the lead-up to a booking (they keep earning),
+  // but accepting an on-demand job when a booking is imminent could make them
+  // miss it — so warn and let them decide (chosen behaviour: available + warn).
+  const runWithBookingCheck = (proceed: () => void | Promise<void>) => {
+    const clash = bookings.find(
+      (b) => b.scheduledFor != null && b.scheduledFor - Date.now() <= BOOKING.conflictWindowMs,
+    );
+    if (!clash) {
+      void proceed();
+      return;
+    }
+    const when =
+      clash.scheduledFor != null
+        ? new Date(clash.scheduledFor).toLocaleString([], {
+            weekday: 'short',
+            hour: 'numeric',
+            minute: '2-digit',
+          })
+        : 'soon';
+    appAlert(
+      '⚠️ You have a booking soon',
+      `You're booked for a ${tradeMeta(clash.trade).label.toLowerCase()} at ${areaOnly(
+        clash.location.address,
+      )} on ${when}. Taking another job now could clash — only accept if you can still make your booking.`,
+      [
+        { text: 'Keep my booking free', style: 'cancel' },
+        { text: 'Accept anyway', style: 'destructive', onPress: () => void proceed() },
+      ],
+    );
+  };
+
   // ---- Browse & choose ----
-  const acceptSelection = async (offer: JobOffer) => {
-    try {
-      await backend.acceptSelection(offer.job.id, tradie.id);
-      router.push({ pathname: '/job/[id]', params: { id: offer.job.id } });
-    } catch (e) {
-      appAlert('Could not accept', (e as Error).message);
-    }
-  };
+  const acceptSelection = (offer: JobOffer) =>
+    runWithBookingCheck(async () => {
+      try {
+        await backend.acceptSelection(offer.job.id, tradie.id);
+        router.push({ pathname: '/job/[id]', params: { id: offer.job.id } });
+      } catch (e) {
+        appAlert('Could not accept', (e as Error).message);
+      }
+    });
   const declineSelection = (offer: JobOffer) => backend.declineSelection(offer.job.id, tradie.id);
-  const acceptOffer = async (offer: JobOffer) => {
-    try {
-      await backend.acceptJob(offer.job.id, tradie.id);
-    } catch (e) {
-      appAlert('Could not accept', (e as Error).message);
-    }
-  };
+  const acceptOffer = (offer: JobOffer) =>
+    runWithBookingCheck(async () => {
+      try {
+        await backend.acceptJob(offer.job.id, tradie.id);
+      } catch (e) {
+        appAlert('Could not accept', (e as Error).message);
+      }
+    });
   const expressInterest = async (offer: JobOffer) => {
     try {
       await backend.expressInterest(offer.job.id, tradie.id);
@@ -221,6 +255,22 @@ export default function TradieDashboard() {
         </View>
       )}
 
+      {/* Upcoming scheduled bookings pre-assigned to this tradie */}
+      {isApproved && bookings.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="heading" color={colors.blue}>
+            🗓️ Upcoming booking{bookings.length > 1 ? `s (${bookings.length})` : ''}
+          </Txt>
+          {bookings.map((b) => (
+            <BookingCard
+              key={b.id}
+              job={b}
+              onPress={() => router.push({ pathname: '/job/[id]', params: { id: b.id } })}
+            />
+          ))}
+        </View>
+      )}
+
       {/* Operational summary — the numbers a working tradie actually cares about */}
       {isApproved && (
         <>
@@ -329,8 +379,6 @@ export default function TradieDashboard() {
         </View>
       )}
 
-      {/* This month — fee tally (informational; billing happens off-app) */}
-      {isApproved && <MoneyPanel fees={fees} creditsRemaining={tradie.freeJobCredits ?? 0} now={now} />}
     </Screen>
   );
 }
@@ -456,6 +504,53 @@ function SelectionCard({
         </View>
       </View>
     </Card>
+  );
+}
+
+/** An upcoming scheduled booking pre-assigned to this tradie — tap to confirm
+ *  attendance or start it. Shows the AREA only; the exact address unlocks on
+ *  "Go now" inside the job screen. */
+function BookingCard({ job, onPress }: { job: Job; onPress: () => void }) {
+  const meta = tradeMeta(job.trade);
+  const confirmed = !!job.booking?.attendanceConfirmedAt;
+  const when =
+    job.scheduledFor != null
+      ? new Date(job.scheduledFor).toLocaleString([], {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : 'Scheduled';
+  return (
+    <Pressable onPress={onPress}>
+      <Card style={[styles.offer, { borderColor: colors.blue, borderWidth: 1.5 }]}>
+        <View style={styles.offerTop}>
+          <View style={styles.offerIcon}>
+            <Txt style={{ fontSize: 22 }}>{meta.emoji}</Txt>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Txt variant="label">
+              {meta.label} · {job.customerName}
+            </Txt>
+            <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+              🗓️ {when}
+            </Txt>
+          </View>
+          <Txt
+            variant="caption"
+            color={confirmed ? colors.success : colors.amberDark}
+            style={{ fontWeight: '700' }}
+          >
+            {confirmed ? '✅ Confirmed' : 'Confirm'}
+          </Txt>
+        </View>
+        <Txt variant="caption" color={colors.textFaint} numberOfLines={1}>
+          📍 {areaOnly(job.location.address)} · exact address on “Go now”
+        </Txt>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -601,44 +696,6 @@ function PerformanceBanner({
   );
 }
 
-function MoneyPanel({
-  fees,
-  creditsRemaining,
-  now,
-}: {
-  fees: FeeLineItem[];
-  creditsRemaining: number;
-  now: number;
-}) {
-  const mk = monthKey(now);
-  const thisMonth = fees.filter((f) => f.monthKey === mk);
-  const completed = thisMonth.length;
-  const waived = thisMonth.filter((f) => f.status === 'waived_credit').length;
-  const billable = thisMonth.filter((f) => f.status !== 'waived_credit');
-  const feeTotal = billable.reduce((s, f) => s + f.amountCents + f.gstCents, 0);
-
-  return (
-    <Card style={styles.money}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Txt variant="label" color={colors.white}>
-          💳 This month
-        </Txt>
-        <Txt variant="caption" color={colors.amber} style={{ fontWeight: '700' }}>
-          {creditsRemaining} free {creditsRemaining === 1 ? 'credit' : 'credits'} left
-        </Txt>
-      </View>
-      <Txt variant="heading" color={colors.white}>
-        {formatMoney(feeTotal)}
-        {GST_ENABLED ? <Txt variant="caption" color={colors.onNavyMuted}> incl. GST</Txt> : null}
-      </Txt>
-      <Txt variant="caption" color={colors.onNavyMuted}>
-        {completed} completed · {waived} free · {billable.length} billable ({formatMoney(feeTotal)}).
-        {' '}Invoiced on the 1st — no in-app payment.
-      </Txt>
-    </Card>
-  );
-}
-
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
@@ -736,6 +793,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  money: { backgroundColor: colors.navy, gap: 4 },
   onboard: { backgroundColor: colors.navy, gap: spacing.sm, alignItems: 'flex-start' },
 });

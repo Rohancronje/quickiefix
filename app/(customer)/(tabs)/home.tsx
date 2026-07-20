@@ -165,9 +165,17 @@ export default function CustomerHome() {
           {supplyLine ?? "We'll dispatch the nearest verified tradie to you."}
         </Txt>
         <Button
-          title={supply.nearestEtaMinutes != null ? `Request help · ~${supply.nearestEtaMinutes} min` : 'Request help'}
+          title={supply.nearestEtaMinutes != null ? `Request help now · ~${supply.nearestEtaMinutes} min` : 'Request help now'}
           icon="⚡"
           onPress={() => startJob()}
+        />
+        <Button
+          title="Book a future job"
+          icon="🗓️"
+          kind="ghost"
+          textColor={colors.onNavy}
+          style={styles.bookLater}
+          onPress={() => router.push({ pathname: '/new-job', params: { schedule: '1' } })}
         />
       </Card>
 
@@ -265,6 +273,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: colors.amber, fontSize: 18, fontWeight: '800' },
   cta: { backgroundColor: colors.navy, gap: spacing.xs },
+  bookLater: { backgroundColor: colors.navyCard, borderColor: colors.navyLine, marginTop: spacing.sm },
   livePill: {
     flexDirection: 'row',
     alignItems: 'center',

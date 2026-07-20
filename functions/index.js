@@ -66,6 +66,16 @@ const NO_CANDIDATES_AFTER_MS = 30_000; // empty pool → fail fast
 // haunt tradie feeds / block the customer's trade slot forever.
 const CHOOSE_EXPIRE_MS = 24 * 60 * 60 * 1000;
 
+// Scheduled-booking timing — must mirror BOOKING in src/constants.ts. A `booked`
+// job (pre-assigned to a tradie for a future time) fires a T-2h "confirm you'll
+// attend" nudge, a T-1h reminder (+ PM alert if still unconfirmed), and a
+// no-show escalation if "Go now" hasn't happened by the booked time + grace.
+const BOOKING = {
+  confirmLeadMs: 2 * 60 * 60 * 1000, // 2 hours
+  reminderLeadMs: 60 * 60 * 1000, // 1 hour
+  noShowGraceMs: 10 * 60 * 1000, // 10 minutes past the booked time
+};
+
 // Password-reset abuse limits (rolling window). Per-email stops victim inbox
 // bombing; per-IP stops one attacker hammering many addresses / burning quota.
 const RESET_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -273,7 +283,9 @@ exports.sendPasswordReset = onCall(
   },
 );
 
-exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
+exports.dispatchSweep = onSchedule(
+  { schedule: 'every 1 minutes', secrets: [BREVO_API_KEY] },
+  async () => {
   const db = admin.firestore();
   const now = Date.now();
 
@@ -341,7 +353,115 @@ exports.dispatchSweep = onSchedule('every 1 minutes', async () => {
       }
     }),
   );
+
+  // Scheduled bookings: lead-up reminders + no-show escalation. One action per
+  // job per tick (return after each) — the stages are minutes apart anyway.
+  const booked = await db.collection('jobs').where('status', '==', 'booked').get();
+  await Promise.all(
+    booked.docs.map(async (d) => {
+      const job = d.data();
+      const start = job.scheduledFor;
+      if (!start) return;
+      const b = job.booking || {};
+      const confirmLead = b.confirmLeadMs ?? BOOKING.confirmLeadMs;
+      const reminderLead = b.reminderLeadMs ?? BOOKING.reminderLeadMs;
+      const trade = String(job.trade || 'job').replace(/_/g, ' ');
+      const area = areaOnly(job.location?.address);
+      const tradieTokens = () => pushTokensFor(job.tradieId ? [job.tradieId] : []);
+
+      // T-2h — confirm you'll attend.
+      if (!b.remindedT2hAt && now >= start - confirmLead && now < start) {
+        const tokens = await tradieTokens();
+        await expoPush(
+          tokens.map((to) => ({
+            to,
+            title: "🗓️ Job today — confirm you'll attend",
+            body: `${trade} · ${whenNZ(start)}${area ? ` · ${area}` : ''}. Tap to confirm.`,
+            sound: 'default',
+            channelId: 'offers',
+            priority: 'high',
+            data: { jobId: d.id, role: 'tradie' },
+          })),
+        );
+        await d.ref.update({ 'booking.remindedT2hAt': now });
+        return;
+      }
+
+      // T-1h — job soon; if still unconfirmed, alert the PM with runway to act.
+      if (!b.remindedT1hAt && now >= start - reminderLead && now < start) {
+        const tokens = await tradieTokens();
+        await expoPush(
+          tokens.map((to) => ({
+            to,
+            title: `⏰ Your ${trade} job starts soon`,
+            body: `${whenNZ(start)}${area ? ` · ${area}` : ''}. Tap "Go now" when you're ready to leave.`,
+            sound: 'default',
+            channelId: 'offers',
+            priority: 'high',
+            data: { jobId: d.id, role: 'tradie' },
+          })),
+        );
+        await d.ref.update({ 'booking.remindedT1hAt': now });
+        if (!b.attendanceConfirmedAt) await escalateBooking(d.id, job, 'unconfirmed');
+        return;
+      }
+
+      // No "Go now" by the booked time + grace → no-show risk. Nudge the tradie
+      // and alert the PM/desk to reassign.
+      if (!b.noShowFlaggedAt && !b.departedAt && now >= start + BOOKING.noShowGraceMs) {
+        const tokens = await tradieTokens();
+        await expoPush(
+          tokens.map((to) => ({
+            to,
+            title: '⚠️ Are you on your way?',
+            body: `Your ${trade} booking was due at ${whenNZ(start)}. Open it and tap "Go now", or hand it back.`,
+            sound: 'default',
+            channelId: 'offers',
+            priority: 'high',
+            data: { jobId: d.id, role: 'tradie' },
+          })),
+        );
+        await d.ref.update({ 'booking.noShowFlaggedAt': now });
+        await escalateBooking(d.id, job, 'no_show');
+      }
+    }),
+  );
 });
+
+/**
+ * Alert the property manager (agency billing contact, else the landlord, else
+ * the founder) when a booking is at risk: the assigned tradie hasn't confirmed
+ * by T-1h, or hasn't departed by the booked time. Best-effort email.
+ */
+async function escalateBooking(jobId, job, kind) {
+  let email = job.agencyBillingEmail || null;
+  let name = job.agencyName || 'Property manager';
+  if (!email && job.landlordId) {
+    const snap = await admin.firestore().collection('users').doc(job.landlordId).get();
+    if (snap.exists) {
+      email = snap.data().email || null;
+      name = `${snap.data().firstName || ''} ${snap.data().lastName || ''}`.trim() || name;
+    }
+  }
+  if (!email) {
+    email = FOUNDER_EMAIL;
+    name = 'QuickieFix Ops';
+  }
+  const trade = String(job.trade || 'job').replace(/_/g, ' ');
+  const noShow = kind === 'no_show';
+  const heading = noShow
+    ? `Tradie hasn't departed for a ${trade} booking`
+    : `A ${trade} booking isn't confirmed yet`;
+  const intro = noShow
+    ? `The tradie assigned to this ${trade} booking hadn't tapped "Go now" by the scheduled time. We've nudged them — reply if you'd like us to reassign.`
+    : `The tradie assigned to this upcoming ${trade} booking hasn't confirmed attendance yet. We've reminded them; there's still time to reassign if needed.`;
+  await brevoSend({
+    to: email,
+    toName: name,
+    subject: noShow ? `⚠️ ${heading}` : `Heads up — ${heading}`,
+    html: landlordEmailHtml({ heading, intro, job }),
+  }).catch((e) => console.error('booking escalation email failed', e));
+}
 
 /**
  * On job completion (clients can't write these fields directly):
@@ -468,6 +588,10 @@ exports.onJobAudit = onDocumentUpdated('jobs/{jobId}', async (event) => {
     case 'accepted':
     case 'confirmed':
       await writeAudit({ type: 'job.assigned', mode: after.assignmentMode || 'auto', ...base });
+      break;
+    case 'travelling':
+      // A booking departing ("Go now") — the pre-assigned tradie is on the way.
+      if (before?.status === 'booked') await writeAudit({ type: 'job.departed', ...base });
       break;
     case 'completed':
       await writeAudit({ type: 'job.completed', ...base });
@@ -997,7 +1121,7 @@ exports.createAgencyJob = onCall({ cors: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
   const db = admin.firestore();
-  const { propertyId, trade, description, tenantId, preferredTradieId } = request.data ?? {};
+  const { propertyId, trade, description, tenantId, preferredTradieId, scheduledFor } = request.data ?? {};
   if (!propertyId || !trade || !String(description ?? '').trim()) {
     throw new HttpsError('invalid-argument', 'Property, trade and a description are required.');
   }
@@ -1046,6 +1170,117 @@ exports.createAgencyJob = onCall({ cors: true }, async (request) => {
     const scope = panel.companyScope[t.companyId];
     return !!scope && (scope === 'all' || t.engagement !== 'contractor');
   };
+
+  // ---- Scheduled (pre-assigned) booking ----
+  // A future `scheduledFor` books the job to ONE specific panel tradie now, with
+  // reminders + a "Go now" reveal later, rather than dispatching to the pool at
+  // the booked time. Pick the nearest approved panel tradie for the trade
+  // (regardless of live availability — it's for later); the precise address is
+  // held in jobPrivate until they tap "Go now".
+  const scheduledTs = Number(scheduledFor) || 0;
+  if (scheduledTs > Date.now()) {
+    const here =
+      prop.latitude != null && prop.longitude != null
+        ? { latitude: prop.latitude, longitude: prop.longitude }
+        : null;
+    const pool = await db
+      .collection('users')
+      .where('role', '==', 'tradie')
+      .where('approval', '==', 'approved')
+      .get();
+    const ranked = pool.docs
+      .map((d) => d.data())
+      .filter((u) => !u.paymentHold)
+      .filter((u) => [u.primaryTrade, ...(u.secondaryTrades ?? [])].includes(trade))
+      .filter(onPanel)
+      .map((u) => ({ u, km: here && u.baseLocation ? havKm(u.baseLocation, here) : 0 }))
+      .sort((a, b) => a.km - b.km || (b.u.ratingAvg ?? 0) - (a.u.ratingAvg ?? 0))
+      .map((c) => c.u.id)
+      .filter((id) => id !== customerId);
+    let orderedIds = ranked;
+    if (preferredTradieId && ranked.includes(preferredTradieId)) {
+      orderedIds = [preferredTradieId, ...ranked.filter((id) => id !== preferredTradieId)];
+    }
+    if (!orderedIds.length) {
+      throw new HttpsError(
+        'failed-precondition',
+        'No approved panel tradie for that trade yet — add one to your panel first.',
+      );
+    }
+    const assignedId = orderedIds[0];
+    const aSnap = await db.collection('users').doc(assignedId).get();
+    const assignedName = aSnap.exists ? aSnap.data().businessName || 'Your tradie' : 'Your tradie';
+    const nowTs = Date.now();
+    const jobRef = db.collection('jobs').doc();
+    await jobRef.set({
+      id: jobRef.id,
+      customerId,
+      customerName,
+      trade,
+      description: String(description).trim().slice(0, 2000),
+      photos: [],
+      // AREA only until Go now — the exact address lives in jobPrivate.
+      location: { address: streetNameArea(prop.address) },
+      urgency: 'scheduled',
+      scheduledFor: scheduledTs,
+      isEmergency: false,
+      assignmentMode: 'auto',
+      status: 'booked',
+      tradieId: assignedId,
+      tradieName: assignedName,
+      timestamps: { createdAt: nowTs, bookedAt: nowTs },
+      booking: { confirmLeadMs: BOOKING.confirmLeadMs, reminderLeadMs: BOOKING.reminderLeadMs },
+      declinedBy: [],
+      propertyId: propSnap.id,
+      landlordId: prop.landlordId,
+      landlordName: prop.landlordName,
+      ...(prop.agencyId
+        ? {
+            agencyId: prop.agencyId,
+            agencyName: prop.agencyName,
+            agencyBillingEmail: prop.agencyBillingEmail ?? request.auth.token?.email ?? null,
+          }
+        : {}),
+      raisedVia: 'agency_portal',
+    });
+    // Precise address + ranked reassignment backups, held apart from the
+    // readable job doc (the assigned tradie can't read this).
+    await db
+      .collection('jobPrivate')
+      .doc(jobRef.id)
+      .set({
+        jobId: jobRef.id,
+        address: prop.address,
+        ...(here ? { latitude: here.latitude, longitude: here.longitude } : {}),
+        bookingCandidates: orderedIds,
+      });
+    const tokens = await pushTokensFor([assignedId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: `🗓️ New booking — ${String(trade).replace(/_/g, ' ')}`,
+        body: `${whenNZ(scheduledTs)} · ${areaOnly(prop.address)} — tap to confirm you'll attend.`,
+        sound: 'default',
+        channelId: 'offers',
+        priority: 'high',
+        data: { jobId: jobRef.id, role: 'tradie' },
+      })),
+    );
+    await writeAudit({
+      type: 'job.booked',
+      jobId: jobRef.id,
+      trade,
+      customerId,
+      tradieId: assignedId,
+    });
+    return {
+      jobId: jobRef.id,
+      assignedTradieId: assignedId,
+      assignedTradieName: assignedName,
+      scheduledFor: scheduledTs,
+      booked: true,
+    };
+  }
 
   // Candidate pool: mirror the app's available-tradie filter + distance rank.
   const usersSnap = await db.collection('users').where('status', '==', 'available').get();
@@ -1101,6 +1336,126 @@ exports.createAgencyJob = onCall({ cors: true }, async (request) => {
     raisedVia: 'agency_portal',
   });
   return { jobId: jobRef.id, candidateCount: candidateIds.length, customerName };
+});
+
+/* ------------------------------------------------- scheduled bookings --- */
+// The pre-assigned tradie's three actions on a `booked` job. All server-side
+// (Admin SDK) so the exact address stays out of the readable job doc until
+// departure, and reassignment can't be forged.
+
+/** Tradie taps "Confirm you'll attend" (booked job). Records intent only — it
+ *  does NOT reveal the address or notify the customer. */
+exports.confirmAttendance = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const jobId = String(request.data?.jobId ?? '');
+  if (!jobId) throw new HttpsError('invalid-argument', 'jobId required.');
+  const jobRef = admin.firestore().collection('jobs').doc(jobId);
+  const snap = await jobRef.get();
+  if (!snap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
+  const job = snap.data();
+  if (job.tradieId !== uid) throw new HttpsError('permission-denied', 'Not your booking.');
+  if (job.status !== 'booked') throw new HttpsError('failed-precondition', 'This booking is no longer active.');
+  await jobRef.update({ 'booking.attendanceConfirmedAt': Date.now() });
+  return { ok: true, jobId };
+});
+
+/** Tradie taps "Go now": reveal the exact address, move booked → travelling
+ *  (which fires the existing "on the way" push to the customer), and mark the
+ *  tradie active so they leave the on-demand pool. */
+exports.goNow = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const jobId = String(request.data?.jobId ?? '');
+  if (!jobId) throw new HttpsError('invalid-argument', 'jobId required.');
+  const db = admin.firestore();
+  return db.runTransaction(async (tx) => {
+    const jobRef = db.collection('jobs').doc(jobId);
+    const privRef = db.collection('jobPrivate').doc(jobId);
+    const jobSnap = await tx.get(jobRef);
+    if (!jobSnap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
+    const job = jobSnap.data();
+    if (job.tradieId !== uid) throw new HttpsError('permission-denied', 'Not your booking.');
+    if (job.status !== 'booked') throw new HttpsError('failed-precondition', 'This booking is no longer active.');
+    const privSnap = await tx.get(privRef);
+    const priv = privSnap.exists ? privSnap.data() : {};
+    const now = Date.now();
+    const fullLocation = {
+      address: priv.address || job.location?.address || '',
+      ...(priv.latitude != null && priv.longitude != null
+        ? { latitude: priv.latitude, longitude: priv.longitude }
+        : {}),
+    };
+    tx.update(jobRef, {
+      status: 'travelling',
+      location: fullLocation,
+      'timestamps.travellingAt': now,
+      'booking.departedAt': now,
+      ...(job.booking?.attendanceConfirmedAt ? {} : { 'booking.attendanceConfirmedAt': now }),
+    });
+    // Active on this job now → out of the on-demand pool (onJobReleased puts
+    // them back to available when it completes/cancels).
+    tx.update(db.collection('users').doc(uid), { status: 'job_accepted' });
+    return { ok: true, jobId, address: fullLocation.address };
+  });
+});
+
+/** Tradie hands a booking back ("can't make it"): reassign to the next nearest
+ *  panel backup, or fall to no_tradie_found (founder concierge rescue) if the
+ *  panel is exhausted. */
+exports.declineBooking = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const jobId = String(request.data?.jobId ?? '');
+  if (!jobId) throw new HttpsError('invalid-argument', 'jobId required.');
+  const db = admin.firestore();
+  const jobRef = db.collection('jobs').doc(jobId);
+  const privRef = db.collection('jobPrivate').doc(jobId);
+  const [jobSnap, privSnap] = await Promise.all([jobRef.get(), privRef.get()]);
+  if (!jobSnap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
+  const job = jobSnap.data();
+  if (job.tradieId !== uid) throw new HttpsError('permission-denied', 'Not your booking.');
+  if (job.status !== 'booked') throw new HttpsError('failed-precondition', 'This booking can no longer be handed back.');
+  const priv = privSnap.exists ? privSnap.data() : {};
+  const declined = [...(job.declinedBy ?? []), uid];
+  const backups = (priv.bookingCandidates ?? []).filter((id) => !declined.includes(id));
+  const now = Date.now();
+  if (backups.length) {
+    const nextId = backups[0];
+    const tSnap = await db.collection('users').doc(nextId).get();
+    const nextName = tSnap.exists ? tSnap.data().businessName || 'Your tradie' : 'Your tradie';
+    await jobRef.update({
+      tradieId: nextId,
+      tradieName: nextName,
+      declinedBy: declined,
+      // Fresh reminder cycle for the new tradie.
+      booking: {
+        confirmLeadMs: job.booking?.confirmLeadMs ?? BOOKING.confirmLeadMs,
+        reminderLeadMs: job.booking?.reminderLeadMs ?? BOOKING.reminderLeadMs,
+      },
+    });
+    const tokens = await pushTokensFor([nextId]);
+    await expoPush(
+      tokens.map((to) => ({
+        to,
+        title: `🗓️ New booking — ${String(job.trade).replace(/_/g, ' ')}`,
+        body: `${whenNZ(job.scheduledFor)} · ${areaOnly(job.location?.address)} — tap to confirm you'll attend.`,
+        sound: 'default',
+        channelId: 'offers',
+        priority: 'high',
+        data: { jobId, role: 'tradie' },
+      })),
+    );
+    return { ok: true, reassigned: true };
+  }
+  await jobRef.update({
+    status: 'no_tradie_found',
+    declinedBy: declined,
+    tradieId: admin.firestore.FieldValue.delete(),
+    tradieName: admin.firestore.FieldValue.delete(),
+    'timestamps.noTradieFoundAt': now,
+  });
+  return { ok: true, reassigned: false };
 });
 
 exports.onJobCompletionRecord = onDocumentUpdated(
@@ -1281,6 +1636,18 @@ const snip = (s, n = 90) => {
 function areaOnly(address) {
   const parts = String(address || '').split(',').map((s) => s.trim()).filter(Boolean);
   return parts.length > 1 ? parts.slice(1).join(', ') : parts[0] || '';
+}
+
+/** Street name + suburb with the house/unit number stripped — what a pre-
+ *  assigned tradie sees for a booking until they tap "Go now" (which reveals
+ *  the exact number). Falls back to the suburb/city if the street can't be
+ *  isolated. */
+function streetNameArea(address) {
+  const parts = String(address || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return '';
+  parts[0] = parts[0].replace(/^\s*\d+[a-zA-Z]?\s*(?:\/\s*\d+[a-zA-Z]?)?\s+/, '').trim();
+  if (!parts[0]) return areaOnly(address);
+  return parts.join(', ');
 }
 
 /** NZ-local "Tomorrow 8:00 am" style label for scheduled jobs. */
@@ -1802,6 +2169,14 @@ exports.onLandlordJobCreated = onDocumentCreated(
   async (event) => {
     const job = event.data?.data();
     if (!job || !job.landlordId) return;
+    if (job.status === 'booked') {
+      await emailLandlordRecord(job, {
+        subject: `Booking scheduled at your property`,
+        heading: 'A job has been booked at your property',
+        intro: `A ${String(job.trade).replace(/_/g, ' ')} has been booked at ${job.location?.address || 'your property'} for ${whenNZ(job.scheduledFor)}${job.tradieName ? `, with ${job.tradieName}` : ''}. We'll remind them ahead of time and track it through to completion.`,
+      });
+      return;
+    }
     await emailLandlordRecord(job, {
       subject: `New job requested at your property`,
       heading: 'A job was requested at your property',

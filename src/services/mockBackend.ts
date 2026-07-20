@@ -30,7 +30,7 @@ import {
   Tradie,
   TradieStatus,
 } from '../types';
-import { FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
+import { BOOKING, FEE_CENTS, FREE_CREDITS_DEFAULT, gstOf, monthKey } from '../constants';
 import { distanceKm, estimateEtaMinutes } from '../lib/geo';
 import { rankCandidates } from '../lib/dispatch';
 import { AgencyPanel, isOnPanel, panelFromLinks } from '../lib/panel';
@@ -752,6 +752,40 @@ class MockBackend implements Backend {
     return agency;
   }
 
+  /** Test/demo helper: create a pre-assigned scheduled booking (mirrors the
+   *  createAgencyJob scheduled branch in the live backend). */
+  async createBookingForTest(
+    customer: { id: string; name: string },
+    tradieId: string,
+    input: { trade: Job['trade']; address: string; scheduledFor: number },
+  ): Promise<Job> {
+    await this.ensureLoaded();
+    const t = this.db.users[tradieId];
+    const id = uid('job_');
+    const now = Date.now();
+    const booking: Job = {
+      id,
+      customerId: customer.id,
+      customerName: customer.name,
+      trade: input.trade,
+      description: 'Scheduled maintenance.',
+      photos: [],
+      location: { address: input.address },
+      urgency: 'scheduled',
+      scheduledFor: input.scheduledFor,
+      status: 'booked',
+      assignmentMode: 'auto',
+      tradieId,
+      tradieName: t && t.role === 'tradie' ? t.businessName : 'Your tradie',
+      timestamps: { createdAt: now, bookedAt: now },
+      booking: { confirmLeadMs: BOOKING.confirmLeadMs, reminderLeadMs: BOOKING.reminderLeadMs },
+      declinedBy: [],
+    };
+    this.db.jobs[id] = booking;
+    this.commit();
+    return booking;
+  }
+
   /** Test/demo helper: retype a link (e.g. into a company link with scope). */
   async setAgencyLinkKind(
     linkId: string,
@@ -993,6 +1027,46 @@ class MockBackend implements Backend {
     this.commit();
   }
 
+  /* ------------------------------------------------ scheduled bookings -- */
+  // The mock has no panel-backup ranking or jobPrivate store (there's no
+  // security boundary locally), so it operates on booked jobs directly.
+
+  async confirmAttendance(jobId: string): Promise<void> {
+    await this.transitionJob(jobId, (job) => {
+      if (job.status !== 'booked') return;
+      job.booking = { ...(job.booking ?? {}), attendanceConfirmedAt: Date.now() };
+    });
+  }
+
+  async goNowBooking(jobId: string): Promise<{ address: string }> {
+    let address = '';
+    await this.transitionJob(jobId, (job) => {
+      if (job.status !== 'booked') return;
+      job.status = 'travelling';
+      job.timestamps.travellingAt = Date.now();
+      job.booking = {
+        ...(job.booking ?? {}),
+        departedAt: Date.now(),
+        attendanceConfirmedAt: job.booking?.attendanceConfirmedAt ?? Date.now(),
+      };
+      const t = job.tradieId ? this.db.users[job.tradieId] : null;
+      if (t && t.role === 'tradie') t.status = 'job_accepted';
+      address = job.location.address;
+    });
+    return { address };
+  }
+
+  async declineBooking(jobId: string): Promise<void> {
+    await this.transitionJob(jobId, (job) => {
+      if (job.status !== 'booked') return;
+      if (job.tradieId && !job.declinedBy.includes(job.tradieId)) job.declinedBy.push(job.tradieId);
+      job.status = 'no_tradie_found';
+      delete job.tradieId;
+      delete job.tradieName;
+      job.timestamps.noTradieFoundAt = Date.now();
+    });
+  }
+
   private async transitionJob(jobId: string, fn: (job: Job) => void): Promise<void> {
     await this.ensureLoaded();
     const job = this.db.jobs[jobId];
@@ -1047,6 +1121,16 @@ class MockBackend implements Backend {
         Object.values(this.db.jobs).find(
           (j) => j.tradieId === tradieId && active.includes(j.status),
         ) ?? null,
+      cb,
+    );
+  }
+
+  subscribeTradieBookings(tradieId: string, cb: (jobs: Job[]) => void): Unsubscribe {
+    return this.subscribe(
+      () =>
+        Object.values(this.db.jobs)
+          .filter((j) => j.tradieId === tradieId && j.status === 'booked')
+          .sort((a, b) => (a.scheduledFor ?? 0) - (b.scheduledFor ?? 0)),
       cb,
     );
   }

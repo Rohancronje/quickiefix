@@ -40,14 +40,22 @@ export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'suspended';
  *   searching → no_tradie_found  (all waves exhausted; founder concierge rescue)
  *   any pre-completion → cancelled
  *
+ * Scheduled (pre-assigned) flow:
+ *   booked → travelling → on_site → completed
+ *   A `booked` job is assigned to a specific tradie for a future time. In the
+ *   lead-up they get reminders and a "Confirm you'll attend" prompt; tapping
+ *   "Go now" reveals the exact address and moves the job to `travelling`,
+ *   rejoining the on-demand flow from there.
+ *
  * `accepted` = a tradie took the job; `confirmed` = the customer confirmed them
  * (auto-confirmed for emergencies). A tradie can only start travelling once the
- * job is `confirmed`.
+ * job is `confirmed` (or, for a booking, once they tap "Go now").
  */
 export type JobStatus =
   | 'draft'
   | 'searching'
   | 'no_tradie_found'
+  | 'booked'
   | 'accepted'
   | 'confirmed'
   | 'travelling'
@@ -297,6 +305,7 @@ export interface JobTimestamps {
   createdAt: number;
   searchingAt?: number;
   selectedAt?: number;
+  bookedAt?: number;
   acceptedAt?: number;
   confirmedAt?: number;
   noTradieFoundAt?: number;
@@ -304,6 +313,32 @@ export interface JobTimestamps {
   onSiteAt?: number;
   completedAt?: number;
   cancelledAt?: number;
+}
+
+/**
+ * Scheduling state for a `booked` (pre-assigned) job. The lead-up reminders,
+ * attendance confirmation and no-show flag are tracked as timestamps here — NOT
+ * as job statuses — so the existing status-driven flow (rules, timeline, pushes)
+ * stays untouched. The 1-minute dispatchSweep drives the reminders; the goNow +
+ * confirmAttendance callables set the tradie-action fields.
+ */
+export interface Booking {
+  /** Reminder lead times (ms before `scheduledFor`), resolved at creation so a
+   *  job that needs prep can carry a longer window. Default 2h / 1h. */
+  confirmLeadMs?: number;
+  reminderLeadMs?: number;
+  /** T-2h "confirm you'll attend" reminder sent (guards against re-send). */
+  remindedT2hAt?: number;
+  /** T-1h "job soon" reminder sent. */
+  remindedT1hAt?: number;
+  /** The tradie tapped "Confirm you'll attend". */
+  attendanceConfirmedAt?: number;
+  /** The tradie tapped "Go now" — exact address revealed, customer notified,
+   *  job moved to `travelling`. */
+  departedAt?: number;
+  /** Sweep flagged that no "Go now" happened by `scheduledFor` + grace — the
+   *  property manager / desk has been alerted to reassign. */
+  noShowFlaggedAt?: number;
 }
 
 /**
@@ -379,6 +414,12 @@ export interface Job {
   /** Wave-dispatch candidate snapshot (ranked pool + wave clock origin). */
   dispatch?: JobDispatch;
 
+  /** Scheduling state for a `booked` (pre-assigned) job. Present only on
+   *  scheduled jobs that were pre-assigned to a specific tradie. While `booked`,
+   *  `location` holds the AREA only — the exact address lives in
+   *  `jobPrivate/{jobId}` and is copied here by the goNow callable at departure. */
+  booking?: Booking;
+
   /** `choose` mode: busy tradies who opted in, snapshotted for the browse list. */
   interestedTradies?: InterestedTradie[];
   /** `choose` mode: the tradie the customer picked, pending their final accept. */
@@ -433,6 +474,24 @@ export interface Job {
    *  customer, shown in the tradie's report, and the future Xero invoice ref.
    *  Written ONLY by the Cloud Function; clients are rule-blocked. */
   completionCode?: string;
+}
+
+/**
+ * The precise address for a `booked` job, held apart from the readable job doc
+ * so a pre-assigned tradie sees only the AREA until they commit with "Go now".
+ * Readable by the customer/tenant, landlord and agency admin — NOT the assigned
+ * tradie. The goNow callable (Admin SDK) copies it onto `job.location` at
+ * departure. Written server-side only.
+ */
+export interface JobPrivate {
+  jobId: string;
+  address: string;
+  latitude?: number;
+  longitude?: number;
+  /** Unit / apartment number, revealed with the street number on Go now. */
+  unit?: string;
+  /** Gate codes, key-box, parking or access notes — revealed on Go now. */
+  accessNotes?: string;
 }
 
 /**

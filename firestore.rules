@@ -343,5 +343,24 @@ service cloud.firestore {
       );
       allow delete: if false;
     }
+
+    // Precise address for a `booked` (pre-assigned) job, held apart from the
+    // readable job doc so the assigned tradie sees only the AREA until they tap
+    // "Go now". Readable by the customer/tenant, the managed-property landlord
+    // and the agency admin — NEVER the assigned tradie. Written ONLY by Cloud
+    // Functions (Admin SDK): createAgencyJob seeds it, goNow reveals it.
+    match /jobPrivate/{jobId} {
+      function jobDoc() {
+        return get(/databases/$(database)/documents/jobs/$(jobId)).data;
+      }
+      allow read: if signedIn() && (
+        isPlatformAdmin() ||
+        jobDoc().customerId == request.auth.uid ||
+        jobDoc().get('landlordId', '') == request.auth.uid ||
+        (jobDoc().get('agencyId', '') != '' &&
+          get(/databases/$(database)/documents/agencies/$(jobDoc().agencyId)).data.adminUserId == request.auth.uid)
+      );
+      allow write: if false;
+    }
   }
 }

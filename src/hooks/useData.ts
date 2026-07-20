@@ -163,6 +163,16 @@ export function useTradieActiveJob(tradieId: string | undefined): Job | null {
   return job;
 }
 
+/** A tradie's upcoming scheduled bookings (status `booked`), soonest first. */
+export function useTradieBookings(tradieId: string | undefined): Job[] {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  useEffect(() => {
+    if (!tradieId) return;
+    return backend.subscribeTradieBookings(tradieId, setJobs);
+  }, [tradieId]);
+  return jobs;
+}
+
 /** A tradie's completed job history (live). */
 export function useTradieHistory(tradieId: string | undefined): Job[] {
   const [jobs, setJobs] = useState<Job[]>([]);

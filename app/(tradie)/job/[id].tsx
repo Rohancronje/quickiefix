@@ -35,6 +35,7 @@ export default function TradieJob() {
   const job = useJob(id);
   const stopRef = useRef<(() => void) | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [busyBooking, setBusyBooking] = useState(false);
 
   const jobCoords = job && hasCoords(job.location) ? job.location : null;
   const trackingActive = job?.status === 'confirmed' || job?.status === 'travelling';
@@ -139,6 +140,53 @@ export default function TradieJob() {
       appAlert('Could not respond', (e as Error).message);
     }
   };
+
+  // ---- Scheduled booking (pre-assigned, future time) ----
+  const isBooked = job.status === 'booked';
+  const confirmedAttend = !!job.booking?.attendanceConfirmedAt;
+  const confirmAttend = async () => {
+    try {
+      await backend.confirmAttendance(job.id);
+    } catch (e) {
+      appAlert('Could not confirm', (e as Error).message);
+    }
+  };
+  const goNowBooking = async () => {
+    if (busyBooking) return;
+    setBusyBooking(true);
+    try {
+      const { address } = await backend.goNowBooking(job.id);
+      // The exact address is revealed only now — hand it straight to maps.
+      appAlert('On your way — open in maps?', address, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open maps', onPress: () => openInMaps({ address }) },
+      ]);
+    } catch (e) {
+      appAlert('Could not start', (e as Error).message);
+    } finally {
+      setBusyBooking(false);
+    }
+  };
+  const handBackBooking = () =>
+    appAlert(
+      'Hand this booking back?',
+      `${job.customerName}'s booking will be reassigned to another approved tradie, and won't be offered to you again.`,
+      [
+        { text: 'Keep it', style: 'cancel' },
+        {
+          text: 'Hand back',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await backend.declineBooking(job.id);
+              router.replace('/dashboard');
+            } catch (e) {
+              appAlert('Could not hand back', (e as Error).message);
+            }
+          },
+        },
+      ],
+    );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -248,7 +296,7 @@ export default function TradieJob() {
               🗓️ Wanted: {formatWhen(job.scheduledFor)}
             </Txt>
           )}
-          {isMine ? (
+          {isMine && !isBooked ? (
             <>
               {/* Embedded map preview (renders only on builds that include maps). */}
               <JobMap location={job.location} />
@@ -281,7 +329,9 @@ export default function TradieJob() {
                   {approxKm != null ? ` · ~${formatDistance(approxKm)} from you` : ''}
                 </Txt>
                 <Txt variant="caption" color={colors.textFaint}>
-                  Exact address is shown once the job is yours.
+                  {isBooked
+                    ? 'Exact address unlocks when you tap “Go now”.'
+                    : 'Exact address is shown once the job is yours.'}
                 </Txt>
               </View>
             </View>
@@ -304,6 +354,42 @@ export default function TradieJob() {
               This job has been taken by another tradie.
             </Txt>
           </Card>
+        )}
+
+        {/* Scheduled booking: confirm attendance, then "Go now" reveals the
+            exact address + tells the customer you're coming. */}
+        {isBooked && isMine && (
+          <View style={{ gap: spacing.md }}>
+            <Card style={styles.gpsCard}>
+              <Txt variant="heading" color={colors.blue}>
+                🗓️ Booked job
+              </Txt>
+              <Txt variant="label">
+                {job.scheduledFor != null ? formatWhen(job.scheduledFor) : 'Scheduled'}
+              </Txt>
+              <Txt variant="caption" color={colors.textMuted}>
+                {confirmedAttend
+                  ? 'You’re confirmed. Tap “Go now” when you’re ready to leave — that reveals the exact address and tells the customer you’re on the way.'
+                  : 'Confirm you’ll attend so the property manager knows it’s locked in. The exact street number unlocks when you tap “Go now”.'}
+              </Txt>
+            </Card>
+            {confirmedAttend ? (
+              <Card style={[styles.gpsCard, { backgroundColor: colors.successSoft }]}>
+                <Txt variant="caption" color={colors.success} style={{ fontWeight: '700' }}>
+                  ✅ Attendance confirmed
+                </Txt>
+              </Card>
+            ) : (
+              <Button title="Confirm you'll attend" icon="✅" onPress={confirmAttend} />
+            )}
+            <Button title="Go now" icon="🚗" kind="success" loading={busyBooking} onPress={goNowBooking} />
+            <Button
+              title="I can't make it — hand this booking back"
+              kind="ghost"
+              small
+              onPress={handBackBooking}
+            />
+          </View>
         )}
 
         {/* Status-driven actions */}

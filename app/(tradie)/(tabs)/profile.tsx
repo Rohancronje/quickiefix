@@ -6,8 +6,10 @@ import { Screen } from '../../../src/components/Screen';
 import { BiometricToggle } from '../../../src/components/BiometricToggle';
 import { TradieProfileCard } from '../../../src/components/TradieProfileCard';
 import { Button, Card, Chip, Divider, Field, Txt } from '../../../src/components/ui';
-import { formatMoney, tradeMeta } from '../../../src/constants';
+import { formatMoney, GST_ENABLED, monthKey, tradeMeta } from '../../../src/constants';
 import { useAuth, useTradie } from '../../../src/context/AuthContext';
+import { useTradieFees } from '../../../src/hooks/useData';
+import { useNow } from '../../../src/hooks/useNow';
 import { backend, resetDemoData, usingFirebase } from '../../../src/services';
 import { colors, radius, spacing } from '../../../src/theme';
 import { AgencyLink, Engagement, RateCard } from '../../../src/types';
@@ -238,6 +240,9 @@ export default function TradieProfile() {
 
       <TradieProfileCard tradie={tradie} />
 
+      {/* This month — fee tally (informational; billing happens off-app) */}
+      <MoneyCard tradieId={tradie.id} creditsRemaining={tradie.freeJobCredits ?? 0} />
+
       {/* Company tag */}
       <Card style={{ gap: spacing.md }}>
         <Txt variant="label">Company</Txt>
@@ -414,6 +419,39 @@ function RateCardCard({
         disabled={dollarsToCents(hourly) <= 0}
         onPress={save}
       />
+    </Card>
+  );
+}
+
+/** This-month platform-fee tally — moved here from the dashboard so the home
+ *  screen stays focused on jobs. Informational only; billing happens off-app. */
+function MoneyCard({ tradieId, creditsRemaining }: { tradieId: string; creditsRemaining: number }) {
+  const fees = useTradieFees(tradieId);
+  const mk = monthKey(useNow(60000));
+  const thisMonth = fees.filter((f) => f.monthKey === mk);
+  const completed = thisMonth.length;
+  const waived = thisMonth.filter((f) => f.status === 'waived_credit').length;
+  const billable = thisMonth.filter((f) => f.status !== 'waived_credit');
+  const feeTotal = billable.reduce((s, f) => s + f.amountCents + f.gstCents, 0);
+
+  return (
+    <Card style={{ backgroundColor: colors.navy, gap: 4 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Txt variant="label" color={colors.white}>
+          💳 This month
+        </Txt>
+        <Txt variant="caption" color={colors.amber} style={{ fontWeight: '700' }}>
+          {creditsRemaining} free {creditsRemaining === 1 ? 'credit' : 'credits'} left
+        </Txt>
+      </View>
+      <Txt variant="heading" color={colors.white}>
+        {formatMoney(feeTotal)}
+        {GST_ENABLED ? <Txt variant="caption" color={colors.onNavyMuted}> incl. GST</Txt> : null}
+      </Txt>
+      <Txt variant="caption" color={colors.onNavyMuted}>
+        {completed} completed · {waived} free · {billable.length} billable ({formatMoney(feeTotal)}).
+        {' '}Invoiced on the 1st — no in-app payment.
+      </Txt>
     </Card>
   );
 }

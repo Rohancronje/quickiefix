@@ -16,6 +16,18 @@ export function formatDate(ts?: number): string {
   return new Date(ts).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+/** Date + time, for scheduled bookings (e.g. "Fri 24 Jul, 2:00 pm"). */
+export function formatWhen(ts?: number): string {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString([], {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export function stars(n: number): string {
   const full = Math.round(n);
   return '★★★★★☆☆☆☆☆'.slice(5 - full, 10 - full);
