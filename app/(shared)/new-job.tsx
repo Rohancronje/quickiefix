@@ -1,7 +1,8 @@
 import { appAlert } from '../../src/components/AppAlert';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -30,28 +31,98 @@ import { AssignmentMode, Location, TradeCategory } from '../../src/types';
 
 const STEPS = ['Service', 'Details', 'Location', 'Review'];
 
-/** Friendly future-booking time slots — avoids a native date picker (OTA-safe). */
-const TIME_SLOTS = [
-  { label: 'Morning', hour: 8 },
-  { label: 'Midday', hour: 12 },
-  { label: 'Afternoon', hour: 15 },
-  { label: 'Evening', hour: 18 },
-];
+/**
+ * Native date + time picker for a future booking. iOS shows an inline
+ * calendar/clock; Android runs the system date dialog then the time dialog.
+ * Returns the chosen absolute timestamp via `onChange`. `now` is a render-
+ * stable clock so `minimumDate` stays pure during render.
+ */
+function SchedulePicker({
+  value,
+  now,
+  onChange,
+}: {
+  value: number | null;
+  now: number;
+  onChange: (ms: number) => void;
+}) {
+  const minDate = new Date(now + 30 * 60 * 1000); // at least 30 minutes out
+  const [iosOpen, setIosOpen] = useState(false);
+  const [androidStage, setAndroidStage] = useState<'date' | 'time' | null>(null);
+  const [draft, setDraft] = useState<Date>(value != null ? new Date(value) : minDate);
+  const label = value != null ? formatWhen(value) : 'Choose date & time';
 
-/** Absolute ms for a slot on a given day offset (0 = today), based on a
- *  render-stable `now` so it stays pure during render. */
-function slotTime(now: number, dayOffset: number, hour: number): number {
-  const d = new Date(now);
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(hour, 0, 0, 0);
-  return d.getTime();
-}
+  if (Platform.OS === 'ios') {
+    return (
+      <View style={{ gap: spacing.sm }}>
+        <Button
+          title={`🗓️  ${label}`}
+          kind="secondary"
+          onPress={() => {
+            setDraft(value != null ? new Date(value) : minDate);
+            setIosOpen((o) => !o);
+          }}
+        />
+        {iosOpen && (
+          <View style={styles.pickerCard}>
+            <DateTimePicker
+              value={draft}
+              mode="datetime"
+              display="inline"
+              minimumDate={minDate}
+              onChange={(_e: DateTimePickerEvent, d?: Date) => {
+                if (d) {
+                  setDraft(d);
+                  onChange(d.getTime());
+                }
+              }}
+            />
+            <Button title="Done" small onPress={() => setIosOpen(false)} />
+          </View>
+        )}
+      </View>
+    );
+  }
 
-/** Compact 12-hour label, e.g. 8 -> "8am", 15 -> "3pm". */
-function fmtHour(h: number): string {
-  const ampm = h < 12 ? 'am' : 'pm';
-  const hr = h % 12 === 0 ? 12 : h % 12;
-  return `${hr}${ampm}`;
+  // Android: sequential native date then time dialogs.
+  const onAndroid = (event: DateTimePickerEvent, selected?: Date) => {
+    if (event.type === 'dismissed' || !selected) {
+      setAndroidStage(null);
+      return;
+    }
+    if (androidStage === 'date') {
+      const next = new Date(draft);
+      next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+      setDraft(next);
+      setAndroidStage('time');
+    } else {
+      const next = new Date(draft);
+      next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+      setAndroidStage(null);
+      onChange(next.getTime());
+    }
+  };
+  return (
+    <View>
+      <Button
+        title={`🗓️  ${label}`}
+        kind="secondary"
+        onPress={() => {
+          setDraft(value != null ? new Date(value) : minDate);
+          setAndroidStage('date');
+        }}
+      />
+      {androidStage && (
+        <DateTimePicker
+          value={draft}
+          mode={androidStage}
+          display="default"
+          minimumDate={androidStage === 'date' ? minDate : undefined}
+          onChange={onAndroid}
+        />
+      )}
+    </View>
+  );
 }
 
 export default function NewJob() {
@@ -74,29 +145,9 @@ export default function NewJob() {
   // slot avoid needing a native date picker (OTA-friendly).
   const now = useNow(30000);
   const [when, setWhen] = useState<'now' | 'later'>(params.schedule === '1' ? 'later' : 'now');
-  const [dayOffset, setDayOffset] = useState(0);
-  const [slotHour, setSlotHour] = useState<number | null>(null);
-  const scheduledFor = useMemo(
-    () => (when === 'later' && slotHour != null ? slotTime(now, dayOffset, slotHour) : null),
-    [when, dayOffset, slotHour, now],
-  );
+  const [scheduledAt, setScheduledAt] = useState<number | null>(null);
+  const scheduledFor = when === 'later' ? scheduledAt : null;
   const scheduleValid = when === 'now' || (scheduledFor != null && scheduledFor > now);
-  const days = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => ({
-        offset: i,
-        label:
-          i === 0
-            ? 'Today'
-            : i === 1
-              ? 'Tomorrow'
-              : new Date(now + i * 86400000).toLocaleDateString([], {
-                  weekday: 'short',
-                  day: 'numeric',
-                }),
-      })),
-    [now],
-  );
   // Emergencies and future bookings both force auto-assign (no time / no point
   // browsing who's free "now" for a job that's later).
   const effectiveMode: AssignmentMode = isEmergency || when === 'later' ? 'auto' : assignmentMode;
@@ -527,39 +578,12 @@ export default function NewJob() {
                 {when === 'later' && (
                   <View style={{ gap: spacing.sm }}>
                     <Txt variant="caption" color={colors.textMuted}>
-                      Day
+                      Pick any date and time
                     </Txt>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-                        {days.map((d) => (
-                          <Chip
-                            key={d.offset}
-                            label={d.label}
-                            selected={dayOffset === d.offset}
-                            onPress={() => {
-                              setDayOffset(d.offset);
-                              setSlotHour(null);
-                            }}
-                          />
-                        ))}
-                      </View>
-                    </ScrollView>
-                    <Txt variant="caption" color={colors.textMuted}>
-                      Time
-                    </Txt>
-                    <View style={styles.chipRow}>
-                      {TIME_SLOTS.filter((s) => slotTime(now, dayOffset, s.hour) > now).map((s) => (
-                        <Chip
-                          key={s.hour}
-                          label={`${s.label} · ${fmtHour(s.hour)}`}
-                          selected={slotHour === s.hour}
-                          onPress={() => setSlotHour(s.hour)}
-                        />
-                      ))}
-                    </View>
-                    {TIME_SLOTS.every((s) => slotTime(now, dayOffset, s.hour) <= now) && (
-                      <Txt variant="caption" color={colors.textFaint}>
-                        No more slots today — pick another day.
+                    <SchedulePicker value={scheduledFor} now={now} onChange={setScheduledAt} />
+                    {scheduledFor != null && scheduledFor <= now && (
+                      <Txt variant="caption" color={colors.danger}>
+                        Please pick a time in the future.
                       </Txt>
                     )}
                   </View>
@@ -891,6 +915,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.md,
     borderWidth: 2,
+    borderColor: colors.line,
+  },
+  pickerCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.sm,
+    gap: spacing.sm,
+    borderWidth: 1,
     borderColor: colors.line,
   },
   emergency: {

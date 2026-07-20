@@ -6,6 +6,7 @@
     "@expo/metro-runtime": "~57.0.3",
     "@expo/vector-icons": "~15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "expo": "~57.0.4",
     "expo-audio": "~57.0.0",
     "expo-build-properties": "~57.0.3",
