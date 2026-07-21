@@ -918,6 +918,30 @@ export class FirestoreBackend implements Backend {
 
   /* ------------------------------------------------ scheduled bookings -- */
 
+  async createBooking(
+    input: NewJobInput,
+  ): Promise<{ jobId: string; assignedTradieName: string; scheduledFor: number }> {
+    // Server-side (Admin SDK): pre-assigns the nearest panel/available tradie and
+    // creates a `booked` job — clients can't forge the assignment or the address.
+    if (!functions) throw new Error('Booking is unavailable right now.');
+    const res = (
+      await httpsCallable(functions, 'createBooking')({
+        trade: input.trade,
+        description: input.description,
+        photos: input.photos,
+        location: input.location,
+        propertyId: input.propertyId,
+        scheduledFor: input.scheduledFor,
+        payer: input.payer,
+      })
+    ).data as { jobId: string; assignedTradieName?: string; scheduledFor?: number };
+    return {
+      jobId: res.jobId,
+      assignedTradieName: res.assignedTradieName ?? 'a tradie',
+      scheduledFor: res.scheduledFor ?? input.scheduledFor ?? 0,
+    };
+  }
+
   async confirmAttendance(jobId: string): Promise<void> {
     if (!functions) throw new Error('Confirming a booking is unavailable right now.');
     await httpsCallable(functions, 'confirmAttendance')({ jobId });

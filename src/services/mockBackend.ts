@@ -752,6 +752,52 @@ class MockBackend implements Backend {
     return agency;
   }
 
+  async createBooking(
+    input: NewJobInput,
+  ): Promise<{ jobId: string; assignedTradieName: string; scheduledFor: number }> {
+    await this.ensureLoaded();
+    const meId = await AsyncStorage.getItem(SESSION_KEY);
+    const me = meId ? this.db.users[meId] : null;
+    const myName = me ? `${me.firstName} ${me.lastName}`.trim() : 'Customer';
+    const schedTs = input.scheduledFor ?? 0;
+    const here =
+      input.location.latitude != null && input.location.longitude != null
+        ? { latitude: input.location.latitude, longitude: input.location.longitude }
+        : null;
+    const assigned = Object.values(this.db.users)
+      .filter((u): u is Tradie => u.role === 'tradie' && u.approval === 'approved' && !u.paymentHold)
+      .filter((u) => [u.primaryTrade, ...(u.secondaryTrades ?? [])].includes(input.trade))
+      .map((u) => ({ u, km: here && u.baseLocation ? distanceKm(u.baseLocation, here) : 0 }))
+      .sort((a, b) => a.km - b.km)
+      .map((c) => c.u)
+      .find((u) => u.id !== meId);
+    if (!assigned) throw new Error('No tradie for that trade in your area yet.');
+    const id = uid('job_');
+    const now = Date.now();
+    const job: Job = {
+      id,
+      customerId: meId ?? 'unknown',
+      customerName: myName,
+      trade: input.trade,
+      description: input.description.trim(),
+      photos: input.photos,
+      location: { address: input.location.address },
+      urgency: 'scheduled',
+      scheduledFor: schedTs,
+      status: 'booked',
+      assignmentMode: 'auto',
+      tradieId: assigned.id,
+      tradieName: assigned.businessName,
+      timestamps: { createdAt: now, bookedAt: now },
+      booking: { confirmLeadMs: BOOKING.confirmLeadMs, reminderLeadMs: BOOKING.reminderLeadMs },
+      declinedBy: [],
+      ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+    };
+    this.db.jobs[id] = job;
+    this.commit();
+    return { jobId: id, assignedTradieName: assigned.businessName, scheduledFor: schedTs };
+  }
+
   /** Test/demo helper: create a pre-assigned scheduled booking (mirrors the
    *  createAgencyJob scheduled branch in the live backend). */
   async createBookingForTest(

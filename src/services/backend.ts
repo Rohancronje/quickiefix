@@ -156,6 +156,13 @@ export interface Backend {
   /** Create a job and open wave dispatch. The requester can be a customer OR a
    *  tradie booking help; the ranked candidate pool is snapshotted here. */
   createJob(requester: { id: string; name: string }, input: NewJobInput): Promise<Job>;
+  /** Book a FUTURE job: pre-assigns the nearest matching tradie now as a
+   *  `booked` job (panel-filtered at managed properties), so it sits in
+   *  Upcoming and the tradie stays available until "Go now". `input.scheduledFor`
+   *  is required and must be in the future. */
+  createBooking(
+    input: NewJobInput,
+  ): Promise<{ jobId: string; assignedTradieName: string; scheduledFor: number }>;
   /** Raise a complaint about a completed/active job (customer side). */
   fileComplaint(job: Job, subject: string, detail: string): Promise<void>;
   /** General in-platform support ticket (any role) — lands in the back office

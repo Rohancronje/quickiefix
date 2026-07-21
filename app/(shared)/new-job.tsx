@@ -281,7 +281,23 @@ export default function NewJob() {
     if (!user) return;
     try {
       setSubmitting(true);
-      const booking = when === 'later' && scheduledFor != null && scheduledFor > Date.now();
+      const booking = when === 'later' && scheduledFor != null && scheduledFor > now;
+      if (booking) {
+        // A future job pre-assigns the nearest tradie now (a `booked` job) so it
+        // sits in Upcoming — it never becomes "active" early.
+        const res = await backend.createBooking({
+          trade: trade!,
+          description: description.trim(),
+          photos,
+          location: jobLocation,
+          urgency: 'scheduled',
+          scheduledFor: scheduledFor ?? undefined,
+          propertyId: propertyId ?? undefined,
+          payer: isManagedProperty ? payer : undefined,
+        });
+        router.replace({ pathname: '/track/[id]', params: { id: res.jobId } });
+        return;
+      }
       const job = await backend.createJob(
         { id: user.id, name: `${user.firstName} ${user.lastName}` },
         {
@@ -289,10 +305,8 @@ export default function NewJob() {
           description: description.trim(),
           photos,
           location: jobLocation,
-          urgency: booking ? 'scheduled' : 'now',
-          scheduledFor: booking ? scheduledFor ?? undefined : undefined,
-          // A booking is never an emergency (those are now-only).
-          isEmergency: booking ? false : isEmergency,
+          urgency: 'now',
+          isEmergency,
           assignmentMode: effectiveMode,
           propertyId: propertyId ?? undefined,
           // Only meaningful at managed properties: who pays for the work.

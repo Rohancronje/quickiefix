@@ -822,6 +822,12 @@ exports.acceptJob = onCall({ cors: true }, async (request) => {
     if (!jobSnap.exists) throw new HttpsError('not-found', 'Job no longer exists.');
     const job = jobSnap.data();
     if (job.status !== 'searching') throw new HttpsError('failed-precondition', 'Sorry, this job has already been taken.');
+    // Scheduled jobs open for acceptance only at the booked time — you can't grab
+    // a future job early (it would wrongly flip to active / "on a job" now).
+    const schedStart = job.dispatch?.startedAt ?? 0;
+    if (job.urgency === 'scheduled' && schedStart > Date.now() + 60_000) {
+      throw new HttpsError('failed-precondition', 'This job is scheduled for later — it opens for acceptance at the booked time.');
+    }
     // Eligibility: browse-and-choose → only the customer-selected tradie; auto →
     // any tradie still in the dispatch pool (legacy jobs have no pool).
     const eligible = job.assignmentMode === 'choose'
@@ -1456,6 +1462,186 @@ exports.declineBooking = onCall({ cors: true }, async (request) => {
     'timestamps.noTradieFoundAt': now,
   });
   return { ok: true, reassigned: false };
+});
+
+/**
+ * Customer/tenant books a FUTURE job in-app ("Book a future job"). Unlike an
+ * immediate request, this PRE-ASSIGNS the nearest matching tradie now and
+ * creates a `booked` job — so it sits in Upcoming (both sides), the tradie stays
+ * available, and it only goes active when they tap "Go now". Panel-filtered +
+ * agency-billed at managed properties; open-market (with a rate snapshot)
+ * otherwise. Mirrors the portal's createAgencyJob booking path.
+ */
+exports.createBooking = onCall({ cors: true }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const db = admin.firestore();
+  const { trade, description, photos, location, propertyId, scheduledFor, payer } = request.data ?? {};
+  if (!trade || !String(description ?? '').trim()) {
+    throw new HttpsError('invalid-argument', 'Trade and a description are required.');
+  }
+  const schedTs = Number(scheduledFor) || 0;
+  if (schedTs <= Date.now()) throw new HttpsError('invalid-argument', 'Pick a future date and time.');
+
+  const meSnap = await db.collection('users').doc(uid).get();
+  const me = meSnap.exists ? meSnap.data() : {};
+  const myName = `${me.firstName ?? ''} ${me.lastName ?? ''}`.trim() || 'Customer';
+
+  // Resolve where the job is + any property/agency context.
+  let addr = '';
+  let here = null;
+  let prop = null;
+  let propId = null;
+  if (propertyId) {
+    const propSnap = await db.collection('properties').doc(String(propertyId)).get();
+    if (!propSnap.exists) throw new HttpsError('not-found', 'Property not found.');
+    prop = propSnap.data();
+    if (prop.landlordId !== uid && !(prop.tenantIds ?? []).includes(uid)) {
+      throw new HttpsError('permission-denied', 'You are not linked to this property.');
+    }
+    propId = propSnap.id;
+    addr = prop.address;
+    here =
+      prop.latitude != null && prop.longitude != null
+        ? { latitude: prop.latitude, longitude: prop.longitude }
+        : null;
+  } else {
+    addr = String(location?.address ?? '').trim();
+    if (!addr) throw new HttpsError('invalid-argument', 'A job address is required.');
+    here =
+      location.latitude != null && location.longitude != null
+        ? { latitude: location.latitude, longitude: location.longitude }
+        : null;
+  }
+
+  // Agency pays (panel-only, rates hidden) only at a managed property when the
+  // requester didn't choose to pay themselves.
+  const agencyPays = !!(prop && prop.agencyId) && payer !== 'customer';
+
+  let panel = null;
+  if (agencyPays) {
+    const linksSnap = await db.collection('agencyLinks').where('agencyId', '==', prop.agencyId).get();
+    const approved = linksSnap.docs.map((d) => d.data()).filter((l) => l.status === 'approved');
+    panel = {
+      tradieIds: approved.filter((l) => l.kind === 'tradie').map((l) => l.memberId),
+      companyScope: Object.fromEntries(
+        approved.filter((l) => l.kind === 'company').map((l) => [l.memberId, l.scope ?? 'all']),
+      ),
+    };
+  }
+  const onPanel = (t) => {
+    if (!panel) return true;
+    if (panel.tradieIds.includes(t.id)) return true;
+    if (t.companyId == null) return false;
+    const scope = panel.companyScope[t.companyId];
+    return !!scope && (scope === 'all' || t.engagement !== 'contractor');
+  };
+
+  // Nearest approved matching tradie (ignore live availability — it's for later).
+  const pool = await db
+    .collection('users')
+    .where('role', '==', 'tradie')
+    .where('approval', '==', 'approved')
+    .get();
+  const ranked = pool.docs
+    .map((d) => d.data())
+    .filter((u) => !u.paymentHold)
+    .filter((u) => [u.primaryTrade, ...(u.secondaryTrades ?? [])].includes(trade))
+    .filter(onPanel)
+    .map((u) => ({ u, km: here && u.baseLocation ? havKm(u.baseLocation, here) : 0 }))
+    .sort((a, b) => a.km - b.km || (b.u.ratingAvg ?? 0) - (a.u.ratingAvg ?? 0));
+  const orderedIds = ranked.map((c) => c.u.id).filter((id) => id !== uid);
+  if (!orderedIds.length) {
+    throw new HttpsError(
+      'failed-precondition',
+      agencyPays
+        ? 'No approved panel tradie for that trade yet.'
+        : 'No tradie for that trade in your area yet — try an immediate request instead.',
+    );
+  }
+  const assigned = ranked.find((c) => c.u.id === orderedIds[0]).u;
+  const assignedName = assigned.businessName || 'Your tradie';
+
+  // Open-market bookings capture the rate snapshot up front (agency jobs bill on
+  // the agency's terms → no snapshot).
+  const stamp = {};
+  if (!agencyPays) {
+    let company;
+    if (assigned.companyId) {
+      const cs = await db.collection('companies').doc(assigned.companyId).get();
+      if (cs.exists) company = cs.data();
+    }
+    const useCompany = !!company && assigned.engagement !== 'contractor';
+    if (useCompany && company) {
+      stamp.companyId = assigned.companyId;
+      stamp.companyName = company.name;
+    }
+    stamp.sourcedVia = 'open_market';
+    const rateCard = useCompany ? company.rateCard ?? assigned.rateCard : assigned.rateCard;
+    if (rateCard) {
+      stamp.rateSnapshot = {
+        rateCard,
+        source: useCompany && company?.rateCard ? 'company' : 'personal',
+        ...(useCompany && company ? { companyName: company.name } : {}),
+        capturedAt: Date.now(),
+      };
+    }
+  }
+
+  const now = Date.now();
+  const jobRef = db.collection('jobs').doc();
+  await jobRef.set({
+    id: jobRef.id,
+    customerId: uid,
+    customerName: myName,
+    trade,
+    description: String(description).trim().slice(0, 2000),
+    photos: Array.isArray(photos) ? photos.slice(0, 6) : [],
+    location: { address: streetNameArea(addr) },
+    urgency: 'scheduled',
+    scheduledFor: schedTs,
+    isEmergency: false,
+    assignmentMode: 'auto',
+    status: 'booked',
+    tradieId: orderedIds[0],
+    tradieName: assignedName,
+    timestamps: { createdAt: now, bookedAt: now },
+    booking: { confirmLeadMs: BOOKING.confirmLeadMs, reminderLeadMs: BOOKING.reminderLeadMs },
+    declinedBy: [],
+    ...(prop ? { propertyId: propId, landlordId: prop.landlordId, landlordName: prop.landlordName } : {}),
+    ...(agencyPays
+      ? {
+          agencyId: prop.agencyId,
+          agencyName: prop.agencyName,
+          agencyBillingEmail: prop.agencyBillingEmail ?? null,
+          billTo: 'agency',
+        }
+      : {}),
+    ...stamp,
+  });
+  await db
+    .collection('jobPrivate')
+    .doc(jobRef.id)
+    .set({
+      jobId: jobRef.id,
+      address: addr,
+      ...(here ? { latitude: here.latitude, longitude: here.longitude } : {}),
+      bookingCandidates: orderedIds,
+    });
+  const tokens = await pushTokensFor([orderedIds[0]]);
+  await expoPush(
+    tokens.map((to) => ({
+      to,
+      title: `🗓️ New booking — ${String(trade).replace(/_/g, ' ')}`,
+      body: `${whenNZ(schedTs)} · ${areaOnly(addr)} — tap to confirm you'll attend.`,
+      sound: 'default',
+      channelId: 'offers',
+      priority: 'high',
+      data: { jobId: jobRef.id, role: 'tradie' },
+    })),
+  );
+  await writeAudit({ type: 'job.booked', jobId: jobRef.id, trade, customerId: uid, tradieId: orderedIds[0] });
+  return { jobId: jobRef.id, assignedTradieName: assignedName, scheduledFor: schedTs, booked: true };
 });
 
 exports.onJobCompletionRecord = onDocumentUpdated(
