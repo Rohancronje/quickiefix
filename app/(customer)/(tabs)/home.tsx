@@ -33,10 +33,19 @@ export default function CustomerHome() {
   const { width } = useWindowDimensions();
   const tileWidth = width < 370 ? '31%' : '23%';
 
-  const active = jobs.filter((j) => ACTIVE.includes(j.status));
+  // A future booking (a scheduled job whose dispatch clock hasn't started yet,
+  // or a pre-assigned `booked` job) belongs under "Upcoming jobs" — NOT the
+  // live "Request in progress" card.
+  const isUpcoming = (j: Job) =>
+    j.status === 'booked' ||
+    (j.status === 'searching' && j.scheduledFor != null && (j.dispatch?.startedAt ?? 0) > now);
+  const upcoming = jobs
+    .filter(isUpcoming)
+    .sort((a, b) => (a.scheduledFor ?? 0) - (b.scheduledFor ?? 0));
+  const active = jobs.filter((j) => ACTIVE.includes(j.status) && !isUpcoming(j));
   const primary = active[0]; // jobs are newest-first
   const others = active.slice(1);
-  const recent = jobs.filter((j) => !ACTIVE.includes(j.status)).slice(0, 3);
+  const recent = jobs.filter((j) => !ACTIVE.includes(j.status) && !isUpcoming(j)).slice(0, 3);
 
   // Live proof of supply — anchored to the saved home address when it has
   // coordinates (ETA needs a reference point; the count works without one).
@@ -179,6 +188,16 @@ export default function CustomerHome() {
         />
       </Card>
 
+      {/* Upcoming jobs — future bookings, kept separate from live requests. */}
+      {upcoming.length > 0 && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="label">🗓️ Upcoming jobs</Txt>
+          {upcoming.map((job) => (
+            <UpcomingCard key={job.id} job={job} onPress={() => openJob(job.id)} />
+          ))}
+        </View>
+      )}
+
       {/* Any additional active jobs */}
       {others.length > 0 && (
         <View style={{ gap: spacing.sm }}>
@@ -230,9 +249,42 @@ export default function CustomerHome() {
   );
 }
 
+/** A future booking on the customer home — shown under "Upcoming jobs" so it's
+ *  clearly not a live, in-progress request. */
+function UpcomingCard({ job, onPress }: { job: Job; onPress: () => void }) {
+  const meta = tradeMeta(job.trade);
+  const when =
+    job.scheduledFor != null
+      ? new Date(job.scheduledFor).toLocaleString([], {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      : 'Scheduled';
+  return (
+    <Pressable onPress={onPress}>
+      <Card style={styles.upcoming}>
+        <Txt style={{ fontSize: 24 }}>{meta.emoji}</Txt>
+        <View style={{ flex: 1 }}>
+          <Txt variant="label">{meta.label}</Txt>
+          <Txt variant="caption" color={colors.blue} style={{ fontWeight: '700' }}>
+            🗓️ {when}
+          </Txt>
+        </View>
+        <Txt variant="caption" color={colors.textMuted}>
+          Tap →
+        </Txt>
+      </Card>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   // Generous whitespace in the source PNG → render larger, pull margins in.
   brand: { alignSelf: 'center', height: 86, width: 254, marginVertical: -16 },
+  upcoming: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1, borderColor: colors.line },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

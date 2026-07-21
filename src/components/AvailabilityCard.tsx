@@ -41,10 +41,13 @@ export function AvailabilityCard({
   status,
   locating,
   onToggle,
+  leading,
 }: {
   status: TradieStatus;
   locating: boolean;
   onToggle: (value: boolean) => void;
+  /** Optional node shown at the start of the card (e.g. the tradie avatar). */
+  leading?: React.ReactNode;
 }) {
   const isAvailable = status === 'available';
   const onJob = status === 'job_accepted' || status === 'on_site';
@@ -68,6 +71,7 @@ export function AvailabilityCard({
 
   return (
     <Card style={styles.card}>
+      {leading}
       <View style={{ flex: 1, gap: spacing.sm }}>
         <Animated.View style={[styles.pill, { backgroundColor: tint }]}>
           <Animated.View style={[styles.dot, { backgroundColor: dot }]} />

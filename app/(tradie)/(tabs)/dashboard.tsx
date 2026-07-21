@@ -176,9 +176,6 @@ export default function TradieDashboard() {
               </View>
             )}
           </Pressable>
-          <Pressable style={styles.avatar} onPress={() => router.push('/profile')}>
-            <Txt style={styles.avatarText}>{tradie.firstName.charAt(0).toUpperCase()}</Txt>
-          </Pressable>
         </View>
       </View>
 
@@ -231,9 +228,19 @@ export default function TradieDashboard() {
         </Card>
       )}
 
-      {/* Availability — the most important control in the app, right under the greeting */}
+      {/* Availability — the most important control in the app, with the avatar
+          tucked in at the start (tap it for your profile). */}
       {isApproved && (
-        <AvailabilityCard status={tradie.status} locating={locating} onToggle={toggleAvailability} />
+        <AvailabilityCard
+          status={tradie.status}
+          locating={locating}
+          onToggle={toggleAvailability}
+          leading={
+            <Pressable style={styles.avatar} onPress={() => router.push('/profile')}>
+              <Txt style={styles.avatarText}>{tradie.firstName.charAt(0).toUpperCase()}</Txt>
+            </Pressable>
+          }
+        />
       )}
 
       {/* INCOMING JOB OFFERS — the reason the app exists. Always first, loud,
@@ -255,11 +262,49 @@ export default function TradieDashboard() {
         </View>
       )}
 
-      {/* Upcoming scheduled bookings pre-assigned to this tradie */}
+      {/* Active jobs — a job you're currently on (0 when free). Future
+          bookings NEVER appear here and don't make you unavailable. */}
+      {isApproved && (
+        <View style={{ gap: spacing.sm }}>
+          <Txt variant="heading">Active jobs ({activeJob ? 1 : 0})</Txt>
+          {activeJob ? (
+            <Pressable onPress={() => router.push({ pathname: '/job/[id]', params: { id: activeJob.id } })}>
+              <Card style={styles.activeCard}>
+                <View style={styles.activeTop}>
+                  <Txt variant="label" color={colors.white}>
+                    🔧 Active job
+                  </Txt>
+                  <Txt variant="caption" color={colors.amber} style={{ fontWeight: '700' }}>
+                    {tradieStatusMeta[tradie.status].label}
+                  </Txt>
+                </View>
+                <Txt variant="heading" color={colors.white}>
+                  {tradeMeta(activeJob.trade).label} · {activeJob.customerName}
+                </Txt>
+                <Txt variant="caption" color={colors.onNavyMuted} numberOfLines={1}>
+                  📍 {activeJob.location.address}
+                </Txt>
+                <Txt variant="caption" color={colors.amber} style={{ marginTop: 4, fontWeight: '700' }}>
+                  Tap to manage →
+                </Txt>
+              </Card>
+            </Pressable>
+          ) : (
+            <Card style={styles.emptyCard}>
+              <Txt variant="caption" color={colors.textMuted}>
+                No active jobs right now — you're free to take offers or start a booking.
+              </Txt>
+            </Card>
+          )}
+        </View>
+      )}
+
+      {/* Upcoming jobs — future bookings assigned to you. They sit here, not in
+          Active jobs, and you stay available until you tap "Go now". */}
       {isApproved && bookings.length > 0 && (
         <View style={{ gap: spacing.sm }}>
           <Txt variant="heading" color={colors.blue}>
-            🗓️ Upcoming booking{bookings.length > 1 ? `s (${bookings.length})` : ''}
+            🗓️ Upcoming job{bookings.length > 1 ? `s (${bookings.length})` : ''}
           </Txt>
           {bookings.map((b) => (
             <BookingCard
@@ -269,50 +314,6 @@ export default function TradieDashboard() {
             />
           ))}
         </View>
-      )}
-
-      {/* Operational summary — the numbers a working tradie actually cares about */}
-      {isApproved && (
-        <>
-          <OperationalSummary
-            completed={tradie.completedJobs}
-            inProgress={activeJob ? 1 : 0}
-            rating={tradie.ratingAvg}
-            ratingCount={tradie.ratingCount}
-            radiusKm={tradie.serviceRadiusKm}
-            lastCompletedAt={history[0]?.timestamps.completedAt}
-          />
-          <PerformanceBanner
-            rating={tradie.ratingAvg}
-            ratingCount={tradie.ratingCount}
-            completed={tradie.completedJobs}
-          />
-        </>
-      )}
-
-      {/* Active job */}
-      {activeJob && (
-        <Pressable onPress={() => router.push({ pathname: '/job/[id]', params: { id: activeJob.id } })}>
-          <Card style={styles.activeCard}>
-            <View style={styles.activeTop}>
-              <Txt variant="label" color={colors.white}>
-                🔧 Active job
-              </Txt>
-              <Txt variant="caption" color={colors.amber} style={{ fontWeight: '700' }}>
-                {tradieStatusMeta[tradie.status].label}
-              </Txt>
-            </View>
-            <Txt variant="heading" color={colors.white}>
-              {tradeMeta(activeJob.trade).label} · {activeJob.customerName}
-            </Txt>
-            <Txt variant="caption" color={colors.onNavyMuted} numberOfLines={1}>
-              📍 {activeJob.location.address}
-            </Txt>
-            <Txt variant="caption" color={colors.amber} style={{ marginTop: 4, fontWeight: '700' }}>
-              Tap to manage →
-            </Txt>
-          </Card>
-        </Pressable>
       )}
 
       {/* Browse & choose: the customer picked YOU — accept to lock it in. */}
@@ -377,6 +378,19 @@ export default function TradieDashboard() {
             />
           ))}
         </View>
+      )}
+
+      {/* Your stats — completed / active / rating / radius. Kept below the jobs
+          so the top of the home stays focused on availability + work. */}
+      {isApproved && (
+        <OperationalSummary
+          completed={tradie.completedJobs}
+          inProgress={activeJob ? 1 : 0}
+          rating={tradie.ratingAvg}
+          ratingCount={tradie.ratingCount}
+          radiusKm={tradie.serviceRadiusKm}
+          lastCompletedAt={history[0]?.timestamps.completedAt}
+        />
       )}
 
     </Screen>
@@ -661,41 +675,6 @@ function OperationalSummary({
   );
 }
 
-/** A little achievement badge — engagement over billing. */
-function PerformanceBanner({
-  rating,
-  ratingCount,
-  completed,
-}: {
-  rating: number;
-  ratingCount: number;
-  completed: number;
-}) {
-  let emoji = '🚀';
-  let title = 'Ready to earn';
-  let sub = 'Accept your first job to start building your reputation.';
-  if (ratingCount >= 5 && rating >= 4.8) {
-    emoji = '🏆';
-    title = 'Top-rated pro';
-    sub = `Customers rate you ${rating.toFixed(1)}★ — outstanding.`;
-  } else if (completed >= 1) {
-    emoji = '⭐';
-    title = `${completed} job${completed > 1 ? 's' : ''} completed`;
-    sub = 'Great work — stay available to keep the momentum going.';
-  }
-  return (
-    <Card style={styles.perf}>
-      <Txt style={{ fontSize: 24 }}>{emoji}</Txt>
-      <View style={{ flex: 1 }}>
-        <Txt variant="label">{title}</Txt>
-        <Txt variant="caption" color={colors.textMuted}>
-          {sub}
-        </Txt>
-      </View>
-    </Card>
-  );
-}
-
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
@@ -752,7 +731,7 @@ const styles = StyleSheet.create({
   summaryCell: { gap: 2, alignItems: 'center' },
   summaryValue: { color: colors.white, fontSize: 22, fontWeight: '800', textAlign: 'center' },
   summaryFoot: { borderTopWidth: 1, borderTopColor: colors.navyLine, paddingTop: spacing.sm },
-  perf: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  emptyCard: { alignItems: 'flex-start' },
   statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
